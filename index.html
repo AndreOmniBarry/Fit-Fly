@@ -276,6 +276,20 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-run">
+        <span>
+          <strong>Run</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">GPS-tracked run, live distance and pace.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
+      <button class="card card-button row-between" id="btn-home-run-history">
+        <span>
+          <strong>Run History</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">Past runs and personal records.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -350,6 +364,65 @@
       <button class="btn btn-ghost" id="btn-rest-reset">Reset</button>
       <button class="btn btn-primary btn-block" id="btn-rest-toggle">Start</button>
     </div>
+  </section>
+
+  <!-- RUN -->
+  <section class="screen" id="screen-run" hidden>
+    <div class="row-between">
+      <h2>Run</h2>
+      <button class="icon-btn" id="btn-run-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="safety-flag" id="run-geo-error" hidden>
+      <span aria-hidden="true">⚠️</span>
+      <p id="run-geo-error-text">Location isn't available.</p>
+    </div>
+
+    <div class="row" style="justify-content:space-around; text-align:center;">
+      <div class="stack" style="align-items:center;">
+        <span class="muted" style="font-size:var(--fs-xs);">Distance</span>
+        <strong id="run-distance" style="font-size:var(--fs-xl);">0 m</strong>
+      </div>
+      <div class="stack" style="align-items:center;">
+        <span class="muted" style="font-size:var(--fs-xs);">Duration</span>
+        <strong id="run-duration" style="font-size:var(--fs-xl);">0:00</strong>
+      </div>
+      <div class="stack" style="align-items:center;">
+        <span class="muted" style="font-size:var(--fs-xs);">Pace</span>
+        <strong id="run-pace" style="font-size:var(--fs-xl);">—</strong>
+      </div>
+    </div>
+
+    <canvas id="run-canvas" width="320" height="200" style="width:100%; height:200px; color:var(--accent);" aria-label="Route shape"></canvas>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-danger" id="btn-run-finish" hidden>Finish</button>
+      <button class="btn btn-primary btn-block" id="btn-run-toggle">Start</button>
+    </div>
+  </section>
+
+  <!-- RUN SUMMARY -->
+  <section class="screen" id="screen-run-summary" hidden>
+    <h2>Run Complete</h2>
+    <div class="card stack">
+      <div class="row-between"><span class="muted">Distance</span><strong id="run-summary-distance">—</strong></div>
+      <div class="row-between"><span class="muted">Duration</span><strong id="run-summary-duration">—</strong></div>
+      <div class="row-between"><span class="muted">Pace</span><strong id="run-summary-pace">—</strong></div>
+    </div>
+    <div class="stack" id="run-summary-prs"></div>
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-ghost" id="btn-run-summary-history">View History</button>
+      <button class="btn btn-primary btn-block" id="btn-run-summary-done">Done</button>
+    </div>
+  </section>
+
+  <!-- RUN HISTORY -->
+  <section class="screen" id="screen-run-history" hidden>
+    <div class="row-between">
+      <h2>Run History</h2>
+      <button class="icon-btn" id="btn-run-history-back" aria-label="Back">←</button>
+    </div>
+    <div class="stack" id="run-history-list"></div>
   </section>
 
   <!-- MY PROGRAM -->

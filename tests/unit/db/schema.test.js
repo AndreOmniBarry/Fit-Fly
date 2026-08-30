@@ -13,6 +13,7 @@ describe('schema', () => {
         'injuryScreens',
         'profile',
         'programs',
+        'runs',
         'sessions',
         'sets',
       ].sort()

@@ -55,7 +55,7 @@ test.describe('activity logging', () => {
     // saving returns to home
     await expect(page.getByRole('heading', { name: 'Fit Fly' })).toBeVisible();
 
-    await page.getByRole('button', { name: 'History' }).click();
+    await page.locator('#btn-home-history').click();
     await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
 
     const entry = page.locator('#activity-history-list .card').first();
@@ -67,7 +67,7 @@ test.describe('activity logging', () => {
   });
 
   test('history is empty state before anything is logged', async ({ page }) => {
-    await page.getByRole('button', { name: 'History' }).click();
+    await page.locator('#btn-home-history').click();
     await expect(page.locator('#activity-history-list')).toContainText('Nothing logged yet');
   });
 
@@ -87,7 +87,7 @@ test.describe('activity logging', () => {
     await page.getByRole('button', { name: 'Save' }).click();
 
     await page.reload();
-    await page.getByRole('button', { name: 'History' }).click();
+    await page.locator('#btn-home-history').click();
     const entry = page.locator('#activity-history-list .card').first();
     await expect(entry).toContainText('Yoga');
     await expect(entry).toContainText('45 min');

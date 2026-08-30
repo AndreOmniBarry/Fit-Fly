@@ -45,4 +45,25 @@ export function defineSchema(db) {
     // history queries (PRs, volume trends) without scanning every session.
     sets: '++id, sessionId, exerciseId, completedAt',
   });
+
+  // v2 — run mode: GPS runs. Every version() call must restate the full
+  // schema for that version (Dexie drops any store left unmentioned), so
+  // v1's stores are repeated here unchanged alongside the new one.
+  db.version(2).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+
+    // A completed run's GPS route is only ever read back as a whole (to
+    // redraw that one run's path) — never queried point-by-point across
+    // runs — so it's stored as an embedded `route` array on the run
+    // record itself rather than a separate points table. Runs are only
+    // written once complete (a run in progress lives in memory), so
+    // there's no partial/interrupted-write state to model here either.
+    runs: 'id, startedAt, distanceMeters',
+  });
 }

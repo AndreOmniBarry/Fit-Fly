@@ -115,8 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 6, tailored programs + periodization**, is
-complete.
+pass. Currently: **Phase 7, run mode**, is complete.
 
 ## Data layer
 
@@ -235,3 +234,31 @@ experience level, and start date, and the week's actual content is
 (re)computed live every time, which means an improvement to the
 generator applies retroactively to everyone's program, not just new
 ones.
+
+## Run mode
+
+`js/features/run/gps-math.js` is the sensor-honest core: haversine
+distance between consecutive fixes, a pace formula that returns `null`
+(never `Infinity`/`NaN`) with nothing to divide by yet, and
+`filterAccuratePoints` — GPS is noisy, so any fix reporting an accuracy
+radius worse than 30m is dropped before it can add a phantom couple
+hundred meters to the total. `js/features/run/run-tracker.js` drives
+`navigator.geolocation.watchPosition` and the Wake Lock API
+(`js/lib/wake-lock.js`, feature-detected/best-effort — the accepted
+trade-off from the README's platform notes: GPS tracking only survives
+with the screen on) into the same wall-clock stopwatch from Phase 5, and
+re-requests the wake lock on `visibilitychange` since the spec drops it
+automatically the moment a tab backgrounds.
+
+There's no basemap. Drawing one needs a live tile-imagery service (an
+external dependency this on-device app otherwise has none of) and a
+mapping library to vendor — `js/features/run/route-canvas.js` instead
+normalizes the recorded points into a `<canvas>` and draws just the
+route's shape, in the current theme's accent color, no tiles required.
+`js/features/run/personal-records.js` checks a finished run against
+every prior one for a distance and/or pace PR (pace PRs only count runs
+at or past 1km, so a 50-meter sprint can't "beat" a real run). A run is
+only written to the `runs` store once completed — a route's points live
+as one embedded array on that run's own record rather than a separate
+table, since they're only ever read back as a whole to redraw that run's
+own path, never queried across runs.

@@ -5,6 +5,7 @@ import { initOnboardingWizard, formatCategoryLabel } from './features/onboarding
 import { initActivityFeature } from './features/activity/activity-log.js';
 import { initRestTimerFeature } from './features/timers/rest-timer.js';
 import { initProgramFeature } from './features/programs/program-view.js';
+import { initRunFeature } from './features/run/run-tracker.js';
 import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
@@ -27,6 +28,7 @@ async function init() {
   initActivityFeature();
   initRestTimerFeature();
   initProgramFeature();
+  initRunFeature();
   seedExerciseLibrary(); // fire-and-forget — a mirror of the built-in library for future browsing/customization, not on the read path today
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {

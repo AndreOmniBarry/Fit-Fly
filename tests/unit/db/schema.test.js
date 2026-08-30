@@ -9,6 +9,7 @@ describe('schema', () => {
     expect(db.tables.map((t) => t.name).sort()).toEqual(
       [
         'categoryAssignments',
+        'cycleLogs',
         'exercises',
         'injuryScreens',
         'profile',
@@ -17,6 +18,7 @@ describe('schema', () => {
         'runs',
         'sessions',
         'sets',
+        'settings',
       ].sort()
     );
     db.close();

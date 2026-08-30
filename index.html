@@ -297,6 +297,13 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-womens-health">
+        <span>
+          <strong>Cycle Tracker</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">PIN-protected and encrypted on this device.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -480,6 +487,94 @@
     <div class="stack">
       <h3>Recent Readings</h3>
       <div class="stack" id="hr-history-list"></div>
+    </div>
+  </section>
+
+  <!-- WOMEN'S HEALTH: LOCK / PIN SETUP -->
+  <section class="screen" id="screen-whealth-lock" hidden>
+    <div class="row-between">
+      <h2>Cycle Tracker</h2>
+      <button class="icon-btn" id="btn-whealth-lock-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="card stack" id="whealth-setup-pane" hidden>
+      <p>This data is sensitive, so it's encrypted on this device with a PIN only you know. Fit Fly never stores the PIN itself — if you forget it, the data can't be recovered, only erased and started fresh.</p>
+      <div class="field">
+        <label for="whealth-pin-new">Choose a PIN</label>
+        <input class="input" type="password" inputmode="numeric" id="whealth-pin-new" minlength="4" maxlength="12">
+      </div>
+      <div class="field">
+        <label for="whealth-pin-confirm">Confirm PIN</label>
+        <input class="input" type="password" inputmode="numeric" id="whealth-pin-confirm" minlength="4" maxlength="12">
+      </div>
+      <span class="field-error" id="err-whealth-pin-setup" hidden>PINs must match and be at least 4 digits.</span>
+      <button class="btn btn-primary btn-block" id="btn-whealth-pin-set">Set PIN</button>
+    </div>
+
+    <div class="card stack" id="whealth-unlock-pane" hidden>
+      <p class="muted">Enter your PIN to unlock.</p>
+      <input class="input" type="password" inputmode="numeric" id="whealth-pin-unlock" minlength="4" maxlength="12">
+      <span class="field-error" id="err-whealth-pin-unlock" hidden>That PIN didn't match.</span>
+      <button class="btn btn-primary btn-block" id="btn-whealth-pin-unlock">Unlock</button>
+      <button class="btn btn-ghost" id="btn-whealth-pin-forgot">Forgot PIN?</button>
+    </div>
+
+    <div class="safety-flag" id="whealth-forgot-confirm" hidden>
+      <span aria-hidden="true">⚠️</span>
+      <div class="stack">
+        <p>Resetting deletes every logged cycle entry — this can't be undone.</p>
+        <button class="btn btn-danger" id="btn-whealth-forgot-confirm">Delete everything and start over</button>
+        <button class="btn btn-ghost" id="btn-whealth-forgot-cancel">Cancel</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- WOMEN'S HEALTH: MAIN -->
+  <section class="screen" id="screen-whealth-main" hidden>
+    <div class="row-between">
+      <h2>Cycle Tracker</h2>
+      <button class="icon-btn" id="btn-whealth-lock" aria-label="Lock">🔒</button>
+    </div>
+
+    <div class="card card-accent stack" id="whealth-prediction" hidden>
+      <div class="row-between">
+        <strong>Next period (estimated)</strong>
+        <span class="data-badge estimated" id="whealth-prediction-confidence">estimated</span>
+      </div>
+      <p id="whealth-prediction-date">—</p>
+      <p class="muted" id="whealth-fertile-window" style="font-size:var(--fs-sm);"></p>
+    </div>
+
+    <div class="card stack">
+      <h3>Log Today</h3>
+      <div class="field">
+        <label id="lbl-whealth-flow">Flow</label>
+        <div class="chip-group" id="whealth-flow" role="group" aria-labelledby="lbl-whealth-flow">
+          <button type="button" class="chip" data-value="none" aria-pressed="true">None</button>
+          <button type="button" class="chip" data-value="spotting" aria-pressed="false">Spotting</button>
+          <button type="button" class="chip" data-value="light" aria-pressed="false">Light</button>
+          <button type="button" class="chip" data-value="medium" aria-pressed="false">Medium</button>
+          <button type="button" class="chip" data-value="heavy" aria-pressed="false">Heavy</button>
+        </div>
+      </div>
+      <div class="field">
+        <label id="lbl-whealth-symptoms">Symptoms</label>
+        <div class="chip-group" id="whealth-symptoms" role="group" aria-labelledby="lbl-whealth-symptoms"></div>
+      </div>
+      <div class="field">
+        <label id="lbl-whealth-mood">Mood</label>
+        <div class="chip-group" id="whealth-mood" role="group" aria-labelledby="lbl-whealth-mood"></div>
+      </div>
+      <div class="field">
+        <label for="whealth-notes">Notes (optional)</label>
+        <textarea class="input" id="whealth-notes" rows="2"></textarea>
+      </div>
+      <button class="btn btn-primary btn-block" id="btn-whealth-save">Save Today's Entry</button>
+    </div>
+
+    <div class="stack">
+      <h3>History</h3>
+      <div class="stack" id="whealth-history-list"></div>
     </div>
   </section>
 

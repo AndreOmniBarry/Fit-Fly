@@ -115,7 +115,8 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 8, heart rate**, is complete.
+pass. Currently: **Phase 9, women's health / cycle tracker**, is
+complete.
 
 ## Data layer
 
@@ -302,3 +303,33 @@ pattern video has no real pulse in it, so the test accepts either a
 result or the "couldn't get a clear reading" outcome, since what it's
 actually proving is that the pipeline runs to completion without
 throwing either way.
+
+## Women's health / cycle tracker
+
+The most sensitive data this app holds gets the most protection: real
+AES-GCM encryption (`js/lib/crypto.js`, the browser's own Web Crypto API,
+not a custom cipher) keyed by a PIN set specifically for this section —
+not the general/optional app-lock the platform notes mention elsewhere,
+but a hard requirement to use the cycle tracker at all. The PIN itself is
+never stored in any form, anywhere; AES-GCM's built-in authentication tag
+doubles as the PIN check (decrypting a known probe value with the wrong
+derived key just fails), so there's no separate password-hash scheme to
+get subtly wrong. The derived key lives only in memory for the life of
+the page (`js/features/womens-health/pin.js`) — a reload always re-locks,
+on purpose.
+
+Forgetting the PIN makes the data genuinely unrecoverable — that's
+correct behavior for real encryption, not a gap. The only way out is an
+explicit, clearly-warned reset that deletes the PIN *and* every log it
+protected, never a backdoor around either. Each day's record
+(`cycleLogs`, keyed by date) keeps only the date and an IV in plaintext;
+everything actually logged — flow, symptoms, mood, notes — lives inside
+the ciphertext.
+
+`js/features/womens-health/cycle-prediction.js` estimates the next
+period and fertile window from a plain list of past period start dates —
+deliberately decoupled from the encrypted records themselves, so this
+pure/testable module never touches a PIN or a key. Its confidence
+reflects how much (and how regular) a history it has to extrapolate
+from — `low` off one or two cycles, up to `high` only with a longer,
+consistent one — always shown as an estimate, never a certainty.

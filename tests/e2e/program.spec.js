@@ -75,11 +75,18 @@ test.describe('my program', () => {
     await completeOnboarding(page, { goal: 'endurance' });
     await page.getByRole('button', { name: 'My Program' }).click();
     await expect(page.locator('#program-days .card').first()).toBeVisible();
+    // Demo SVGs load asynchronously per exercise, and their <title> text
+    // counts toward textContent — wait for every one of them, or a visit
+    // whose fetches haven't all resolved yet reads as "different" from
+    // one where they have.
+    const exerciseSlotCount = await page.locator('#program-days [id^="program-svg-"]').count();
+    await expect(page.locator('#program-days svg')).toHaveCount(exerciseSlotCount);
     const firstVisitText = await page.locator('#program-days').textContent();
 
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: 'My Program' }).click();
     await expect(page.locator('#program-days .card').first()).toBeVisible();
+    await expect(page.locator('#program-days svg')).toHaveCount(exerciseSlotCount);
     const secondVisitText = await page.locator('#program-days').textContent();
 
     expect(secondVisitText).toBe(firstVisitText);

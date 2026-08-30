@@ -84,4 +84,32 @@ export function defineSchema(db) {
     // MEASURED, not estimated, so there's nothing to grade there.
     heartRateSamples: '++id, recordedAt, source',
   });
+
+  // v4 — women's health + settings.
+  db.version(4).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+
+    // Small key-value store for app-level settings. Currently just the
+    // women's-health PIN verifier (see js/lib/crypto.js) — never the PIN
+    // itself, only enough to check a later attempt against.
+    settings: 'key',
+
+    // One row per logged day, keyed by the date itself (a day has at
+    // most one entry, so this also gives upsert-by-date for free). Only
+    // `date` and `updatedAt` are plaintext — everything a person
+    // actually logged (flow, symptoms, mood, notes) lives inside
+    // `cipherBytes`, AES-GCM-encrypted with the PIN-derived key. `iv`
+    // must stay alongside its ciphertext (it's not secret, but reusing
+    // an iv with the same key breaks AES-GCM's guarantees, so each
+    // row gets its own).
+    cycleLogs: 'date, updatedAt',
+  });
 }

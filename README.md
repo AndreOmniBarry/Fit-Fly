@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 12, goals + notifications**, is complete.
+pass. Currently: **Phase 13, voice commands**, is complete.
 
 ## Data layer
 
@@ -401,3 +401,33 @@ notification-worthy happens while the app is open — right now, that's
 reaching a goal's target. Feature-detected and silently no-op wherever
 Notifications aren't available or permitted, never throwing into the
 caller.
+
+## Voice commands
+
+`js/features/voice/voice-grammar.js` is a **closed grammar** — a small,
+fixed, fully-listed set of recognized phrases — deliberately not open-
+ended NLU/AI parsing of arbitrary speech. That's a safety/predictability
+choice as much as a scope one: everything voice control can ever do is
+auditable right there in the phrase list, and a misheard word can never
+accidentally trigger something that wasn't on it. Matching tries an exact
+phrase first, then falls back to a lenient in-order-words check (tolerant
+of a stray "hey"/"please" without accepting unrelated text), preferring
+the most specific phrase when more than one could match.
+
+`js/features/voice/voice-control.js` wires the (feature-detected)
+`SpeechRecognition`/`webkitSpeechRecognition` API to it — the mic button
+stays hidden entirely on a browser without it, rather than a dead
+control. Recognized commands are dispatched by simulating a click on
+that feature's own home-dashboard button, reusing its exact async
+render logic (fetching profile/program/history first) rather than a
+second copy of it — which also means voice control reaches any feature
+from any screen, the button just floats above every screen rather than
+living only on home.
+
+Real speech recognition needs a live mic and, in Chromium, a network
+round-trip — neither works headless in CI. `tests/e2e/voice.spec.js`
+installs a fake `SpeechRecognition` class via `page.addInitScript`
+(the same spirit as the heart-rate suite's fake camera device) that
+tests drive through `window.__voiceTestHooks.fireResult(transcript)`,
+exercising the real recognition-event-handling and command-dispatch code
+end to end without ever touching an actual microphone.

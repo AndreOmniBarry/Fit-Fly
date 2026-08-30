@@ -11,6 +11,7 @@ import { initWomensHealthFeature } from './features/womens-health/cycle-log-view
 import { initNutritionFeature } from './features/nutrition/nutrition-view.js';
 import { initReadinessFeature } from './features/recovery/readiness-view.js';
 import { initGoalsFeature } from './features/goals/goals-view.js';
+import { initVoiceFeature } from './features/voice/voice-control.js';
 import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
@@ -39,6 +40,7 @@ async function init() {
   initNutritionFeature();
   initReadinessFeature();
   initGoalsFeature();
+  initVoiceFeature();
   seedExerciseLibrary(); // fire-and-forget — a mirror of the built-in library for future browsing/customization, not on the read path today
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {

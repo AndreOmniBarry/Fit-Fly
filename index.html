@@ -780,6 +780,19 @@
     <div class="stack" id="activity-history-list"></div>
   </section>
 
+  <!-- VOICE CONTROL: floats above every screen, feature-detected -->
+  <button
+    class="icon-btn"
+    id="btn-voice-toggle"
+    hidden
+    aria-pressed="false"
+    aria-label="Voice command"
+    style="position:fixed; bottom:calc(var(--space-5) + env(safe-area-inset-bottom)); right:var(--space-4); box-shadow:var(--shadow-md); z-index:10; background:var(--surface-raised);"
+  >🎤</button>
+  <div id="voice-feedback-wrap" hidden style="position:fixed; bottom:calc(64px + var(--space-6) + env(safe-area-inset-bottom)); right:var(--space-4); max-width:220px; z-index:10;">
+    <div class="card" id="voice-feedback" style="font-size:var(--fs-sm);" role="status" aria-live="polite"></div>
+  </div>
+
 </div>
 
 <script type="module" src="js/main.js"></script>

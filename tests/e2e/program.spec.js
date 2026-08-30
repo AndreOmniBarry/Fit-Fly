@@ -114,4 +114,44 @@ test.describe('my program', () => {
     await expect(dayCards).toHaveCount(3); // rehab-recuperation: 3 mobility days
     await expect(dayCards.first()).toContainText('Mobility');
   });
+
+  test('every day card includes a warm-up and cooldown', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const firstCard = page.locator('#program-days > .card').first();
+    await expect(firstCard.getByText('Warm-up')).toBeVisible();
+    await expect(firstCard.getByText('Cooldown')).toBeVisible();
+    await firstCard.getByText('Warm-up').click(); // <details> disclosure
+    await expect(firstCard).toContainText('minutes');
+  });
+
+  test('logging a set shows an estimated 1RM, updated across every occurrence of that exercise', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    // hypertrophy is an upper/lower split — Dumbbell Bench Press appears
+    // on both Day 1 and Day 3, so this also proves the id-collision fix
+    // holds. (A bodyweight exercise like push-up has no weight to log,
+    // so estimateOneRepMax() correctly declines to estimate anything.)
+    const logButtons = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]');
+    await expect(logButtons).toHaveCount(2);
+
+    const firstDayIndex = await logButtons.first().getAttribute('data-day-index');
+    await page.locator(`#program-reps-${firstDayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${firstDayIndex}-dumbbell-bench-press`).fill('40');
+    await logButtons.first().click();
+
+    const oneRmSpans = page.locator('[data-onerepmax-for="dumbbell-bench-press"]');
+    await expect(oneRmSpans.first()).toContainText('Estimated 1RM');
+    await expect(oneRmSpans.nth(1)).toContainText('Estimated 1RM'); // the Day 3 occurrence updated too
+
+    expect(consoleErrors).toEqual([]);
+  });
 });

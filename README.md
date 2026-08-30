@@ -100,6 +100,35 @@ npm run serve
 
 Then open `http://127.0.0.1:4173`.
 
+## Deploying to Vercel
+
+The repo is ready to deploy as-is — it's a static site (no backend, no
+build step): `index.html`, `css/`, `js/`, `assets/`, and `manifest.json`
+are served directly. `vercel.json` tells Vercel to skip `npm install`
+and any build step entirely (the `devDependencies` are test tooling
+only — Vitest, Playwright, `fake-indexeddb` — never loaded at runtime).
+
+Easiest path — import from GitHub, no CLI needed:
+1. [vercel.com/new](https://vercel.com/new) → import this repository
+   (`AndreOmniBarry/Fit-Fly`).
+2. Framework preset: **Other**. Leave the build/output/install command
+   fields as detected from `vercel.json` — don't override them.
+3. Deploy. That's it.
+
+Or via the CLI, from the repo root: `npx vercel` (first deploy asks a
+few setup questions; same "Other" framework preset), then
+`npx vercel --prod` to promote it.
+
+A couple of things worth knowing once it's live:
+- Every browser tab/device gets its **own** IndexedDB — there's no
+  account and no sync, so data doesn't follow you between them (see
+  "Your data stays on this device" above).
+- GPS (run mode), the camera (heart-rate PPG), Bluetooth, and
+  notifications all require HTTPS to work — Vercel serves everything
+  over HTTPS by default, so this just works without extra config.
+- To test on an iPhone: open the Vercel URL in Safari, then **Share →
+  Add to Home Screen** to install it as a standalone PWA.
+
 ## Testing
 
 ```bash
@@ -112,10 +141,17 @@ runs, before any phase of work is considered done.
 
 ## Status
 
-Building in phases — foundation, data layer, onboarding/category engine,
+Built in 14 phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 13, voice commands**, is complete.
+pass. **All 14 phases are complete.** 300 Vitest unit tests and 136
+Playwright end-to-end tests (desktop + mobile-viewport, zero console
+errors) are green.
+
+Known, deliberate gaps rather than oversights: no export/import for
+on-device data (see above), no offline service worker/asset caching yet,
+and voice commands cover a small closed set of navigation phrases, not
+open-ended control.
 
 ## Data layer
 

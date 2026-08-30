@@ -16,6 +16,14 @@ describe('generateProgram: basic shape', () => {
     }
   });
 
+  it('every day includes a warm-up and cooldown — never just the working sets', () => {
+    const program = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner' });
+    for (const day of program.days) {
+      expect(day.warmup.length).toBeGreaterThan(0);
+      expect(day.cooldown.length).toBeGreaterThan(0);
+    }
+  });
+
   it('throws on an unknown category', () => {
     expect(() => generateProgram({ category: 'shred-mode', experienceLevel: 'beginner' })).toThrow();
   });

@@ -7,6 +7,7 @@
 
 import { EXERCISE_LIBRARY } from '../exercises/exercise-library.js';
 import { getBlockInfo } from './periodization.js';
+import { getCooldown, getWarmup } from './warmup-cooldown.js';
 
 const DIFFICULTY_ALLOWANCE = Object.freeze({
   beginner: ['beginner'],
@@ -111,6 +112,8 @@ export function generateProgram({
     return {
       dayIndex: index + 1,
       dayType,
+      warmup: getWarmup(category),
+      cooldown: getCooldown(category),
       exercises: exercises.map((exercise) => ({
         exerciseId: exercise.id,
         name: exercise.name,

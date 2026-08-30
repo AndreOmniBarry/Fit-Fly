@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f7f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1512" media="(prefers-color-scheme: dark)">
+<meta name="description" content="A personalized, on-device fitness and health tracker. No account, no server — your data stays on your device.">
+
+<!-- PWA / installed-app behavior (same pattern as this publisher's other
+     on-device apps: standalone display, no address bar, home-screen icon) -->
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fit Fly">
+<meta name="format-detection" content="telephone=no">
+
+<title>Fit Fly</title>
+
+<!-- Emoji favicon, no image asset to fetch. A rasterized PNG apple-touch-icon
+     is a nice-to-have follow-up; Safari falls back to this SVG in the
+     meantime, which is enough for local/dev use. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%83%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234a6b8a'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle'%3E%F0%9F%8F%83%3C/text%3E%3C/svg%3E">
+
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/base.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- SPLASH -->
+  <section class="screen" id="screen-splash">
+    <div class="stack center-text" style="margin:auto; align-items:center;">
+      <h1>Fit Fly</h1>
+      <p class="muted">A fitness tracker built around you, not a template.</p>
+    </div>
+    <div class="stack" style="margin-top:auto;">
+      <button class="btn btn-primary btn-block" id="btn-get-started">Get Started</button>
+      <p class="muted center-text" style="font-size:var(--fs-xs);">
+        Your data stays on this device. Fit Fly is not medical advice —
+        see the README for details.
+      </p>
+    </div>
+  </section>
+
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

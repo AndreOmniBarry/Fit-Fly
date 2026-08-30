@@ -1,0 +1,17 @@
+{
+  "name": "fit-fly",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A personalized, on-device fitness and health tracker. No account, no server.",
+  "type": "module",
+  "scripts": {
+    "serve": "node scripts/serve.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "vitest": "^4.1.11"
+  }
+}

@@ -1,0 +1,219 @@
+/* ============================================================================
+   DESIGN TOKENS
+   Hand-authored token system (no CSS framework). Every other stylesheet in
+   this app reads colors, spacing, radii, and type sizes from here — nothing
+   is hard-coded downstream.
+
+   Category accent: onboarding places the person into exactly one category
+   (sedentary-start, cut/fat-loss, recomposition, rehab/recuperation,
+   hypertrophy, endurance) and js/lib/theme.js stamps `data-category` on
+   <html> to select the matching --accent-* triplet below. Until onboarding
+   finishes, the neutral default accent applies.
+   ========================================================================== */
+
+:root{
+  /* ---------- light theme (default) ---------- */
+  --bg-0:#f6f7f5;
+  --bg-1:#ffffff;
+  --bg-2:#eef1ec;
+  --surface:#ffffff;
+  --surface-raised:#ffffff;
+  --border:#dde2d9;
+  --border-strong:#c3ccbd;
+
+  --ink-0:#14201a;
+  --ink-1:#3a463f;
+  --ink-2:#657064;
+  --ink-muted:#8b968a;
+
+  --danger:#c4433a;
+  --danger-soft:#f6dedb;
+  --warning:#b8792a;
+  --warning-soft:#f6e6d3;
+  --success:#3f8a5c;
+  --success-soft:#dcefe2;
+  --info:#3c72b0;
+  --info-soft:#dbe8f5;
+
+  /* neutral default accent — replaced by a --accent-* triplet once the
+     category engine (js/features/onboarding) knows who the person is */
+  --accent:#4a6b8a;
+  --accent-strong:#375372;
+  --accent-soft:#e2eaf1;
+  --accent-ink:#ffffff;
+
+  /* ---------- category accents ---------- */
+  --accent-sedentary-start:#4d9b9b;
+  --accent-sedentary-start-strong:#3a7a7a;
+  --accent-sedentary-start-soft:#dcf0f0;
+
+  --accent-cut-fat-loss:#d1682f;
+  --accent-cut-fat-loss-strong:#a84f22;
+  --accent-cut-fat-loss-soft:#fae3d3;
+
+  --accent-recomposition:#7d5fc4;
+  --accent-recomposition-strong:#5f459c;
+  --accent-recomposition-soft:#e7e0f7;
+
+  --accent-rehab-recuperation:#4f9e63;
+  --accent-rehab-recuperation-strong:#3a7c4b;
+  --accent-rehab-recuperation-soft:#dcf1e1;
+
+  --accent-hypertrophy:#c23c4d;
+  --accent-hypertrophy-strong:#9a2c3a;
+  --accent-hypertrophy-soft:#f6dbdf;
+
+  --accent-endurance:#3672c2;
+  --accent-endurance-strong:#28569c;
+  --accent-endurance-soft:#d9e6f7;
+
+  /* ---------- type ---------- */
+  --font-display:'Fraunces','Georgia','Times New Roman',serif;
+  --font-body:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+
+  --fs-xs:.75rem;
+  --fs-sm:.875rem;
+  --fs-md:1rem;
+  --fs-lg:1.125rem;
+  --fs-xl:1.375rem;
+  --fs-2xl:1.75rem;
+  --fs-3xl:2.25rem;
+
+  /* ---------- space / radius / shadow ---------- */
+  --space-1:4px;
+  --space-2:8px;
+  --space-3:12px;
+  --space-4:16px;
+  --space-5:24px;
+  --space-6:32px;
+  --space-7:48px;
+
+  --radius-sm:8px;
+  --radius-md:14px;
+  --radius-lg:20px;
+  --radius-pill:999px;
+
+  --shadow-sm:0 1px 3px rgba(20,32,26,.08);
+  --shadow-md:0 4px 16px rgba(20,32,26,.10);
+  --shadow-lg:0 12px 32px rgba(20,32,26,.14);
+
+  --measured:var(--success);
+  --measured-soft:var(--success-soft);
+  --estimated:var(--warning);
+  --estimated-soft:var(--warning-soft);
+
+  color-scheme:light;
+}
+
+/* ---------- dark theme ---------- */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg-0:#0f1512;
+    --bg-1:#161e1a;
+    --bg-2:#1e2721;
+    --surface:#182019;
+    --surface-raised:#1f2921;
+    --border:#2b362f;
+    --border-strong:#3c4a3f;
+
+    --ink-0:#eef2ec;
+    --ink-1:#c7d0c4;
+    --ink-2:#9aa596;
+    --ink-muted:#6f7a6c;
+
+    --danger:#e07369;
+    --danger-soft:#3a201d;
+    --warning:#e0a458;
+    --warning-soft:#3a2e18;
+    --success:#63c084;
+    --success-soft:#183a24;
+    --info:#6ea3dc;
+    --info-soft:#182b3a;
+
+    --accent-soft:#25313f;
+    --accent-sedentary-start-soft:#193434;
+    --accent-cut-fat-loss-soft:#3a2718;
+    --accent-recomposition-soft:#2b2340;
+    --accent-rehab-recuperation-soft:#183a24;
+    --accent-hypertrophy-soft:#3a1e22;
+    --accent-endurance-soft:#182a40;
+
+    --shadow-sm:0 1px 3px rgba(0,0,0,.35);
+    --shadow-md:0 4px 16px rgba(0,0,0,.4);
+    --shadow-lg:0 12px 32px rgba(0,0,0,.5);
+
+    color-scheme:dark;
+  }
+}
+
+:root[data-theme="dark"]{
+  --bg-0:#0f1512;
+  --bg-1:#161e1a;
+  --bg-2:#1e2721;
+  --surface:#182019;
+  --surface-raised:#1f2921;
+  --border:#2b362f;
+  --border-strong:#3c4a3f;
+
+  --ink-0:#eef2ec;
+  --ink-1:#c7d0c4;
+  --ink-2:#9aa596;
+  --ink-muted:#6f7a6c;
+
+  --danger:#e07369;
+  --danger-soft:#3a201d;
+  --warning:#e0a458;
+  --warning-soft:#3a2e18;
+  --success:#63c084;
+  --success-soft:#183a24;
+  --info:#6ea3dc;
+  --info-soft:#182b3a;
+
+  --accent-soft:#25313f;
+  --accent-sedentary-start-soft:#193434;
+  --accent-cut-fat-loss-soft:#3a2718;
+  --accent-recomposition-soft:#2b2340;
+  --accent-rehab-recuperation-soft:#183a24;
+  --accent-hypertrophy-soft:#3a1e22;
+  --accent-endurance-soft:#182a40;
+
+  --shadow-sm:0 1px 3px rgba(0,0,0,.35);
+  --shadow-md:0 4px 16px rgba(0,0,0,.4);
+  --shadow-lg:0 12px 32px rgba(0,0,0,.5);
+
+  color-scheme:dark;
+}
+
+/* ---------- category → accent mapping ---------- */
+/* js/lib/theme.js sets data-category on <html> once onboarding assigns one. */
+:root[data-category="sedentary-start"]{
+  --accent:var(--accent-sedentary-start);
+  --accent-strong:var(--accent-sedentary-start-strong);
+  --accent-soft:var(--accent-sedentary-start-soft);
+}
+:root[data-category="cut-fat-loss"]{
+  --accent:var(--accent-cut-fat-loss);
+  --accent-strong:var(--accent-cut-fat-loss-strong);
+  --accent-soft:var(--accent-cut-fat-loss-soft);
+}
+:root[data-category="recomposition"]{
+  --accent:var(--accent-recomposition);
+  --accent-strong:var(--accent-recomposition-strong);
+  --accent-soft:var(--accent-recomposition-soft);
+}
+:root[data-category="rehab-recuperation"]{
+  --accent:var(--accent-rehab-recuperation);
+  --accent-strong:var(--accent-rehab-recuperation-strong);
+  --accent-soft:var(--accent-rehab-recuperation-soft);
+}
+:root[data-category="hypertrophy"]{
+  --accent:var(--accent-hypertrophy);
+  --accent-strong:var(--accent-hypertrophy-strong);
+  --accent-soft:var(--accent-hypertrophy-soft);
+}
+:root[data-category="endurance"]{
+  --accent:var(--accent-endurance);
+  --accent-strong:var(--accent-endurance-strong);
+  --accent-soft:var(--accent-endurance-soft);
+}

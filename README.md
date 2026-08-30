@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 3, onboarding + category engine**, is complete.
+pass. Currently: **Phase 4, activity tracking**, is complete.
 
 ## Data layer
 
@@ -169,3 +169,19 @@ table exists for) to IndexedDB. `js/lib/router.js` is the generic
 show/hide screen router every later phase's navigation builds on, and
 `js/lib/chip-group.js` is the single/multi-select control used throughout
 the wizard.
+
+## Activity tracking
+
+The home dashboard (extensible: each phase adds an action card here,
+never a rework) links to a quick-log form and a history list. Logging an
+activity — type, felt intensity, duration — writes a `sessions` row with
+`type: 'activity'`.
+
+Calories burned is never something this app can *measure* — there's no
+sensor for it — so `js/features/activity/calorie-estimate.js` derives it
+from a standard MET formula (`kcal/min = MET x 3.5 x bodyweight(kg) / 200`)
+against a small static MET table, rounds to the nearest 5 kcal (never a
+false-precise decimal), and always tags the result `ESTIMATED` with a
+confidence — `medium` for a matched activity, `low` for "other" — there is
+no `high` tier for this number anywhere in the app, because that would
+require a sensor Fit Fly doesn't have.

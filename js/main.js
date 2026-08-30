@@ -2,6 +2,7 @@ import { applyThemePreference, isValidThemePreference, applyCategoryAccent } fro
 import { getPref } from './lib/storage.js';
 import { initRouter, showScreen } from './lib/router.js';
 import { initOnboardingWizard, formatCategoryLabel } from './features/onboarding/wizard.js';
+import { initActivityFeature } from './features/activity/activity-log.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
 
@@ -20,6 +21,7 @@ async function init() {
   );
 
   initRouter();
+  initActivityFeature();
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {
       applyCategoryAccent(categoryResult.category, document.documentElement);

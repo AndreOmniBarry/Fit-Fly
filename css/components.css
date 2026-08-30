@@ -48,6 +48,15 @@
   background:var(--accent-soft);
 }
 
+/* a .card that's also a clickable row, e.g. a home dashboard action */
+.card-button{
+  width:100%;
+  text-align:left;
+  transition:border-color .15s ease;
+}
+.card-button:hover{border-color:var(--accent);}
+.card-button p{margin-top:2px;}
+
 /* ---------- "why this" transparency note ---------- */
 /* Every program/exercise recommendation carries one of these, per the
    plain-language-transparency feature — never a bare number with no

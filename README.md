@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 4, activity tracking**, is complete.
+pass. Currently: **Phase 5, timers / session engine**, is complete.
 
 ## Data layer
 
@@ -185,3 +185,25 @@ false-precise decimal), and always tags the result `ESTIMATED` with a
 confidence — `medium` for a matched activity, `low` for "other" — there is
 no `high` tier for this number anywhere in the app, because that would
 require a sensor Fit Fly doesn't have.
+
+## Timers
+
+`js/lib/timer.js` is wall-clock-based, deliberately never a naive
+`setInterval` tick counter. A ticking `setInterval(fn, 1000)` that does
+`remaining -= 1000` per tick silently drifts the moment a tab is
+backgrounded/throttled or the screen locks — browsers slow or pause
+timers exactly in those cases. Instead, `createCountdown`/
+`createStopwatch` record a real timestamp on start and always *compute*
+remaining/elapsed time as `now() - startedAt` whenever asked, so however
+late the next check-in runs, the value it reports is still exactly
+correct — proven in tests with a fake clock that jumps forward in one
+huge step (simulating a stalled background tab) and checking the timer
+reads precisely as if many small ticks had happened instead. A UI layer
+(`js/features/timers/rest-timer.js`) polls on a loose cadence purely to
+know when to re-render; that cadence never becomes the source of truth.
+
+The Rest Timer (a new home-dashboard card) is the first thing built on
+top of this — presets or a custom duration, start/pause/reset, and a
+synthesized completion beep (`js/lib/audio-cue.js`, Web Audio, no audio
+file) plus best-effort device vibration, both wrapped so a missing or
+blocked API never throws.

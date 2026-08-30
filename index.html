@@ -262,6 +262,13 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-rest-timer">
+        <span>
+          <strong>Rest Timer</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">Time your rest between sets.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -301,6 +308,40 @@
     <div class="row" style="margin-top:auto;">
       <button class="btn btn-ghost" id="btn-activity-cancel">Cancel</button>
       <button class="btn btn-primary btn-block" id="btn-activity-save">Save</button>
+    </div>
+  </section>
+
+  <!-- REST TIMER -->
+  <section class="screen" id="screen-rest-timer" hidden>
+    <div class="row-between">
+      <h2>Rest Timer</h2>
+      <button class="icon-btn" id="btn-rest-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="field">
+      <label id="lbl-rest-presets">Duration</label>
+      <div class="chip-group" id="rest-presets" role="group" aria-labelledby="lbl-rest-presets">
+        <button type="button" class="chip" data-value="30" aria-pressed="false">30s</button>
+        <button type="button" class="chip" data-value="60" aria-pressed="true">60s</button>
+        <button type="button" class="chip" data-value="90" aria-pressed="false">90s</button>
+        <button type="button" class="chip" data-value="120" aria-pressed="false">2m</button>
+        <button type="button" class="chip" data-value="180" aria-pressed="false">3m</button>
+      </div>
+      <div class="row" style="margin-top:var(--space-2);">
+        <input class="input" type="number" id="rest-custom-seconds" min="1" max="3600" placeholder="Custom seconds">
+        <button class="btn btn-ghost" id="btn-rest-custom-apply">Set</button>
+      </div>
+    </div>
+
+    <div class="stack center-text" style="margin:auto; align-items:center;">
+      <div id="rest-display" style="font-family:var(--font-display); font-size:4rem; font-variant-numeric:tabular-nums;">1:00</div>
+      <p class="muted" id="rest-status">Ready</p>
+      <span class="visually-hidden" id="rest-status-live" role="status" aria-live="polite"></span>
+    </div>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-ghost" id="btn-rest-reset">Reset</button>
+      <button class="btn btn-primary btn-block" id="btn-rest-toggle">Start</button>
     </div>
   </section>
 

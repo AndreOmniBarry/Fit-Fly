@@ -14,6 +14,7 @@ describe('schema', () => {
         'injuryScreens',
         'profile',
         'heartRateSamples',
+        'nutritionEntries',
         'programs',
         'runs',
         'sessions',

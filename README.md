@@ -115,8 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 9, women's health / cycle tracker**, is
-complete.
+pass. Currently: **Phase 10, nutrition**, is complete.
 
 ## Data layer
 
@@ -333,3 +332,30 @@ pure/testable module never touches a PIN or a key. Its confidence
 reflects how much (and how regular) a history it has to extrapolate
 from — `low` off one or two cycles, up to `high` only with a longer,
 consistent one — always shown as an estimate, never a certainty.
+
+## Nutrition
+
+`js/features/nutrition/bmr-tdee.js` is BMR (Mifflin-St Jeor) x an
+activity-level multiplier off self-reported weekly active days. Both are
+population-average formulas, not a metabolic measurement — real
+individual variation runs ±10% or more even with perfect inputs — so the
+calorie target is always shown as a range (`tdeeConfidenceBand`, rounded
+to the nearest 10 kcal) at a confidence that's always `'low'`, never
+fabricating more certainty than a formula-and-activity-bucket estimate
+can support. The category-based adjustment (a deficit for fat loss, a
+surplus for hypertrophy, maintenance otherwise) is deliberately modest —
+never a crash-diet-sized cut. `js/features/nutrition/macro-targets.js`
+scales protein by bodyweight and category (higher in a cut, to protect
+muscle), fixes fat at ~30% of calories, and lets carbs fill whatever's
+left — never negative, even against a very low calorie target with a
+high protein/fat floor.
+
+Food logging is manual entry only — no packaged food database to search,
+which would mean either fabricating nutrition data or another live
+external dependency this offline-first app doesn't otherwise have. Daily
+totals (`nutritionEntries`, one row per entry, aggregated by date) are
+summed and compared against the estimated targets. This is also the
+first screen where a person's own free-text input (a food name) gets
+rendered back into the page, so it's the first place `js/lib/html.js`'s
+`escapeHtml()` matters — every list in the app before this one only ever
+rendered static labels or numbers.

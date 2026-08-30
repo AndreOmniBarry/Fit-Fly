@@ -112,4 +112,24 @@ export function defineSchema(db) {
     // row gets its own).
     cycleLogs: 'date, updatedAt',
   });
+
+  // v5 — nutrition: manual food entries, aggregated per day.
+  db.version(5).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+
+    // `date` (YYYY-MM-DD) is what daily-totals queries actually filter
+    // on; `loggedAt` (full timestamp) is only for display/ordering
+    // within a day.
+    nutritionEntries: '++id, date, loggedAt',
+  });
 }

@@ -304,6 +304,13 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-nutrition">
+        <span>
+          <strong>Nutrition</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">Calorie/macro targets and a daily log.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -576,6 +583,54 @@
       <h3>History</h3>
       <div class="stack" id="whealth-history-list"></div>
     </div>
+  </section>
+
+  <!-- NUTRITION -->
+  <section class="screen" id="screen-nutrition" hidden>
+    <div class="row-between">
+      <h2>Nutrition</h2>
+      <button class="icon-btn" id="btn-nutrition-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="card card-accent stack">
+      <div class="row-between">
+        <strong>Today's calorie target</strong>
+        <span class="data-badge estimated" id="nutrition-calorie-confidence">estimated</span>
+      </div>
+      <p id="nutrition-calorie-target">—</p>
+      <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);" id="nutrition-macro-targets">
+        <span>Protein: <strong id="nutrition-target-protein">—</strong></span>
+        <span>Carbs: <strong id="nutrition-target-carbs">—</strong></span>
+        <span>Fat: <strong id="nutrition-target-fat">—</strong></span>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <strong>So far today</strong>
+      <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
+        <span>Calories: <strong id="nutrition-total-calories">0</strong></span>
+        <span>Protein: <strong id="nutrition-total-protein">0g</strong></span>
+        <span>Carbs: <strong id="nutrition-total-carbs">0g</strong></span>
+        <span>Fat: <strong id="nutrition-total-fat">0g</strong></span>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <h3>Quick Add</h3>
+      <input class="input" type="text" id="nutrition-name" placeholder="What did you eat?">
+      <div class="row">
+        <input class="input" type="number" id="nutrition-calories" min="0" placeholder="kcal">
+        <input class="input" type="number" id="nutrition-protein" min="0" placeholder="protein g">
+      </div>
+      <div class="row">
+        <input class="input" type="number" id="nutrition-carbs" min="0" placeholder="carbs g">
+        <input class="input" type="number" id="nutrition-fat" min="0" placeholder="fat g">
+      </div>
+      <span class="field-error" id="err-nutrition-entry" hidden>Enter a name and at least a calorie amount.</span>
+      <button class="btn btn-primary btn-block" id="btn-nutrition-add">Add</button>
+    </div>
+
+    <div class="stack" id="nutrition-entry-list"></div>
   </section>
 
   <!-- MY PROGRAM -->

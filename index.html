@@ -318,6 +318,13 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-goals">
+        <span>
+          <strong>Goals</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">Set a target, track progress, get notified.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -689,6 +696,57 @@
     <div class="stack">
       <h3>Recent History</h3>
       <div class="stack" id="readiness-history-list"></div>
+    </div>
+  </section>
+
+  <!-- GOALS -->
+  <section class="screen" id="screen-goals" hidden>
+    <div class="row-between">
+      <h2>Goals</h2>
+      <button class="icon-btn" id="btn-goals-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="field">
+      <label id="lbl-goals-notify">Notifications</label>
+      <p class="muted" id="goals-notify-status" style="font-size:var(--fs-sm);">Checking…</p>
+      <button class="btn btn-secondary" id="btn-goals-enable-notify">Enable Notifications</button>
+    </div>
+
+    <div class="stack" id="goals-list"></div>
+
+    <div class="card stack">
+      <h3>New Goal</h3>
+      <div class="field">
+        <label for="goal-name">What are you working toward?</label>
+        <input class="input" type="text" id="goal-name" placeholder="e.g. Run a 5K">
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="goal-target">Target</label>
+          <input class="input" type="number" id="goal-target" step="any">
+        </div>
+        <div class="field">
+          <label for="goal-unit">Unit</label>
+          <input class="input" type="text" id="goal-unit" placeholder="e.g. km, kg, days">
+        </div>
+      </div>
+      <div class="field">
+        <label id="lbl-goal-direction">Direction</label>
+        <div class="chip-group" id="goal-direction" role="group" aria-labelledby="lbl-goal-direction">
+          <button type="button" class="chip" data-value="increase" aria-pressed="true">Increase to target</button>
+          <button type="button" class="chip" data-value="decrease" aria-pressed="false">Decrease to target</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="goal-start">Where are you starting from?</label>
+        <input class="input" type="number" id="goal-start" step="any" placeholder="current value">
+      </div>
+      <div class="field">
+        <label for="goal-deadline">Deadline (optional)</label>
+        <input class="input" type="date" id="goal-deadline">
+      </div>
+      <span class="field-error" id="err-goal" hidden>Enter a name, target, and starting value.</span>
+      <button class="btn btn-primary btn-block" id="btn-goal-create">Add Goal</button>
     </div>
   </section>
 

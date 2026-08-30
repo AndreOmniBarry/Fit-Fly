@@ -11,6 +11,7 @@ describe('schema', () => {
         'categoryAssignments',
         'cycleLogs',
         'exercises',
+        'goals',
         'injuryScreens',
         'profile',
         'heartRateSamples',

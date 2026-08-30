@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 11, recovery / readiness**, is complete.
+pass. Currently: **Phase 12, goals + notifications**, is complete.
 
 ## Data layer
 
@@ -379,3 +379,25 @@ required; recent training load alone isn't a check-in.
 `readinessCheckins` is keyed by date like `cycleLogs`, so revisiting the
 same day prefills what was already logged and a second save just
 overwrites rather than duplicating.
+
+## Goals + notifications
+
+`js/features/goals/goal-progress.js` is one generic progress calculation
+that works for any numeric goal — a target bodyweight, a run distance, a
+weekly activity-days count, any custom number someone names themselves —
+as long as it knows a start value, a current value, and a target
+(`calculateProgressPercent`, clamped to 0-100 either direction so
+overshoot or a regression never breaks the display). `direction`
+('increase' or 'decrease') is the only thing that changes between "hit
+10 workouts" and "get down to a target weight."
+
+Notifications (`js/lib/notifications.js`) are local/in-session only —
+there's no server here to drive push notifications while the app is
+fully closed, which would need a backend and VAPID keys, exactly the
+kind of dependency this on-device, no-account app deliberately doesn't
+have. What it does honestly: ask permission once, then show a real
+system notification (`new Notification(...)`) the moment something
+notification-worthy happens while the app is open — right now, that's
+reaching a goal's target. Feature-detected and silently no-op wherever
+Notifications aren't available or permitted, never throwing into the
+caller.

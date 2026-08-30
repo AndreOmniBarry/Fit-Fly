@@ -12,6 +12,7 @@ describe('schema', () => {
         'exercises',
         'injuryScreens',
         'profile',
+        'heartRateSamples',
         'programs',
         'runs',
         'sessions',

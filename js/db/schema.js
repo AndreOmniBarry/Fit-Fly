@@ -66,4 +66,22 @@ export function defineSchema(db) {
     // there's no partial/interrupted-write state to model here either.
     runs: 'id, startedAt, distanceMeters',
   });
+
+  // v3 — heart rate: camera-PPG estimates, manual entries, and BLE strap
+  // readings all land in one store, distinguished by `source`.
+  db.version(3).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+
+    // source: 'camera-ppg' | 'manual' | 'ble'. Only camera-ppg readings
+    // carry a confidence — manual entries and a real BLE strap are both
+    // MEASURED, not estimated, so there's nothing to grade there.
+    heartRateSamples: '++id, recordedAt, source',
+  });
 }

@@ -14,7 +14,13 @@ export default defineConfig({
     // This sandbox ships one pre-installed Chromium build, pinned to a
     // different revision than @playwright/test's own auto-download
     // manifest expects — point straight at it instead of downloading.
-    launchOptions: { executablePath: '/opt/pw-browsers/chromium' },
+    // The fake-device flags give getUserMedia() a synthetic video/audio
+    // source (there's no real camera in this sandbox) so the camera-PPG
+    // heart rate flow is exercisable in CI at all.
+    launchOptions: {
+      executablePath: '/opt/pw-browsers/chromium',
+      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'],
+    },
   },
   webServer: {
     command: 'node scripts/serve.mjs',

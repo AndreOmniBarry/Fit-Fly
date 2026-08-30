@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 7, run mode**, is complete.
+pass. Currently: **Phase 8, heart rate**, is complete.
 
 ## Data layer
 
@@ -262,3 +262,43 @@ only written to the `runs` store once completed — a route's points live
 as one embedded array on that run's own record rather than a separate
 table, since they're only ever read back as a whole to redraw that run's
 own path, never queried across runs.
+
+## Heart rate
+
+Three sources feed one `heartRateSamples` store, distinguished by
+`source`: camera-based PPG, manual entry, and a Bluetooth strap.
+
+`js/features/heart-rate/ppg-signal.js` is the estimator: detrend (remove
+slow baseline drift from finger pressure/lighting), smooth, detect peaks
+above a dynamic threshold with a physiological refractory period, take
+the median inter-beat interval, and grade a confidence from how
+consistent that spacing is — proven with synthetic sine-wave signals at
+known BPMs (deterministic, no `Math.random()`, so these tests never
+flake) recovered within 2 bpm, and proven to refuse a result (`null`,
+never a fabricated number) on too little data, a flat/no-pulse signal, or
+an implausible rate. `js/features/heart-rate/camera-ppg.js` is the thin
+`getUserMedia` + offscreen-canvas layer that feeds it real frames — a
+fingertip over the rear camera makes the average red-channel brightness
+pulse with each heartbeat.
+
+`js/features/heart-rate/ble-heart-rate.js` is Web Bluetooth, feature-
+detected (`isBluetoothAvailable()`) since it's a Chrome/Android-only API
+with no Safari/iOS implementation — the UI degrades to "use the camera or
+a manual entry instead" rather than a dead button. Its BLE payload parser
+(the standard Bluetooth SIG Heart Rate Measurement format: a flags byte
+picking 8- vs 16-bit encoding) is pure and unit-tested from a raw
+`DataView`, independent of any actual Bluetooth connection.
+
+Every reading gets exactly one badge: camera-PPG is always `ESTIMATED`
+with its confidence; manual entry and a BLE strap are both `MEASURED` —
+a typed-in number and a dedicated sensor are both real data, just not
+data this app derived through a model.
+
+Playwright's Chromium launches with `--use-fake-device-for-media-stream`
+(this sandbox has no real camera), which lets `heart-rate.spec.js` drive
+the entire capture pipeline — permission, video frames, canvas sampling,
+progress, completion — end to end; the fake device's synthetic test-
+pattern video has no real pulse in it, so the test accepts either a
+result or the "couldn't get a clear reading" outcome, since what it's
+actually proving is that the pipeline runs to completion without
+throwing either way.

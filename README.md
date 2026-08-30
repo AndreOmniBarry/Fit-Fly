@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 2, data layer**, is complete.
+pass. Currently: **Phase 3, onboarding + category engine**, is complete.
 
 ## Data layer
 
@@ -138,3 +138,34 @@ Unit tests for the data layer run against
 `tests/e2e/db.spec.js` additionally exercises the same vendored Dexie
 build against a real browser's IndexedDB, since fake-indexeddb doesn't
 reproduce every real-browser quirk.
+
+## Onboarding + the category engine
+
+`js/features/onboarding/category-engine.js` is a transparent, rule-based
+decision tree — never a black box — that places a person into exactly one
+of the six categories. Every branch records a plain-language reason,
+which becomes the result screen's "why this" note. Precedence, safety
+first:
+
+1. Any red-flag symptom, or a moderate-or-worse current injury/pain, or a
+   stated goal of "recovering from injury/surgery" → **rehab-recuperation**,
+   always, regardless of what else was answered.
+2. Training 0-1 days/week as a self-described beginner → **sedentary-start**
+   — build a consistent base before layering on a goal-driven program.
+3. Otherwise, routed by the stated goal (fat loss, build muscle,
+   recomposition, endurance), with a BMI-informed default for anyone who
+   picked "just general fitness."
+
+A red flag also sets `needsProfessionalReview`, which the result screen
+surfaces as a caution banner — Fit Fly still isn't a diagnosis, it's a
+prompt to go talk to someone qualified.
+
+The wizard (`js/features/onboarding/wizard.js`) walks: basics (birthdate,
+sex assigned at birth, height/weight in metric or imperial) → current
+activity + experience → primary goal → the safety screen → a result
+screen — then writes the profile, an injury-screen record, and a
+category-assignment record (the append-only history `categoryAssignments`
+table exists for) to IndexedDB. `js/lib/router.js` is the generic
+show/hide screen router every later phase's navigation builds on, and
+`js/lib/chip-group.js` is the single/multi-select control used throughout
+the wizard.

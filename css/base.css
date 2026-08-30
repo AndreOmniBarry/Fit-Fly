@@ -2,6 +2,14 @@
    RESET + APP CHROME
    ========================================================================== */
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+
+/* The UA stylesheet's [hidden]{display:none} loses to any author rule that
+   sets `display` on the same element (e.g. .row{display:flex}), because
+   author rules always beat the UA stylesheet regardless of specificity.
+   Toggling `.hidden`/[hidden] on an element that also carries a display-
+   setting class would silently stay visible without this. */
+[hidden]{display:none !important;}
+
 html,body{height:100%;}
 html{-webkit-text-size-adjust:100%;}
 
@@ -62,7 +70,6 @@ input,select,textarea{font-family:var(--font-body); font-size:var(--fs-md);}
   gap:var(--space-4);
   animation:screen-in .2s ease;
 }
-.screen[hidden]{display:none;}
 
 @keyframes screen-in{
   from{opacity:0; transform:translateY(6px);}

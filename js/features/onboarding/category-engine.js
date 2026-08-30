@@ -1,0 +1,114 @@
+// The category engine: a transparent, rule-based decision tree — not a
+// black box — that places a person into exactly one of six categories.
+// Every branch pushes a plain-language reason onto `reasoning`, which
+// becomes the onboarding result screen's "why this" note. Safety branches
+// are checked first and always win over a stated goal.
+
+import { CATEGORIES } from '../../lib/theme.js';
+import { classifyBmi } from './bmi.js';
+import { hasRedFlags, SEVERITY } from './safety-screen.js';
+
+export { CATEGORIES };
+
+export const PRIMARY_GOALS = Object.freeze([
+  'fat-loss',
+  'build-muscle',
+  'recomposition',
+  'endurance',
+  'rehab',
+  'general-fitness',
+]);
+
+export const EXPERIENCE_LEVELS = Object.freeze(['beginner', 'intermediate', 'advanced']);
+
+/** A person training 0-1 days/week as a self-described beginner is
+ *  deconditioned enough that jumping straight into a goal-driven program
+ *  (even a gentle one) risks injury and burnout — build the base first. */
+const SEDENTARY_START_MAX_WEEKLY_ACTIVE_DAYS = 1;
+
+/** BMI on its own never decides a category, but for someone with no
+ *  strong stated goal ('general-fitness'), it nudges the balanced default
+ *  toward a fat-loss orientation when appropriate. */
+const GENERAL_FITNESS_BMI_FAT_LOSS_NUDGE = 30; // classifyBmi() 'well-above-typical'
+
+/**
+ * @param {object} input
+ * @param {string} input.primaryGoal - one of PRIMARY_GOALS
+ * @param {number} input.weeklyActiveDays - self-reported current days/week of exercise
+ * @param {string} input.experienceLevel - one of EXPERIENCE_LEVELS
+ * @param {boolean} [input.hasCurrentInjuryOrPain]
+ * @param {number} [input.injurySeverity] - SEVERITY.MILD/MODERATE/SEVERE, present only if hasCurrentInjuryOrPain
+ * @param {string[]} [input.redFlagSymptomIds] - selections from safety-screen.js's RED_FLAG_SYMPTOMS
+ * @param {number|null} [input.bmi]
+ * @returns {{category: string, reasoning: string[], needsProfessionalReview: boolean}}
+ */
+export function assignCategory(input) {
+  const {
+    primaryGoal,
+    weeklyActiveDays,
+    experienceLevel,
+    hasCurrentInjuryOrPain = false,
+    injurySeverity = null,
+    redFlagSymptomIds = [],
+    bmi = null,
+  } = input;
+
+  const reasoning = [];
+  const needsProfessionalReview = hasRedFlags(redFlagSymptomIds);
+  if (needsProfessionalReview) {
+    reasoning.push(
+      'A couple of your answers are worth checking with a doctor or physical therapist before you start — see the note below.'
+    );
+  }
+
+  // ---- safety first: overrides any stated goal ----
+  const significantCurrentInjury =
+    hasCurrentInjuryOrPain && injurySeverity >= SEVERITY.MODERATE;
+  if (primaryGoal === 'rehab' || significantCurrentInjury || needsProfessionalReview) {
+    reasoning.push(
+      significantCurrentInjury || needsProfessionalReview
+        ? 'You flagged something that needs care right now, so everything starts gentle and focused on recovering safely.'
+        : 'You told us you\'re coming back from an injury, so everything starts gentle and focused on recovering safely.'
+    );
+    return { category: 'rehab-recuperation', reasoning, needsProfessionalReview };
+  }
+
+  // ---- very deconditioned: build the base first, whatever the aspirational goal ----
+  if (weeklyActiveDays <= SEDENTARY_START_MAX_WEEKLY_ACTIVE_DAYS && experienceLevel === 'beginner') {
+    reasoning.push(
+      `You're currently active about ${weeklyActiveDays} day(s) a week — we'll spend the first few weeks building a` +
+        ' consistent habit and base fitness before layering on anything more demanding.'
+    );
+    return { category: 'sedentary-start', reasoning, needsProfessionalReview };
+  }
+
+  // ---- otherwise, route by stated goal ----
+  switch (primaryGoal) {
+    case 'fat-loss':
+      reasoning.push('Fat loss is your stated goal, so your program leans on a calorie deficit plus strength work to preserve muscle.');
+      return { category: 'cut-fat-loss', reasoning, needsProfessionalReview };
+
+    case 'build-muscle':
+      reasoning.push('Building muscle is your stated goal, so your program centers on progressive overload and recovery.');
+      return { category: 'hypertrophy', reasoning, needsProfessionalReview };
+
+    case 'recomposition':
+      reasoning.push('You want to build muscle and lose fat at the same time, so your program balances strength work with a modest calorie approach.');
+      return { category: 'recomposition', reasoning, needsProfessionalReview };
+
+    case 'endurance':
+      reasoning.push('Endurance is your stated goal, so your program builds aerobic base first, then adds intensity.');
+      return { category: 'endurance', reasoning, needsProfessionalReview };
+
+    case 'general-fitness':
+    default: {
+      const bmiClass = classifyBmi(bmi);
+      if (bmiClass === 'well-above-typical' || (bmi != null && bmi >= GENERAL_FITNESS_BMI_FAT_LOSS_NUDGE)) {
+        reasoning.push('You didn\'t pick a specific goal, so we started you with a fat-loss lean based on your profile — easy to change any time.');
+        return { category: 'cut-fat-loss', reasoning, needsProfessionalReview };
+      }
+      reasoning.push('You didn\'t pick a specific goal, so we started you with a balanced mix of strength and moderate cardio — easy to change any time.');
+      return { category: 'recomposition', reasoning, needsProfessionalReview };
+    }
+  }
+}

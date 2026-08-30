@@ -47,6 +47,211 @@
     </div>
   </section>
 
+  <!-- ONBOARDING: BASICS -->
+  <section class="screen" id="screen-ob-basics" hidden>
+    <p class="muted" style="font-size:var(--fs-xs);">Step 1 of 5</p>
+    <h2>The basics</h2>
+    <p>Nothing here is shared anywhere — it stays on this device and just shapes your program.</p>
+
+    <div class="stack">
+      <div class="field">
+        <label for="ob-birthdate">Birthdate</label>
+        <input class="input" type="date" id="ob-birthdate" required>
+        <span class="field-error" id="err-ob-birthdate" hidden>Enter your birthdate.</span>
+      </div>
+
+      <div class="field">
+        <label id="lbl-ob-sex">Sex assigned at birth</label>
+        <div class="chip-group" id="ob-sex" role="group" aria-labelledby="lbl-ob-sex">
+          <button type="button" class="chip" data-value="female" aria-pressed="false">Female</button>
+          <button type="button" class="chip" data-value="male" aria-pressed="false">Male</button>
+          <button type="button" class="chip" data-value="prefer-not-to-say" aria-pressed="false">Prefer not to say</button>
+        </div>
+        <span class="field-hint">Used only for a more accurate calorie estimate later.</span>
+        <span class="field-error" id="err-ob-sex" hidden>Pick one — "prefer not to say" is fine.</span>
+      </div>
+
+      <div class="field">
+        <label id="lbl-ob-units">Units</label>
+        <div class="chip-group" id="ob-units" role="group" aria-labelledby="lbl-ob-units">
+          <button type="button" class="chip" data-value="metric" aria-pressed="true">Metric (cm / kg)</button>
+          <button type="button" class="chip" data-value="imperial" aria-pressed="false">Imperial (ft·in / lb)</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="ob-height-cm" id="lbl-ob-height">Height</label>
+        <div id="ob-height-metric">
+          <input class="input" type="number" id="ob-height-cm" min="60" max="260" placeholder="cm">
+        </div>
+        <div id="ob-height-imperial" hidden class="row">
+          <input class="input" type="number" id="ob-height-ft" min="1" max="8" placeholder="ft">
+          <input class="input" type="number" id="ob-height-in" min="0" max="11" placeholder="in">
+        </div>
+        <span class="field-error" id="err-ob-height" hidden>Enter a valid height.</span>
+      </div>
+
+      <div class="field">
+        <label for="ob-weight-kg" id="lbl-ob-weight">Weight</label>
+        <div id="ob-weight-metric">
+          <input class="input" type="number" id="ob-weight-kg" min="25" max="400" step="0.1" placeholder="kg">
+        </div>
+        <div id="ob-weight-imperial" hidden>
+          <input class="input" type="number" id="ob-weight-lb" min="55" max="880" step="0.1" placeholder="lb">
+        </div>
+        <span class="field-error" id="err-ob-weight" hidden>Enter a valid weight.</span>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-primary btn-block" id="btn-ob-basics-next">Next</button>
+    </div>
+  </section>
+
+  <!-- ONBOARDING: ACTIVITY -->
+  <section class="screen" id="screen-ob-activity" hidden>
+    <p class="muted" style="font-size:var(--fs-xs);">Step 2 of 5</p>
+    <h2>Where you're starting from</h2>
+
+    <div class="stack">
+      <div class="field">
+        <label id="lbl-ob-active-days">Days per week you're currently active</label>
+        <div class="chip-group" id="ob-active-days" role="group" aria-labelledby="lbl-ob-active-days">
+          <button type="button" class="chip" data-value="0" aria-pressed="false">0</button>
+          <button type="button" class="chip" data-value="1" aria-pressed="false">1</button>
+          <button type="button" class="chip" data-value="2" aria-pressed="false">2</button>
+          <button type="button" class="chip" data-value="3" aria-pressed="false">3</button>
+          <button type="button" class="chip" data-value="4" aria-pressed="false">4</button>
+          <button type="button" class="chip" data-value="5" aria-pressed="false">5</button>
+          <button type="button" class="chip" data-value="6" aria-pressed="false">6</button>
+          <button type="button" class="chip" data-value="7" aria-pressed="false">7</button>
+        </div>
+        <span class="field-error" id="err-ob-active-days" hidden>Pick a number, even if it's 0.</span>
+      </div>
+
+      <div class="field">
+        <label id="lbl-ob-experience">Training experience</label>
+        <div class="chip-group" id="ob-experience" role="group" aria-labelledby="lbl-ob-experience">
+          <button type="button" class="chip" data-value="beginner" aria-pressed="false">New to this</button>
+          <button type="button" class="chip" data-value="intermediate" aria-pressed="false">Some experience</button>
+          <button type="button" class="chip" data-value="advanced" aria-pressed="false">Very experienced</button>
+        </div>
+        <span class="field-error" id="err-ob-experience" hidden>Pick the closest fit.</span>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-ghost" id="btn-ob-activity-back">Back</button>
+      <button class="btn btn-primary btn-block" id="btn-ob-activity-next">Next</button>
+    </div>
+  </section>
+
+  <!-- ONBOARDING: GOAL -->
+  <section class="screen" id="screen-ob-goal" hidden>
+    <p class="muted" style="font-size:var(--fs-xs);">Step 3 of 5</p>
+    <h2>What are you working toward?</h2>
+    <p>Pick the closest fit — you can change this any time.</p>
+
+    <div class="field">
+      <div class="chip-group" id="ob-goal">
+        <button type="button" class="chip" data-value="fat-loss" aria-pressed="false">Lose fat</button>
+        <button type="button" class="chip" data-value="build-muscle" aria-pressed="false">Build muscle</button>
+        <button type="button" class="chip" data-value="recomposition" aria-pressed="false">Both — recomposition</button>
+        <button type="button" class="chip" data-value="endurance" aria-pressed="false">Build endurance / cardio</button>
+        <button type="button" class="chip" data-value="rehab" aria-pressed="false">Recovering from injury or surgery</button>
+        <button type="button" class="chip" data-value="general-fitness" aria-pressed="false">Just general fitness</button>
+      </div>
+      <span class="field-error" id="err-ob-goal" hidden>Pick one to continue.</span>
+    </div>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-ghost" id="btn-ob-goal-back">Back</button>
+      <button class="btn btn-primary btn-block" id="btn-ob-goal-next">Next</button>
+    </div>
+  </section>
+
+  <!-- ONBOARDING: SAFETY SCREEN -->
+  <section class="screen" id="screen-ob-safety" hidden>
+    <p class="muted" style="font-size:var(--fs-xs);">Step 4 of 5</p>
+    <h2>A quick safety check</h2>
+    <p>None of this is a diagnosis — it just helps us flag when to start extra gentle or suggest checking with a professional first.</p>
+
+    <div class="field">
+      <label id="lbl-ob-redflags">Do any of these apply to you right now?</label>
+      <div class="chip-group" id="ob-redflags" role="group" aria-labelledby="lbl-ob-redflags"></div>
+    </div>
+
+    <div class="field">
+      <label id="lbl-ob-has-injury">Any other current pain or injury?</label>
+      <div class="chip-group" id="ob-has-injury" role="group" aria-labelledby="lbl-ob-has-injury">
+        <button type="button" class="chip" data-value="no" aria-pressed="false">No</button>
+        <button type="button" class="chip" data-value="yes" aria-pressed="false">Yes</button>
+      </div>
+      <span class="field-error" id="err-ob-has-injury" hidden>Pick yes or no.</span>
+    </div>
+
+    <div class="stack" id="ob-injury-details" hidden>
+      <div class="field">
+        <label for="ob-injury-area">Where?</label>
+        <input class="input" type="text" id="ob-injury-area" placeholder="e.g. lower back, right knee">
+      </div>
+      <div class="field">
+        <label id="lbl-ob-injury-severity">How much does it limit you?</label>
+        <div class="chip-group" id="ob-injury-severity" role="group" aria-labelledby="lbl-ob-injury-severity">
+          <button type="button" class="chip" data-value="1" aria-pressed="false">Mild</button>
+          <button type="button" class="chip" data-value="2" aria-pressed="false">Moderate</button>
+          <button type="button" class="chip" data-value="3" aria-pressed="false">Severe</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="ob-injury-notes">Anything else worth knowing? (optional)</label>
+        <textarea class="input" id="ob-injury-notes" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-ghost" id="btn-ob-safety-back">Back</button>
+      <button class="btn btn-primary btn-block" id="btn-ob-safety-next">See my plan</button>
+    </div>
+  </section>
+
+  <!-- ONBOARDING: RESULT -->
+  <section class="screen" id="screen-ob-result" hidden>
+    <p class="muted" style="font-size:var(--fs-xs);">Step 5 of 5</p>
+    <h2>You're all set</h2>
+
+    <div class="card card-accent stack">
+      <span class="data-badge measured" style="align-self:flex-start;">Your category</span>
+      <h3 id="ob-result-category">—</h3>
+    </div>
+
+    <div class="why-this" id="ob-result-reasoning-wrap">
+      <span class="why-icon" aria-hidden="true">💡</span>
+      <ul id="ob-result-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>
+    </div>
+
+    <div class="safety-flag" id="ob-result-review-banner" hidden>
+      <span aria-hidden="true">⚠️</span>
+      <p>A couple of your answers are worth a quick check with a doctor or physical therapist before you dive in. Fit Fly isn't a substitute for that.</p>
+    </div>
+
+    <div class="row" style="margin-top:auto;">
+      <button class="btn btn-primary btn-block" id="btn-ob-continue">Continue to Fit Fly</button>
+    </div>
+  </section>
+
+  <!-- HOME (placeholder — activity tracking, programs, etc. land in later phases) -->
+  <section class="screen" id="screen-home" hidden>
+    <div class="row-between">
+      <h2>Fit Fly</h2>
+      <span class="data-badge measured" id="home-category-badge">—</span>
+    </div>
+    <div class="card stack">
+      <p>You're set up. Activity tracking, tailored programs, and everything else are on their way — built phase by phase.</p>
+    </div>
+    <button class="btn btn-ghost" id="btn-home-restart" style="margin-top:auto;">Start over</button>
+  </section>
+
 </div>
 
 <script type="module" src="js/main.js"></script>

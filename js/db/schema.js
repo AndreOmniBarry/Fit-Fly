@@ -132,4 +132,24 @@ export function defineSchema(db) {
     // within a day.
     nutritionEntries: '++id, date, loggedAt',
   });
+
+  // v6 — recovery: one readiness check-in per day.
+  db.version(6).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+
+    // Keyed by date like cycleLogs — at most one check-in per day, so a
+    // second save for today just overwrites the first.
+    readinessCheckins: 'date, checkedAt',
+  });
 }

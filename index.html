@@ -311,6 +311,13 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-readiness">
+        <span>
+          <strong>Readiness</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">A quick daily check-in: sleep, energy, soreness.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -631,6 +638,58 @@
     </div>
 
     <div class="stack" id="nutrition-entry-list"></div>
+  </section>
+
+  <!-- READINESS -->
+  <section class="screen" id="screen-readiness" hidden>
+    <div class="row-between">
+      <h2>Readiness</h2>
+      <button class="icon-btn" id="btn-readiness-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="card card-accent stack" id="readiness-result" hidden>
+      <div class="row-between">
+        <strong>Today's readiness</strong>
+        <span class="data-badge estimated" id="readiness-category">—</span>
+      </div>
+      <p id="readiness-score">—</p>
+      <ul id="readiness-reasoning" class="stack" style="margin:0; padding-left:1.2em;"></ul>
+    </div>
+
+    <div class="card stack">
+      <h3>Quick Check-In</h3>
+      <div class="field">
+        <label for="readiness-sleep">Hours of sleep last night</label>
+        <input class="input" type="number" id="readiness-sleep" min="0" max="16" step="0.5" placeholder="e.g. 7.5">
+      </div>
+      <div class="field">
+        <label id="lbl-readiness-energy">Energy today</label>
+        <div class="chip-group" id="readiness-energy" role="group" aria-labelledby="lbl-readiness-energy">
+          <button type="button" class="chip" data-value="1" aria-pressed="false">1</button>
+          <button type="button" class="chip" data-value="2" aria-pressed="false">2</button>
+          <button type="button" class="chip" data-value="3" aria-pressed="false">3</button>
+          <button type="button" class="chip" data-value="4" aria-pressed="false">4</button>
+          <button type="button" class="chip" data-value="5" aria-pressed="false">5</button>
+        </div>
+      </div>
+      <div class="field">
+        <label id="lbl-readiness-soreness">Soreness today</label>
+        <div class="chip-group" id="readiness-soreness" role="group" aria-labelledby="lbl-readiness-soreness">
+          <button type="button" class="chip" data-value="1" aria-pressed="false">1</button>
+          <button type="button" class="chip" data-value="2" aria-pressed="false">2</button>
+          <button type="button" class="chip" data-value="3" aria-pressed="false">3</button>
+          <button type="button" class="chip" data-value="4" aria-pressed="false">4</button>
+          <button type="button" class="chip" data-value="5" aria-pressed="false">5</button>
+        </div>
+      </div>
+      <span class="field-error" id="err-readiness" hidden>Enter at least your sleep, energy, or soreness.</span>
+      <button class="btn btn-primary btn-block" id="btn-readiness-save">Save Check-In</button>
+    </div>
+
+    <div class="stack">
+      <h3>Recent History</h3>
+      <div class="stack" id="readiness-history-list"></div>
+    </div>
   </section>
 
   <!-- MY PROGRAM -->

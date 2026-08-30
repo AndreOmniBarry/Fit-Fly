@@ -16,6 +16,7 @@ describe('schema', () => {
         'heartRateSamples',
         'nutritionEntries',
         'programs',
+        'readinessCheckins',
         'runs',
         'sessions',
         'sets',

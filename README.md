@@ -115,7 +115,7 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 10, nutrition**, is complete.
+pass. Currently: **Phase 11, recovery / readiness**, is complete.
 
 ## Data layer
 
@@ -359,3 +359,23 @@ first screen where a person's own free-text input (a food name) gets
 rendered back into the page, so it's the first place `js/lib/html.js`'s
 `escapeHtml()` matters — every list in the app before this one only ever
 rendered static labels or numbers.
+
+## Recovery / readiness
+
+`js/features/recovery/readiness.js` blends four self-reported/derived
+signals into one score — sleep hours (against an 8-hour target),
+energy and soreness (both 1-5 daily check-in questions), and recent
+training load (sessions in roughly the last 2 days, from the same
+`sessions` store the activity/program features write to) — into a
+weighted 0-100 score with a `low`/`moderate`/`high` category. Every
+result carries the reasoning behind it (which factor actually pulled the
+score down), never a bare number: this is a transparent, rule-based
+blend, not a wearable-derived HRV score (there's no wearable integration
+here) or a medical assessment. A check-in with only one or two of the
+four inputs still produces a score — only the truly-missing signal is
+skipped, not the whole calculation — but at least one real self-report is
+required; recent training load alone isn't a check-in.
+
+`readinessCheckins` is keyed by date like `cycleLogs`, so revisiting the
+same day prefills what was already logged and a second save just
+overwrites rather than duplicating.

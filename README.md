@@ -115,4 +115,26 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 1, foundation**, is complete.
+pass. Currently: **Phase 2, data layer**, is complete.
+
+## Data layer
+
+`js/db/schema.js` is the source of truth for what's persisted — Dexie
+(IndexedDB) stores for the profile, category-assignment history, injury
+screens, the exercise library, programs, sessions, and sets, each with a
+thin repository module under `js/db/repositories/` (plain CRUD + the
+handful of queries each feature needs — no ORM magic). Dexie itself is
+vendored locally at `js/vendor/dexie.min.mjs` (fetched via `npm pack`, not
+a live CDN — see `js/vendor/THIRD_PARTY_NOTICES.md`).
+
+Later phases (run mode, heart rate, women's health, nutrition, recovery,
+goals) each add their own store via a new `db.version(N).stores({...})`
+bump rather than speculatively defined now — see the comments in
+`schema.js` for the ground rules that keep IndexedDB indexing correct
+(most importantly: never index a boolean field, it silently fails).
+
+Unit tests for the data layer run against
+[`fake-indexeddb`](https://github.com/dumbmatter/fakeIndexedDB) in Node;
+`tests/e2e/db.spec.js` additionally exercises the same vendored Dexie
+build against a real browser's IndexedDB, since fake-indexeddb doesn't
+reproduce every real-browser quirk.

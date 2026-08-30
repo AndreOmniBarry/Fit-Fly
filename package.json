@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.62.1",
+    "fake-indexeddb": "^6.2.5",
     "vitest": "^4.1.11"
   }
 }

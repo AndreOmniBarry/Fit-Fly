@@ -115,7 +115,8 @@ runs, before any phase of work is considered done.
 Building in phases — foundation, data layer, onboarding/category engine,
 activity tracking, timers, tailored programs, run mode, heart rate,
 women's health, nutrition, recovery, goals, voice, and a final polish
-pass. Currently: **Phase 5, timers / session engine**, is complete.
+pass. Currently: **Phase 6, tailored programs + periodization**, is
+complete.
 
 ## Data layer
 
@@ -207,3 +208,30 @@ top of this — presets or a custom duration, start/pause/reset, and a
 synthesized completion beep (`js/lib/audio-cue.js`, Web Audio, no audio
 file) plus best-effort device vibration, both wrapped so a missing or
 blocked API never throws.
+
+## Tailored programs + periodization
+
+`js/features/exercises/exercise-library.js` is a small, curated library —
+12 exercises across six movement patterns (squat, hinge, push, pull,
+core, cardio), each beginner-reachable in at least one entry, each with a
+hand-authored line-art demo SVG under `assets/exercise-svgs/` (loaded
+inline via `js/lib/svg-loader.js` so `stroke="currentColor"` picks up the
+surrounding theme). `js/features/programs/program-generator.js` turns a
+category + experience level + any flagged injury area into a concrete
+week: which exercises (deterministic — same inputs always produce the
+same program, no randomness to fight in tests), how many sets/reps, how
+much rest, and a plain-language "why this" reasoning. Safety routing
+(`js/features/programs/body-area-tag.js`) maps the onboarding safety
+screen's free-text injury area onto a small keyword-matched tag set and
+excludes any exercise whose `contraindications` include it — under-
+filtering on a miss, never over-filtering.
+
+`js/features/programs/periodization.js` is a standard 4-week mesocycle:
+three weeks of progressive load, then a deload week at reduced volume.
+`js/features/programs/week-number.js` derives which week a person is on
+from how long ago their program started, so the program itself is never
+persisted as static content — `programs` stores just the category,
+experience level, and start date, and the week's actual content is
+(re)computed live every time, which means an improvement to the
+generator applies retroactively to everyone's program, not just new
+ones.

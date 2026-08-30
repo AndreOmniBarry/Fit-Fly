@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Standing march in place demonstration">
+<title>Standing March</title>
+<line x1="10" y1="92" x2="110" y2="92" stroke="currentColor" stroke-width="2" stroke-opacity="0.25" stroke-linecap="round"/>
+<g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M55,26 L55,55"/>
+<path d="M55,55 L42,50 L35,65"/>
+<path d="M55,55 L60,92"/>
+<path d="M55,30 L75,40"/>
+<path d="M55,30 L35,45"/>
+</g>
+<circle cx="55" cy="18" r="7" fill="currentColor"/>
+</svg>

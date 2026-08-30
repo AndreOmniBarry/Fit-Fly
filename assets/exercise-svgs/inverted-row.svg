@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Inverted row demonstration">
+<title>Inverted Row</title>
+<line x1="10" y1="92" x2="110" y2="92" stroke="currentColor" stroke-width="2" stroke-opacity="0.25" stroke-linecap="round"/>
+<g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M20,28 L100,28"/>
+<path d="M55,28 L55,34"/>
+<path d="M55,34 L75,55 L100,88"/>
+</g>
+<circle cx="48" cy="30" r="7" fill="currentColor"/>
+</svg>

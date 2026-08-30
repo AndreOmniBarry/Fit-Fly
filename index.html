@@ -269,6 +269,13 @@
         </span>
         <span aria-hidden="true">›</span>
       </button>
+      <button class="card card-button row-between" id="btn-home-program">
+        <span>
+          <strong>My Program</strong>
+          <p class="muted" style="font-size:var(--fs-sm);">This week's tailored workouts.</p>
+        </span>
+        <span aria-hidden="true">›</span>
+      </button>
     </div>
 
     <p class="muted center-text" style="font-size:var(--fs-xs);">
@@ -343,6 +350,27 @@
       <button class="btn btn-ghost" id="btn-rest-reset">Reset</button>
       <button class="btn btn-primary btn-block" id="btn-rest-toggle">Start</button>
     </div>
+  </section>
+
+  <!-- MY PROGRAM -->
+  <section class="screen" id="screen-program" hidden>
+    <div class="row-between">
+      <h2>My Program</h2>
+      <button class="icon-btn" id="btn-program-back" aria-label="Back">←</button>
+    </div>
+    <p class="muted" id="program-week-label">—</p>
+
+    <div class="card card-accent stack" id="program-deload-banner" hidden>
+      <strong>Deload week</strong>
+      <p>Lighter volume this week on purpose — recovery is part of the plan, not a break from it.</p>
+    </div>
+
+    <div class="why-this">
+      <span class="why-icon" aria-hidden="true">💡</span>
+      <ul id="program-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>
+    </div>
+
+    <div class="stack" id="program-days"></div>
   </section>
 
   <!-- ACTIVITY: HISTORY -->

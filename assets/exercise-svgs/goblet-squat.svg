@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 100" role="img" aria-label="Goblet squat demonstration">
+<title>Goblet Squat</title>
+<line x1="10" y1="92" x2="110" y2="92" stroke="currentColor" stroke-width="2" stroke-opacity="0.25" stroke-linecap="round"/>
+<g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M60,26 L58,58"/>
+<path d="M58,58 L42,74 L38,92"/>
+<path d="M58,58 L74,74 L78,92"/>
+<path d="M60,26 L50,38 L60,46"/>
+<path d="M60,26 L70,38 L60,46"/>
+</g>
+<rect x="53" y="42" width="14" height="16" rx="3" fill="currentColor"/>
+<circle cx="60" cy="18" r="7" fill="currentColor"/>
+</svg>

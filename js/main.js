@@ -4,6 +4,8 @@ import { initRouter, showScreen } from './lib/router.js';
 import { initOnboardingWizard, formatCategoryLabel } from './features/onboarding/wizard.js';
 import { initActivityFeature } from './features/activity/activity-log.js';
 import { initRestTimerFeature } from './features/timers/rest-timer.js';
+import { initProgramFeature } from './features/programs/program-view.js';
+import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
 
@@ -24,6 +26,8 @@ async function init() {
   initRouter();
   initActivityFeature();
   initRestTimerFeature();
+  initProgramFeature();
+  seedExerciseLibrary(); // fire-and-forget — a mirror of the built-in library for future browsing/customization, not on the read path today
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {
       applyCategoryAccent(categoryResult.category, document.documentElement);

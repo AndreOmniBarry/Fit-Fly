@@ -140,7 +140,7 @@ css/
   mini-apps.css              # Hub + Sleep + Focus's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (the app's icon system), tilt.ts (the Hub's spatial-tilt engine)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (Hub spatial-tilt), motion.ts (shared prefers-reduced-motion check)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 425 Vitest unit tests and 210 Playwright end-to-end tests
+Hub" above). 425 Vitest unit tests and 214 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -356,6 +356,16 @@ Focus's mini waveform only animates when a soundscape is actually playing
 playback was started — its own screen or Wind Down), and sits low and
 still otherwise.
 
+**Typography, app-wide.** `--font-display`/`--miniapp-font-display` are
+**Space Grotesk** everywhere — the Hub, Sleep, Focus, and the Fitness
+Toolkit alike — paired with Manrope for body text (`js/vendor/fonts/`,
+fetched via `npm pack`, never a live CDN, same as every other vendored
+asset). A confident geometric grotesk rather than an editorial serif: the
+typographic register real product-engineering teams ship, not a boutique
+magazine — and, unlike the app's previous `Fraunces` declaration, which
+was never actually vendored and silently fell back to the browser's
+default serif everywhere it was used, this one is real, on every surface.
+
 ## Sleep
 
 Sleep is built to the standard the rest of this README holds every
@@ -458,6 +468,20 @@ is unreliable once the screen locks (stated plainly in the Wind Down
 screen's own copy, not glossed over) — that's the OS's rule, not a bug
 here.
 
+**"It says Playing but I hear nothing" has two real causes, and only one
+of them is a bug this app can detect.** A genuine failure — the browser
+withheld playback despite `start()` running inside a real click handler —
+is now caught explicitly: `FocusAudioState.blocked` goes true only when
+the `AudioContext` never actually reaches `'running'`, and the screen
+shows an honest "Playback didn't start — tap a sound again" banner
+instead of a `Playing` state for a context producing no sound at all. The
+far more common cause — the device is muted or its media volume is at
+zero — has **no web API to detect at all**, deliberately; a website
+cannot know or override that, and shouldn't try to. The only honest fix
+is the permanent hint under the volume slider: *"Plays through your
+media volume — check your device isn't muted or on silent if you don't
+hear anything."*
+
 ### Guided sessions
 
 Four short (under-a-minute to ~3-minute) sessions, each built on one real,
@@ -495,6 +519,37 @@ own voice toggle (`btn-guided-session-voice-toggle`) for anyone who wants
 captions only — including someone running their own screen reader
 alongside the app, where a second synthesized voice narrating on top of
 it would just talk over their own assistive technology.
+
+**Voice quality, without a different engine.** Two real, free
+improvements on top of the same on-device API: `pickVoice` favors any
+voice whose name signals a genuinely better on-device/vendor-bundled
+engine ("Natural", "Neural", "Enhanced", "Premium", "Wavenet" — the
+labels Windows/Edge, macOS/iOS, and some Android builds already use for
+their best free voices) ahead of the previous local-service-only guess.
+And rather than handing a whole sentence to one flat `SpeechSynthesisUtterance`
+— what actually makes browser TTS read as a monotone "computer voice",
+since most engines don't reliably treat internal punctuation as a pause
+or pitch cue — `speak()` splits a line at its natural clause boundaries
+and speaks it as a chain of shorter utterances, each with a touch of
+natural rate variance and a real pitch drop on the line's final clause
+(the same "terminal declination" real speech uses to signal a thought
+ending, versus a slight lift on one that continues), with a short
+breath-length pause between them.
+
+**The breathing pacer reacts on four channels, not one.** Each ring
+(`guided-session-pacer-core/-mid/-outer`) moves a smaller fraction of the
+breath's swing than the one inside it, and settles a beat later — a
+ripple moving outward through real depth, not three shapes scaling in
+lockstep — with a warm brightness lift on the inhale and a cooler settle
+on the exhale (light, not just size). The transition's real duration is
+set from that beat's actual `durationSeconds` (`--pacer-transition-ms`),
+never a guessed constant, so the visual stays exactly as metronomic as
+the voice/caption pacing above it. The fourth channel is non-visual: a
+short haptic pulse via the free, standard Vibration API at the start of
+an actual in/out transition (never on a hold — stillness deserves
+silence there too) — best-effort, and a silent no-op on the many devices
+that don't support it (all of iOS Safari included), same contract as
+`audio-cue.js`'s existing `vibrateDevice`.
 
 ## The Fitness Toolkit
 

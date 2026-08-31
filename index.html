@@ -670,6 +670,11 @@
       Ambient sound needs Web Audio, which this browser doesn't support here — everything else on this screen still works.
     </p>
 
+    <p class="safety-flag" id="focus-audio-blocked" style="margin-top:var(--space-3);" hidden>
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+      Playback didn't start — tap a sound again to allow it.
+    </p>
+
     <div class="focus-now-playing" id="focus-now-playing" style="margin-top:var(--space-3);" hidden>
       <div class="focus-now-playing-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></div>
       <div style="flex:1;">
@@ -684,6 +689,12 @@
     <div style="margin-top:var(--space-4);">
       <label for="focus-volume" style="font-size:12.5px; font-weight:600; color:var(--focus-ink-muted); letter-spacing:0.04em; text-transform:uppercase;">Volume</label>
       <input type="range" id="focus-volume" min="0" max="100" value="70" style="width:100%; margin-top:8px;">
+      <!-- Web pages can't detect a phone's silent switch or media-volume
+           level — genuinely no API for it — so the only honest fix for
+           "it says Playing but I hear nothing" is telling people what to
+           check, rather than pretending a website can force sound through
+           a device the owner has deliberately muted. -->
+      <p class="muted" style="font-size:11.5px; margin-top:6px;">Plays through your media volume — check your device isn't muted or on silent if you don't hear anything.</p>
     </div>
 
     <div style="display:flex; flex-direction:column; gap:10px; margin-top:var(--space-4);">
@@ -715,8 +726,8 @@
 
     <div class="stack" style="align-items:center; text-align:center; margin:auto 0; gap:var(--space-5);">
       <div class="breathe-pacer" id="guided-session-pacer" aria-hidden="true">
-        <div class="breathe-ring breathe-ring--outer"></div>
-        <div class="breathe-ring breathe-ring--mid"></div>
+        <div class="breathe-ring breathe-ring--outer" id="guided-session-pacer-outer"></div>
+        <div class="breathe-ring breathe-ring--mid" id="guided-session-pacer-mid"></div>
         <div class="breathe-ring breathe-ring--core" id="guided-session-pacer-core"></div>
       </div>
       <p class="display" id="guided-session-caption" style="font-size:22px; margin:0; max-width:300px;" role="status" aria-live="polite">—</p>

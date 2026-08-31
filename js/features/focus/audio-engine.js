@@ -57,6 +57,7 @@ export class FocusAudioEngine {
     positionHandle = null;
     pollHandle = null;
     listeners = new Set();
+    lastStartBlocked = false;
     isSupported() {
         return getAudioContextClass() != null;
     }
@@ -68,6 +69,7 @@ export class FocusAudioEngine {
             volume: this.volume,
             timerMinutes: this.timerMinutes,
             remainingMs: this.countdown ? this.countdown.getRemainingMs() : null,
+            blocked: this.lastStartBlocked,
         };
     }
     onStateChange(listener) {
@@ -139,6 +141,16 @@ export class FocusAudioEngine {
             }
             if (this.ctx.state === 'suspended')
                 await this.ctx.resume().catch(() => { });
+            // A real, detectable failure: the browser withheld playback despite
+            // this running inside a genuine click handler. Bail out honestly —
+            // building the graph anyway would report "Playing" for a context
+            // producing no sound at all, worse than admitting it didn't start.
+            if (this.ctx.state !== 'running') {
+                this.lastStartBlocked = true;
+                this.notify();
+                return;
+            }
+            this.lastStartBlocked = false;
             this.teardownGraph();
             const ctx = this.ctx;
             const masterGain = this.masterGain ?? ctx.createGain();
@@ -324,6 +336,7 @@ export class FocusAudioEngine {
         this.countdown = null;
     }
     stop() {
+        this.lastStartBlocked = false; // a fresh stop clears any stale "didn't start" state too
         if (!this.ctx || !this.masterGain || !this.graph) {
             this.teardownGraph();
             this.notify();

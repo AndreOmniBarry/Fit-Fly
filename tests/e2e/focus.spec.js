@@ -71,8 +71,20 @@ test.describe('focus', () => {
     await expect(page.locator('#focus-now-playing-name')).toHaveText('Rain');
     await expect(page.locator('#focus-now-playing-status')).toContainText('Playing');
     await expect(page.locator('#focus-sound-rain')).toHaveAttribute('aria-pressed', 'true');
+    // A real "playing" state here means the AudioContext actually reached
+    // 'running' — the honest-failure banner must not show alongside it.
+    await expect(page.locator('#focus-audio-blocked')).toBeHidden();
 
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('the volume control explains it plays through media volume, not app volume', async ({ page }) => {
+    await page.getByRole('button', { name: 'Focus' }).click();
+    // No web API can detect a muted device or a media-volume slider at
+    // zero — regression coverage for the one honest fix available for
+    // "it says Playing but I hear nothing": telling people what to check.
+    await expect(page.locator('#focus-volume')).toBeVisible();
+    await expect(page.getByText(/media volume/i)).toBeVisible();
   });
 
   test('switching sounds stops the first and starts the second, not both at once', async ({ page }) => {

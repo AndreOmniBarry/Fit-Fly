@@ -163,16 +163,17 @@ export function initGuidedSessionFeature() {
         showScreen('screen-focus');
     }
     const grid = byId('guided-session-grid');
-    for (const guidedSession of GUIDED_SESSIONS) {
+    GUIDED_SESSIONS.forEach((guidedSession, index) => {
         const tile = document.createElement('button');
         tile.type = 'button';
-        tile.className = 'focus-sound-tile';
+        tile.className = 'focus-sound-tile tilt-card tilt-enter';
         tile.id = `btn-guided-session-${guidedSession.id}`;
-        tile.innerHTML = `${iconMarkup(SESSION_ICON[guidedSession.id] ?? 'target', { size: 20 })}<span class="name">${guidedSession.name}</span>`;
+        tile.style.animationDelay = `${index * 0.05}s`;
+        tile.innerHTML = `<span class="focus-sound-tile-face tilt-press"><span data-tilt-depth="1">${iconMarkup(SESSION_ICON[guidedSession.id] ?? 'target', { size: 20 })}</span><span class="name">${guidedSession.name}</span></span>`;
         tile.title = guidedSession.description;
         tile.addEventListener('click', () => startSession(guidedSession.id));
         grid.append(tile);
-    }
+    });
     byId('btn-guided-session-voice-toggle').addEventListener('click', () => {
         voiceOn = !voiceOn;
         if (!voiceOn)

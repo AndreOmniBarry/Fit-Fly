@@ -23,6 +23,13 @@
 // it running unconditionally forever is worse than idle: navigate away
 // and it just keeps ticking in the background for the rest of the
 // session.
+//
+// It also stops itself the moment the lerp has actually converged (no
+// real input is changing the target, so there's nothing left to animate
+// toward) rather than re-requesting a frame forever once settled — a new
+// pointer/orientation reading restarts it. Same idle-when-nothing's-
+// -moving discipline as the visibility gate above, just for "on screen
+// but untouched" instead of "off screen".
 import { prefersReducedMotion } from './motion.js';
 
 export interface TiltHandle {
@@ -52,6 +59,8 @@ export function attachTilt(root: HTMLElement): TiltHandle {
   let curY = 0;
   let raf = 0;
 
+  const SETTLE_EPSILON = 0.01;
+
   function tick(): void {
     curX += (targetX - curX) * LERP;
     curY += (targetY - curY) * LERP;
@@ -59,11 +68,17 @@ export function attachTilt(root: HTMLElement): TiltHandle {
     root.style.setProperty('--tilt-ry', `${curY.toFixed(2)}deg`);
     root.style.setProperty('--tilt-tx', `${(curY * 1.6).toFixed(2)}px`);
     root.style.setProperty('--tilt-ty', `${(-curX * 1.6).toFixed(2)}px`);
-    raf = requestAnimationFrame(tick);
+
+    const settled = Math.abs(targetX - curX) < SETTLE_EPSILON && Math.abs(targetY - curY) < SETTLE_EPSILON;
+    if (settled) {
+      raf = 0; // idle until the next pointer/orientation reading calls startLoop() again
+    } else {
+      raf = requestAnimationFrame(tick);
+    }
   }
 
   function startLoop(): void {
-    if (raf) return;
+    if (raf || root.hidden) return;
     raf = requestAnimationFrame(tick);
   }
   function stopLoop(): void {
@@ -84,6 +99,7 @@ export function attachTilt(root: HTMLElement): TiltHandle {
     const ny = (event.clientY / window.innerHeight) * 2 - 1;
     targetY = nx * MAX_DEG;
     targetX = -ny * MAX_DEG;
+    startLoop();
   }
 
   function onOrientation(event: DeviceOrientationEvent): void {
@@ -92,6 +108,7 @@ export function attachTilt(root: HTMLElement): TiltHandle {
     const beta = Math.max(-20, Math.min(50, event.beta - 35)); // pitch, calibrated to a natural hand-held hold
     targetY = (gamma / 30) * MAX_DEG;
     targetX = -(beta / 30) * MAX_DEG;
+    startLoop();
   }
 
   window.addEventListener('pointermove', onPointerMove, { passive: true });

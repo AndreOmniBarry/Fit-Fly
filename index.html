@@ -308,8 +308,8 @@
          Sleep's ring is the same score math as its dashboard ring; Focus's
          waveform is only "live" when a soundscape is actually playing. -->
     <div class="hub-grid">
-      <button class="hub-tile hub-tile--sleep hub-tile--no-score" id="btn-home-sleep">
-        <span class="hub-tile-face">
+      <button class="hub-tile hub-tile--sleep hub-tile--no-score tilt-card tilt-enter" id="btn-home-sleep">
+        <span class="hub-tile-face tilt-press">
           <span class="hub-tile-top">
             <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon"></use></svg></span>
             <svg class="hub-tile-kinetic hub-tile-kinetic--ring" data-tilt-depth="2" viewBox="0 0 40 40" aria-hidden="true">
@@ -325,8 +325,8 @@
         </span>
       </button>
 
-      <button class="hub-tile hub-tile--focus" id="btn-home-focus">
-        <span class="hub-tile-face">
+      <button class="hub-tile hub-tile--focus tilt-card tilt-enter" id="btn-home-focus">
+        <span class="hub-tile-face tilt-press">
           <span class="hub-tile-top">
             <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></span>
             <span class="hub-tile-kinetic hub-tile-kinetic--wave" id="hub-focus-wave" data-tilt-depth="2" aria-hidden="true">
@@ -340,8 +340,8 @@
         </span>
       </button>
 
-      <button class="hub-tile hub-tile--neutral" id="btn-home-fitness-toolkit">
-        <span class="hub-tile-face">
+      <button class="hub-tile hub-tile--neutral tilt-card tilt-enter" id="btn-home-fitness-toolkit">
+        <span class="hub-tile-face tilt-press">
           <span class="hub-tile-top">
             <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-grid"></use></svg></span>
           </span>
@@ -352,8 +352,8 @@
         </span>
       </button>
 
-      <div class="hub-tile hub-tile--soon" aria-disabled="true">
-        <span class="hub-tile-face">
+      <div class="hub-tile hub-tile--soon tilt-card tilt-enter" aria-disabled="true">
+        <span class="hub-tile-face tilt-press">
           <span class="hub-tile-top">
             <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-heart-pulse"></use></svg></span>
           </span>
@@ -516,7 +516,7 @@
 
     <!-- Shown once tonight's log exists. -->
     <div id="sleep-dashboard-result" hidden>
-      <div class="sleep-score-ring">
+      <div class="sleep-score-ring tilt-enter">
         <svg width="200" height="200" viewBox="0 0 200 200">
           <circle cx="100" cy="100" r="86" fill="none" stroke="rgba(245,243,255,0.08)" stroke-width="14"/>
           <circle cx="100" cy="100" r="86" fill="none" stroke="url(#sleepScoreGrad)" stroke-width="14" stroke-linecap="round"
@@ -528,7 +528,7 @@
             </linearGradient>
           </defs>
         </svg>
-        <div class="sleep-score-ring-value">
+        <div class="sleep-score-ring-value" data-tilt-depth="1">
           <span class="score" id="sleep-score-value">—</span>
           <span class="label" id="sleep-score-label">—</span>
         </div>
@@ -536,21 +536,21 @@
       <p class="muted center-text" id="sleep-score-description" style="font-size:var(--fs-sm); max-width:280px; margin:var(--space-2) auto 0;"></p>
 
       <div class="sleep-stat-row" style="margin-top:var(--space-4);">
-        <div class="sleep-stat-tile">
+        <div class="sleep-stat-tile tilt-card tilt-enter">
           <span class="value" id="sleep-stat-bedtime">—</span>
           <span class="label">Bedtime</span>
         </div>
-        <div class="sleep-stat-tile">
+        <div class="sleep-stat-tile tilt-card tilt-enter">
           <span class="value" id="sleep-stat-wake">—</span>
           <span class="label">Wake</span>
         </div>
-        <div class="sleep-stat-tile">
+        <div class="sleep-stat-tile tilt-card tilt-enter">
           <span class="value" id="sleep-stat-duration">—</span>
           <span class="label">Duration</span>
         </div>
       </div>
 
-      <div class="sleep-week-strip" style="margin-top:var(--space-4);">
+      <div class="sleep-week-strip tilt-enter" style="margin-top:var(--space-4);">
         <div class="row-between">
           <strong style="font-size:14px;">This week</strong>
           <span class="muted" id="sleep-week-avg" style="font-size:12px;"></span>
@@ -676,7 +676,7 @@
     </p>
 
     <div class="focus-now-playing" id="focus-now-playing" style="margin-top:var(--space-3);" hidden>
-      <div class="focus-now-playing-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></div>
+      <div class="focus-now-playing-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></div>
       <div style="flex:1;">
         <div style="font-size:14.5px; font-weight:700;" id="focus-now-playing-name">—</div>
         <div class="muted" style="font-size:12px; margin-top:1px;" id="focus-now-playing-status">Playing</div>

@@ -131,15 +131,63 @@
 }
 
 /* ============================================================================
-   HUB — a shared 3D scene, not a flat list.
-   js/lib/tilt.ts drives --tilt-rx/--tilt-ry (rotation) and --tilt-tx/--tilt-ty
-   (parallax offset) on #screen-hub from real pointer or device-tilt input.
-   .hub-grid supplies the perspective; each .hub-tile rotates together as one
-   shared surface; .hub-tile-icon and .hub-tile-kinetic sit at their own
-   translateZ depth inside it so they visually separate as it tilts, the way
-   things at different distances from a light actually do. --tilt-* default
-   to 0 so every rule below is a no-op — full depth, zero motion — under
-   prefers-reduced-motion (tilt.ts never sets them there at all).
+   SHARED SPATIAL-TILT MECHANICS — used by the Hub, and now Sleep's
+   dashboard and Focus's own screen too (see js/lib/tilt.ts's doc comment).
+   Any screen that calls attachTilt() gets --tilt-rx/--tilt-ry (rotation)
+   and --tilt-tx/--tilt-ty (parallax offset) on that screen element from
+   real pointer or device-tilt input; anything under it opts into the same
+   3D language with three primitives:
+     .tilt-card   — rotates with the shared reading. No transition: JS
+                    already lerps --tilt-* every frame (that motion *is*
+                    the spring), and a CSS transition here would fight
+                    the continuous updates and read as laggy.
+                    .tilt-card:active .tilt-press (its face element)
+                    springs on press — a *separate* transform layer,
+                    composed rather than sharing one with the rotate, for
+                    the same fight-avoidance reason.
+     .tilt-press  — the press-spring face inside a .tilt-card.
+     data-tilt-depth="1"|"2" — on any child that should visually separate
+                    from its surface as it tilts, "1" (nearer) moving more
+                    than "2" (farther) — real depth, not a flat card.
+   --tilt-* default to 0 everywhere, so every rule below is a no-op — full
+   depth, zero motion — under prefers-reduced-motion (tilt.ts never sets
+   them there at all) or on any screen that never calls attachTilt().
+   ========================================================================== */
+.tilt-card{
+  transform:rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform-style:preserve-3d;
+}
+.tilt-press{
+  transform:scale(1);
+  transform-style:preserve-3d;
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1);
+}
+.tilt-card:active .tilt-press{
+  transform:scale(.96);
+  transition-duration:.15s;
+}
+@media (prefers-reduced-motion: reduce){
+  .tilt-card:active .tilt-press{ transform:none; }
+}
+[data-tilt-depth="1"]{ transform:translate3d(var(--tilt-tx, 0px), var(--tilt-ty, 0px), 22px); }
+[data-tilt-depth="2"]{ transform:translate3d(calc(var(--tilt-tx, 0px) * .5), calc(var(--tilt-ty, 0px) * .5), 10px); }
+
+/* materialize-in entrance — stagger with a per-child animation-delay in
+   the grid/list this is used in (see .hub-grid .hub-tile:nth-child(N)
+   below for the pattern). */
+.tilt-enter{ animation:tilt-enter-in .6s cubic-bezier(.16,1,.3,1) both; }
+@keyframes tilt-enter-in{
+  from{ opacity:0; transform:translateY(16px) scale(.95) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)); }
+  to{ opacity:1; transform:translateY(0) scale(1) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)); }
+}
+@media (prefers-reduced-motion: reduce){
+  .tilt-enter{ animation:none; }
+}
+
+/* ============================================================================
+   HUB — a shared 3D scene, not a flat list. .hub-grid supplies the
+   perspective; .hub-tile is a .tilt-card, .hub-tile-face a .tilt-press;
+   .hub-tile-icon and .hub-tile-kinetic carry data-tilt-depth.
    ========================================================================== */
 .hub-grid{
   display:grid;
@@ -153,11 +201,6 @@
   overflow:hidden;
   text-align:left;
   isolation:isolate;
-  transform:rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
-  transform-style:preserve-3d;
-  /* JS already lerps --tilt-* every frame — that motion *is* the spring.
-     A transition here would fight it and read as laggy, so this element
-     carries none; only .hub-tile-face (the press feedback) gets one. */
 }
 .hub-tile-face{
   display:flex;
@@ -166,16 +209,6 @@
   height:100%;
   padding:var(--space-4) var(--space-3);
   min-height:172px;
-  transform:scale(1);
-  transform-style:preserve-3d;
-  transition:transform .5s cubic-bezier(.34,1.56,.64,1);
-}
-.hub-tile:active .hub-tile-face{
-  transform:scale(.96);
-  transition-duration:.15s;
-}
-@media (prefers-reduced-motion: reduce){
-  .hub-tile:active .hub-tile-face{ transform:none; }
 }
 .hub-tile-top{
   position:relative;
@@ -187,7 +220,6 @@
   width:36px; height:36px; border-radius:11px;
   display:flex; align-items:center; justify-content:center;
   position:relative; z-index:1;
-  transform:translate3d(var(--tilt-tx, 0px), var(--tilt-ty, 0px), 22px);
 }
 .hub-tile-title{
   font-family:var(--miniapp-font-display);
@@ -201,24 +233,13 @@
 
 /* entrance: the grid materializes into the scene it already tilts in,
    each tile a beat behind the last */
-.hub-tile{ animation:hub-tile-in .6s cubic-bezier(.16,1,.3,1) both; }
 .hub-grid .hub-tile:nth-child(1){ animation-delay:.02s; }
 .hub-grid .hub-tile:nth-child(2){ animation-delay:.08s; }
 .hub-grid .hub-tile:nth-child(3){ animation-delay:.14s; }
 .hub-grid .hub-tile:nth-child(4){ animation-delay:.2s; }
-@keyframes hub-tile-in{
-  from{ opacity:0; transform:translateY(16px) scale(.95) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)); }
-  to{ opacity:1; transform:translateY(0) scale(1) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)); }
-}
-@media (prefers-reduced-motion: reduce){
-  .hub-tile{ animation:none; }
-}
 
 /* ---------- kinetic data: real numbers, drawn as motion ---------- */
-.hub-tile-kinetic{
-  position:relative; z-index:1;
-  transform:translate3d(calc(var(--tilt-tx, 0px) * .5), calc(var(--tilt-ty, 0px) * .5), 10px);
-}
+.hub-tile-kinetic{ position:relative; z-index:1; }
 
 .hub-tile-kinetic--ring{ width:30px; height:30px; overflow:visible; }
 .hub-ring-track, .hub-ring-fill{
@@ -318,10 +339,21 @@
 .sleep-score-ring-value .label{
   font-size:13px; font-weight:700; color:var(--sleep-accent); letter-spacing:0.02em;
 }
+/* The ring itself deliberately doesn't tilt (a big precise data circle
+   spinning in 3D reads as a gimmick, not depth) — only its value floats a
+   little via data-tilt-depth, and it draws in for real: js/features/sleep/
+   sleep-view.ts changes #sleep-score-ring-fill's stroke-dashoffset
+   *attribute* (never a competing CSS value — see the Hub's identical
+   comment on .hub-ring-fill for why), so this transition genuinely
+   animates the score arriving, not snapping to its final state. */
+#sleep-score-ring-fill{ transition:stroke-dashoffset 1s cubic-bezier(.16,1,.3,1); }
 
 .sleep-stat-row{
   display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
 }
+.sleep-stat-row .sleep-stat-tile:nth-child(1){ animation-delay:.04s; }
+.sleep-stat-row .sleep-stat-tile:nth-child(2){ animation-delay:.1s; }
+.sleep-stat-row .sleep-stat-tile:nth-child(3){ animation-delay:.16s; }
 .sleep-stat-tile{
   background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
   border-radius:16px; padding:14px 10px;
@@ -336,6 +368,31 @@
 }
 .sleep-week-bars{
   display:flex; align-items:flex-end; gap:10px; height:64px;
+}
+/* Real data drawn as motion, same as everywhere else in this app: each
+   bar's height is already the real minutes-slept-that-night value
+   (sleep-view.ts's renderWeekStrip) — this only grows it in from zero
+   rather than snapping it in, via scaleY (which plays its full 0%->100%
+   on element creation regardless of paint timing, unlike a transition on
+   a freshly-inserted element, which needs an extra reflow-forcing step to
+   animate at all). */
+.sleep-week-bar{
+  transform-origin:bottom;
+  animation:sleep-week-bar-grow .6s cubic-bezier(.16,1,.3,1) both;
+}
+.sleep-week-bars .sleep-week-bar-col:nth-child(1) .sleep-week-bar{ animation-delay:.02s; }
+.sleep-week-bars .sleep-week-bar-col:nth-child(2) .sleep-week-bar{ animation-delay:.07s; }
+.sleep-week-bars .sleep-week-bar-col:nth-child(3) .sleep-week-bar{ animation-delay:.12s; }
+.sleep-week-bars .sleep-week-bar-col:nth-child(4) .sleep-week-bar{ animation-delay:.17s; }
+.sleep-week-bars .sleep-week-bar-col:nth-child(5) .sleep-week-bar{ animation-delay:.22s; }
+.sleep-week-bars .sleep-week-bar-col:nth-child(6) .sleep-week-bar{ animation-delay:.27s; }
+.sleep-week-bars .sleep-week-bar-col:nth-child(7) .sleep-week-bar{ animation-delay:.32s; }
+@keyframes sleep-week-bar-grow{
+  from{ transform:scaleY(0); }
+  to{ transform:scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .sleep-week-bar{ animation:none; }
 }
 .sleep-week-bar-col{
   flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
@@ -472,12 +529,22 @@
 
 .focus-sound-grid{
   display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;
+  perspective:1000px;
 }
+/* .focus-sound-tile is the .tilt-card (the surface: background, border,
+   radius — and the rotation); .focus-sound-tile-face is its .tilt-press
+   (layout + the press-spring) — the same two-layer split as the Hub's
+   tiles, for the same reason: a JS-lerped rotate and a CSS-sprung press
+   can't safely share one transform declaration. */
 .focus-sound-tile{
-  border-radius:20px; padding:16px;
+  border-radius:20px;
   background:var(--focus-card-bg); border:1px solid var(--focus-card-border);
   text-align:left; color:inherit;
+  overflow:hidden;
+}
+.focus-sound-tile-face{
   display:flex; flex-direction:column; gap:12px;
+  padding:16px;
 }
 .focus-sound-tile[aria-pressed="true"]{
   background:var(--focus-accent-soft); border-color:rgba(140,224,201,0.4);

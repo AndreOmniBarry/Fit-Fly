@@ -3,6 +3,8 @@
 // engine Focus's own screen uses), and Insights.
 import { showScreen } from '../../lib/router.js';
 import { initChipGroup } from '../../lib/chip-group.js';
+import { attachTilt } from '../../lib/tilt.js';
+import { animateCountUp } from '../../lib/count-up.js';
 import { getSleepLogForDate, listRecentSleepLogs, saveSleepLog } from '../../db/repositories/sleep-logs.js';
 import { calculateSleepScore } from './sleep-score.js';
 import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
@@ -66,6 +68,16 @@ export function initSleepFeature(): void {
 
   const qualityChips = initChipGroup<string | null>(byId('sleep-log-quality'), { initial: null });
 
+  // Same spatial-tilt language as the Hub, scoped to the dashboard — the
+  // score ring and its stat tiles are the richest data on this screen, so
+  // that's where the depth cue belongs. Insights (a chart-dense screen)
+  // and Wind Down (its own breathing-pacer motion language) deliberately
+  // don't get it too — restraint, not the effect applied everywhere.
+  const dashboardTilt = attachTilt(byId('screen-sleep-dashboard'));
+  byId('screen-sleep-dashboard').addEventListener('pointerdown', () => void dashboardTilt.requestMotionPermission(), {
+    once: true,
+  });
+
   function renderForm(): void {
     byId('sleep-log-form').hidden = false;
     byId('sleep-dashboard-result').hidden = true;
@@ -110,7 +122,7 @@ export function initSleepFeature(): void {
 
     const score = calculateSleepScore({ durationMinutes: log.durationMinutes, quality: log.quality }, recentLogs);
 
-    byId('sleep-score-value').textContent = String(score.score);
+    animateCountUp(byId('sleep-score-value'), score.score);
     byId('sleep-score-label').textContent = CATEGORY_LABEL[score.category];
     bySvgId('sleep-score-ring-fill').setAttribute(
       'stroke-dashoffset',
@@ -142,11 +154,13 @@ export function initSleepFeature(): void {
 
   function renderInsights(): void {
     const streak = calculateLoggingStreak(recentLogs);
-    byId('sleep-insight-streak').textContent = String(streak);
+    animateCountUp(byId('sleep-insight-streak'), streak);
 
     const debt = calculateSleepDebt(recentLogs.slice(0, 7));
-    byId('sleep-insight-debt').textContent = debt.nightsConsidered === 0 ? '—' : formatDurationHM(debt.debtMinutes);
-    byId('sleep-insight-debt').title = describeSleepDebt(debt);
+    const debtEl = byId('sleep-insight-debt');
+    if (debt.nightsConsidered === 0) debtEl.textContent = '—';
+    else animateCountUp(debtEl, debt.debtMinutes, { formatter: formatDurationHM });
+    debtEl.title = describeSleepDebt(debt);
 
     renderInsightChart();
     renderInsightFactors();

@@ -168,6 +168,18 @@ test.describe('focus', () => {
     await expect(page.getByRole('button', { name: 'Sleep' })).toBeVisible();
   });
 
+  test('the screen reacts to tilt, same spatial language as the Hub', async ({ page }) => {
+    await page.getByRole('button', { name: 'Focus' }).click();
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-focus'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
+
   test('Thunderstorm plays real, randomly-timed thunderclaps with zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {

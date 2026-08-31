@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { createPrng } from '../../../js/features/calm-sounds/prng.js';
-import { generateImpulseResponse } from '../../../js/features/calm-sounds/impulse-response.js';
+import { createPrng } from '../../../js/features/focus/prng.js';
+import { generateImpulseResponse } from '../../../js/features/focus/impulse-response.js';
 
 describe('generateImpulseResponse', () => {
   it('produces duration * sampleRate samples', () => {

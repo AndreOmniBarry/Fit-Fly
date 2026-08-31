@@ -1,5 +1,5 @@
 import { applyThemePreference, isValidThemePreference, applyCategoryAccent } from './lib/theme.js';
-import { getPref } from './lib/storage.js';
+import { getPref, setPref } from './lib/storage.js';
 import { initRouter, showScreen } from './lib/router.js';
 import { initOnboardingWizard, formatCategoryLabel } from './features/onboarding/wizard.js';
 import { initActivityFeature } from './features/activity/activity-log.js';
@@ -14,7 +14,8 @@ import { initGoalsFeature } from './features/goals/goals-view.js';
 import { initVoiceFeature } from './features/voice/voice-control.js';
 import { initHubFeature } from './features/hub/hub-view.js';
 import { initSleepFeature } from './features/sleep/sleep-view.js';
-import { initCalmSoundsFeature } from './features/calm-sounds/calm-sounds-view.js';
+import { initFocusFeature } from './features/focus/focus-view.js';
+import { initGuidedSessionFeature } from './features/focus/guided-session-view.js';
 import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
@@ -24,6 +25,17 @@ function renderHome(profile, assignment) {
   document.getElementById('home-category-badge').textContent = assignment
     ? formatCategoryLabel(assignment.category)
     : '—';
+}
+
+/** Shown on the Fitness Toolkit screen whenever there's no profile yet —
+ *  someone who skipped onboarding can still use Sleep/Focus (and
+ *  most Fitness Toolkit screens, which degrade gracefully on their own),
+ *  but programs/calorie targets/readiness genuinely need real inputs to
+ *  say anything, so this says so plainly instead of quietly showing
+ *  nothing. */
+async function refreshProfileBanner() {
+  const profile = await getProfile();
+  document.getElementById('fitness-toolkit-no-profile-banner').hidden = Boolean(profile);
 }
 
 async function init() {
@@ -46,7 +58,8 @@ async function init() {
   initVoiceFeature();
   initHubFeature();
   initSleepFeature();
-  initCalmSoundsFeature();
+  initFocusFeature();
+  initGuidedSessionFeature();
   seedExerciseLibrary(); // fire-and-forget — a mirror of the built-in library for future browsing/customization, not on the read path today
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {
@@ -62,14 +75,34 @@ async function init() {
     getProfile(),
     getLatestCategoryAssignment(),
   ]);
+  const skippedOnboarding = getPref('onboardingSkipped') === 'true';
 
   if (profile && assignment) {
     renderHome(profile, assignment);
+    showScreen('screen-hub', { focus: false });
+  } else if (skippedOnboarding) {
     showScreen('screen-hub', { focus: false });
   }
 
   document.getElementById('btn-get-started').addEventListener('click', () => {
     showScreen('screen-ob-basics');
+  });
+
+  // Onboarding isn't required to use Sleep or Focus — neither needs
+  // profile data at all. It comes back later for anyone who wants the
+  // Fitness Toolkit's personalized programs/targets (see
+  // refreshProfileBanner and btn-fitness-toolkit-setup-profile below).
+  document.getElementById('btn-skip-onboarding').addEventListener('click', () => {
+    setPref('onboardingSkipped', 'true');
+    showScreen('screen-hub');
+  });
+
+  document.getElementById('btn-fitness-toolkit-setup-profile').addEventListener('click', () => {
+    showScreen('screen-ob-basics');
+  });
+
+  document.getElementById('btn-home-fitness-toolkit').addEventListener('click', () => {
+    void refreshProfileBanner();
   });
 
   document.getElementById('btn-home-restart').addEventListener('click', () => {

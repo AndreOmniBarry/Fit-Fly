@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { createPrng } from '../../../js/features/calm-sounds/prng.js';
+import { createPrng } from '../../../js/features/focus/prng.js';
 import {
   crossfadeLoopBuffer,
   generateBrownNoise,
   generatePinkNoise,
   generateWhiteNoise,
-} from '../../../js/features/calm-sounds/noise-synthesis.js';
+} from '../../../js/features/focus/noise-synthesis.js';
 
 function rms(buffer) {
   return Math.sqrt(Array.from(buffer).reduce((sum, v) => sum + v * v, 0) / buffer.length);

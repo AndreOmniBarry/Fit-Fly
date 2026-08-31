@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createPrng } from '../../../js/features/calm-sounds/prng.js';
+import { createPrng } from '../../../js/features/focus/prng.js';
 
 describe('createPrng', () => {
   it('produces values in [0, 1)', () => {

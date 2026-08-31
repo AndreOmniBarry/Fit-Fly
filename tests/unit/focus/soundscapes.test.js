@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getSoundscape, SOUNDSCAPES } from '../../../js/features/calm-sounds/soundscapes.js';
+import { getSoundscape, SOUNDSCAPES } from '../../../js/features/focus/soundscapes.js';
 
 describe('SOUNDSCAPES catalog', () => {
   it('has real, distinct content — not one generic entry', () => {
@@ -62,11 +62,18 @@ describe('SOUNDSCAPES catalog', () => {
     }
   });
 
-  it('includes the sounds explicitly asked for — rain, waves, a river', () => {
+  it('includes the sounds explicitly asked for — rain, waves, a river, thunderstorms', () => {
     const names = SOUNDSCAPES.map((s) => s.name.toLowerCase());
     expect(names.some((n) => n.includes('rain'))).toBe(true);
     expect(names.some((n) => n.includes('ocean') || n.includes('wave'))).toBe(true);
     expect(names.some((n) => n.includes('river'))).toBe(true);
+    expect(names.some((n) => n.includes('thunder'))).toBe(true);
+  });
+
+  it('only the thunderstorm schedules real thunderclaps', () => {
+    const thunder = SOUNDSCAPES.filter((s) => s.hasThunder);
+    expect(thunder).toHaveLength(1);
+    expect(thunder[0].id).toBe('thunderstorm');
   });
 });
 

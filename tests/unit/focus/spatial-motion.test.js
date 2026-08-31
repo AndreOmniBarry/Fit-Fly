@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { positionAtTime } from '../../../js/features/calm-sounds/spatial-motion.js';
+import { positionAtTime } from '../../../js/features/focus/spatial-motion.js';
 
 function magnitude(v) {
   return Math.sqrt(v.x ** 2 + v.y ** 2 + v.z ** 2);

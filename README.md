@@ -3,18 +3,21 @@
 A personalized, on-device health app built as a **hub of mini-apps** — open
 it and you land on a launcher (the Hub) with each mini-app as its own
 equal-weight tile, the same way opening a phone shows you a home screen of
-separate apps rather than one monolithic tool. **Sleep** and **Calm
-Sounds** are the first two, built to real, commercial-grade depth rather
+separate apps rather than one monolithic tool. **Sleep** and **Focus**
+are the first two, built to real, commercial-grade depth rather
 than broad-but-shallow; the original 14-phase fitness feature set (activity
 logging, tailored programs, run mode, heart rate, women's health,
 nutrition, recovery, goals, voice control) still lives in full behind the
 **Fitness Toolkit** tile, unchanged. More mini-apps (vitals, step counting)
 are planned to land in the Hub the same way. Built by OmniBarry Inc Labs.
 
-Onboarding still places you into one fitness category — sedentary start,
-cut/fat loss, recomposition, rehab/recuperation, hypertrophy, or endurance —
-and that choice shapes everything inside the Fitness Toolkit: your
-programs, your warm-ups, safety flags, even that section's accent color.
+Onboarding is optional, not a gate — "Skip for now" lands straight in the
+Hub, since Sleep and Focus need no profile data at all. Completing it
+(any time, from inside the Fitness Toolkit) places you into one fitness
+category — sedentary start, cut/fat loss, recomposition,
+rehab/recuperation, hypertrophy, or endurance — and that choice shapes
+everything inside the Fitness Toolkit: your programs, your warm-ups,
+safety flags, even that section's accent color.
 
 Genuinely inspired by the broader "personal fitness tracker" category,
 built from scratch — this repo, like its sibling projects, never names or
@@ -58,20 +61,46 @@ Fit Fly is a web app — installable as a home-screen PWA on iOS/Android,
 works fully offline once loaded — built with **no bundler and no dev
 server rewrite step**: every module the browser loads is a real file at a
 real path, the same file `import` statements reference. The original
-14-phase feature set is plain ES modules; the Hub, Sleep, and Calm Sounds
+14-phase feature set is plain ES modules; the Hub, Sleep, and Focus
 are authored in **TypeScript** (strict mode) and compiled in place by
 `tsc` to the adjacent `.js` the browser actually loads — see "TypeScript,
 without a bundler" below. Neither approach pulls in a UI framework.
 
 The trade-off accepted deliberately across the whole app: GPS tracking
 only works while the screen is on (mitigated with the Screen Wake Lock
-API), background audio (Calm Sounds, Sleep's Wind Down) is unreliable once
+API), background audio (Focus, Sleep's Wind Down) is unreliable once
 the screen locks — that's the OS's rule, stated plainly in the UI rather
 than glossed over — there's no HealthKit/Google Fit bridge, and iOS has no
 Bluetooth heart-rate-strap support in the browser. Camera-based PPG
 heart-rate estimation and manual entry cover that last gap, always labeled
 as an estimate per the rule above. Sleep, similarly, never claims to sense
 anything passively overnight — see "Sleep" below for why.
+
+## Accessibility
+
+- **No emoji anywhere** — see "The Hub" below. Every icon is a real,
+  `aria-hidden` SVG next to a real text label, never the only description
+  of what a control does.
+- **`:focus-visible` keyboard-focus rings use each mini-app's own bright
+  accent color** on Sleep/Focus's night surfaces (`.theme-sleep
+  :focus-visible` / `.theme-focus :focus-visible` in `mini-apps.css`),
+  not just the app-wide neutral accent — noticeably higher contrast
+  against a dark gradient than a mid-tone blue would be.
+- **`prefers-reduced-motion` is honored everywhere something loops or
+  pulses** — the Sleep/Focus starfield twinkle, the breathing pacer's
+  ring animation, the Focus now-playing ripple, and the guided-session
+  pacer's scale transition all either stop or shorten under it (see the
+  `@media (prefers-reduced-motion: reduce)` blocks in `mini-apps.css`).
+- **A guided session's caption is the primary channel, not a voice-only
+  fallback** — see "Guided sessions" below. It's always shown and updated
+  in real time, with voice narration as a separate, switchable-off layer
+  on top, specifically so it doesn't talk over someone's own screen
+  reader.
+- Every heading/label/button in this app carries real semantic
+  markup and an `aria-label` where its visible content alone wouldn't
+  describe it (icon-only buttons throughout: back arrows, the lock, the
+  mic, stop/pause controls, ...) — inherited from the original 14-phase
+  build and held to the same bar in everything added on top of it.
 
 ## TypeScript, without a bundler
 
@@ -108,16 +137,16 @@ css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
   components.css           # shared buttons/cards/forms/chips/nav
-  mini-apps.css              # Hub + Sleep + Calm Sounds' own night-surface visual identity
+  mini-apps.css              # Hub + Sleep + Focus's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers
+  lib/                       # cross-feature pure logic + small DOM helpers, including icons.ts (the app's icon system)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
     sleep/                       # Sleep mini-app: score/consistency/debt, dashboard, Wind Down, Insights (TypeScript)
-    calm-sounds/                  # Calm Sounds mini-app: real Web Audio spatial engine + catalog (TypeScript)
-    onboarding/                    # profile/BMI intake + category engine
+    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (TypeScript)
+    onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
     exercises/                        # exercise library + hand-authored demo SVGs
@@ -138,7 +167,8 @@ tests/
                                 # cycle prediction, program generation, 1RM,
                                 # PPG signal processing, voice-grammar matching,
                                 # sleep scoring/consistency/debt/trends/insights,
-                                # calm sounds noise synthesis/spatial motion/impulse response)
+                                # focus noise synthesis/spatial motion/impulse
+                                # response/thunderclaps/guided-session content)
   e2e/                          # Playwright — real UI flows, zero console errors
 scripts/
   serve.mjs                   # zero-dependency static server (dev + e2e)
@@ -200,15 +230,19 @@ layer, onboarding/category engine, activity tracking, timers, tailored
 programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
-Hub/mini-apps model described above, with **Sleep** and **Calm Sounds**
-built out as the first two real mini-apps. 405 Vitest unit tests and 168
-Playwright end-to-end tests (desktop + mobile-viewport, zero console
+Hub/mini-apps model described above, with **Sleep** and **Focus**
+built out as the first two real mini-apps — Focus including four guided
+sessions with free, on-device voice guidance. 425 Vitest unit tests and
+198 Playwright end-to-end tests (desktop + mobile-viewport, zero console
 errors) are green.
 
-Known, deliberate gaps rather than oversights: no export/import for
-on-device data (see above), no offline service worker/asset caching yet,
-voice commands cover a small closed set of navigation phrases (not yet
-extended to Sleep/Calm Sounds), and Sleep currently uses a fixed 8-hour
+Known, deliberate gaps rather than oversights: no accounts or sync yet —
+still entirely on-device, no server, by design (a real backend for
+coach/doctor access and cross-device history is planned, deliberately not
+built opportunistically alongside this round of work); no export/import
+for on-device data either yet; no offline service worker/asset caching
+yet; voice commands cover a small closed set of navigation phrases (not
+yet extended to Sleep/Focus); and Sleep currently uses a fixed 8-hour
 goal rather than a per-person configurable one.
 
 ## Data layer
@@ -272,10 +306,31 @@ It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
 pattern every future mini-app (vitals, step counting, and beyond) has to
 slot into without the grid needing a rework or something ending up buried
-under "more tools." Sleep and Calm Sounds get their own gradient identity
+under "more tools." Sleep and Focus get their own gradient identity
 per tile; Fitness Toolkit and the "Vitals & Steps — coming soon" tile use
 the app's existing neutral surface, since they aren't mini-apps with their
 own visual identity (yet, in the coming-soon case).
+
+**No emoji anywhere in the app** — `js/lib/icons.ts` plus a sprite of real
+inline SVG `<symbol>` definitions at the top of `index.html` (search it for
+"ICON SPRITE") is the app's one and only icon system. An emoji renders as a
+different picture per OS (or not at all on some), can't take the
+surrounding theme's color, and some screen readers announce its full
+Unicode name instead of describing what the button does — real SVG, always
+`aria-hidden` next to a real text label or `aria-label`, has none of those
+problems. A static HTML spot (`<use href="#icon-name">`) and a JS-built one
+(`iconMarkup('name')`) both reference the exact same sprite, so they're
+always pixel-identical.
+
+**Onboarding is optional.** "Skip for now" on the splash screen lands
+straight in the Hub — Sleep and Focus need zero profile data, so nothing
+about them requires registering first. Skipping is remembered
+(`localStorage`, the same lightweight preference store the theme setting
+already uses) so it only has to happen once. The Fitness Toolkit still
+benefits from a real profile (personalized programs, calorie targets,
+readiness scoring), so it shows a plain "set up your profile" prompt
+instead of silently rendering blank targets when one is missing — onboard
+later, from inside the Fitness Toolkit, whenever it's actually wanted.
 
 ## Sleep
 
@@ -317,17 +372,19 @@ in for missing data.
 
 Sleep's Wind Down screen — a pulsating breathing pacer (CSS animation,
 three concentric rings) plus three quick ambient-sound picks — drives the
-exact same shared audio engine Calm Sounds' own screen does (see below),
+exact same shared audio engine Focus's own screen does (see below),
 not a disconnected copy.
 
-## Calm Sounds
+## Focus
 
 A second, standalone mini-app — not a Sleep sub-feature — for anyone who
-wants steady background sound while falling asleep, sitting with a busy
-mind, or just working: rain, ocean waves, a river, wind, a fireplace, or
-plain steady noise. The catalog and its framing (`js/features/calm-sounds/soundscapes.ts`)
-deliberately avoid diagnostic or clinical language — it offers sounds, it
-doesn't suggest a reason you might need them.
+wants steady background sound or a short guided session while falling
+asleep, sitting with a busy mind, or just working: rain, a thunderstorm,
+ocean waves, a river, wind, a fireplace, or plain steady noise, plus four
+guided sessions. The catalog and its framing (`js/features/focus/soundscapes.ts`,
+`guided-sessions.ts`) deliberately avoid diagnostic or clinical language —
+it offers techniques and sounds, it never suggests a reason someone might
+need them.
 
 **Real audio, not a looped sample file** — there's nothing to fetch in an
 offline-first PWA with no server, so every soundscape is procedurally
@@ -348,15 +405,23 @@ generated Web Audio, run at a requested 48kHz:
   (exponentially-decaying filtered noise — the standard way to build a
   plausible room IR when no real IR file can be fetched) fed into a
   `ConvolverNode` for spatial depth.
+- **Real thunderclaps, not a sample or a fixed loop** — `thunder.ts`
+  synthesizes a fresh crack-and-rumble burst (a fast noise-burst attack,
+  then a longer decaying low-frequency tail — the same two-part shape a
+  real clap has) every time one plays. The Thunderstorm soundscape
+  schedules them at a random 9-32 second interval via `audio-engine.ts`'s
+  `scheduleNextThunderclap` — each clap gets its own one-shot `PannerNode`
+  positioned in a random direction, independent of the continuous rain
+  layer's own motion, since real thunder doesn't travel with the rain.
 
-`js/features/calm-sounds/audio-engine.ts` is the thin, stateful
+`js/features/focus/audio-engine.ts` is the thin, stateful
 orchestration layer that wires all of the above into a real Web Audio
 graph — feature-detected and defensive throughout (a missing/blocked
 `AudioContext` degrades to "nothing plays," never a thrown error), the
 same contract as `audio-cue.js`'s `primeAudio()`. It owns a **single
-shared engine instance** (`getCalmAudioEngine()`) so Calm Sounds' own
+shared engine instance** (`getFocusAudioEngine()`) so Focus's own
 screen and Sleep's Wind Down screen always reflect the exact same live
-playback state — start a sound from Wind Down, open the full Calm Sounds
+playback state — start a sound from Wind Down, open the full Focus
 screen, and it shows that same sound already playing, not a second
 disconnected player. Every pure math module above is Vitest-tested
 directly (deterministic via a seeded PRNG, `prng.ts`); `audio-engine.ts`
@@ -368,6 +433,44 @@ Same platform honesty as everywhere else in this README: background audio
 is unreliable once the screen locks (stated plainly in the Wind Down
 screen's own copy, not glossed over) — that's the OS's rule, not a bug
 here.
+
+### Guided sessions
+
+Four short (under-a-minute to ~3-minute) sessions, each built on one real,
+named, well-established technique — never invented copy standing in for
+one — documented with its source in `guided-sessions.ts`'s `basis` field
+on every entry:
+
+- **Breathing Focus** — box breathing (4-4-4-4: in, hold, out, hold), the
+  technique taught for fast physiological calming before a high-stakes
+  task. Six full cycles.
+- **Relax** — a short progressive muscle relaxation pass (Jacobson's
+  technique), abbreviated to three muscle groups: tense on purpose, then
+  release.
+- **Focus** — 5-4-3-2-1 sensory grounding, framed plainly as a way to
+  arrive before starting something, with zero clinical language attached.
+- **Sleep Focus** — a guided body scan, feet to head, the standard
+  technique behind most sleep-focused meditations.
+
+Every session is an ordered list of "beats" (`guided-sessions.ts`'s
+`SessionBeat`) — a line of text plus an *exact* duration, deliberately not
+derived from however long text-to-speech takes to say it: a breathing
+exercise has to be metronomic regardless of voice/engine speed, so pacing
+runs on the same wall-clock-timer discipline as every other timer in this
+app (`js/lib/timer.js`'s `createCountdown`), and voice narration just
+plays alongside it, never in front of it.
+
+**The caption is never a voice-only fallback — it's the primary channel,
+with voice as a real, switchable-off enhancement.** `voice-guide.ts` wraps
+the browser's own free, on-device `SpeechSynthesis` API — no account, no
+API key, no per-call cost, works fully offline. It's genuinely available
+in effectively every modern browser, so there's no "read text instead"
+degraded mode to fall back to: the on-screen caption *is* that mode,
+shown and updated in real time regardless of whether voice is on, with its
+own voice toggle (`btn-guided-session-voice-toggle`) for anyone who wants
+captions only — including someone running their own screen reader
+alongside the app, where a second synthesized voice narrating on top of
+it would just talk over their own assistive technology.
 
 ## The Fitness Toolkit
 

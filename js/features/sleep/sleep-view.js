@@ -1,6 +1,6 @@
 // Sleep's screen controller: dashboard (quick-log form or today's score),
 // Wind Down (breathing pacer + ambient sound, driven by the same shared
-// Calm Sounds engine Calm Sounds' own screen uses), and Insights.
+// engine Focus's own screen uses), and Insights.
 import { showScreen } from '../../lib/router.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { getSleepLogForDate, listRecentSleepLogs, saveSleepLog } from '../../db/repositories/sleep-logs.js';
@@ -11,7 +11,7 @@ import { calculateSleepFactorInsights } from './sleep-insights.js';
 import { computeSleepLogTimes } from './sleep-duration.js';
 import { formatClockTime, formatDurationHM, formatTimeInputValue } from './format.js';
 import { setSleepTileSubtitle } from '../hub/hub-view.js';
-import { getCalmAudioEngine } from '../calm-sounds/audio-engine.js';
+import { getFocusAudioEngine } from '../focus/audio-engine.js';
 function byId(id) {
     const el = document.getElementById(id);
     if (!el)
@@ -187,12 +187,12 @@ export function initSleepFeature() {
         }
     }
     /** Wind Down's ambient-sound picker + Begin button drive the exact same
-     *  shared engine Calm Sounds' own screen uses (see audio-engine.ts's
-     *  getCalmAudioEngine()) — picking a quick sound here and opening the
-     *  full Calm Sounds screen later shows the same playing/stopped state,
+     *  shared engine Focus's own screen uses (see audio-engine.ts's
+     *  getFocusAudioEngine()) — picking a quick sound here and opening the
+     *  full Focus screen later shows the same playing/stopped state,
      *  not two disconnected players. */
     function wireWindDown() {
-        const engine = getCalmAudioEngine();
+        const engine = getFocusAudioEngine();
         const picker = byId('wind-down-sound-picker');
         const beginButton = byId('btn-wind-down-begin');
         let selectedSoundId = 'rain';
@@ -226,7 +226,7 @@ export function initSleepFeature() {
                 void engine.start(selectedSoundId);
             }
         });
-        byId('btn-wind-down-more-sounds').addEventListener('click', () => showScreen('screen-calm-sounds'));
+        byId('btn-wind-down-more-sounds').addEventListener('click', () => showScreen('screen-focus'));
     }
     // --- wiring ---
     byId('sleep-log-form').addEventListener('submit', async (event) => {

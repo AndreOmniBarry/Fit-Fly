@@ -1,4 +1,5 @@
 import { showScreen } from '../../lib/router.js';
+import { iconMarkup } from '../../lib/icons.js';
 import { createStopwatch, formatDuration } from '../../lib/timer.js';
 import { requestWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
 import {
@@ -188,10 +189,10 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm }, prs) {
   byId('run-summary-pace').textContent = formatPace(avgPaceSecPerKm);
 
   const badges = [];
-  if (prs.isDistancePR) badges.push('🏆 New longest run');
-  if (prs.isPacePR) badges.push('🏆 New fastest pace');
+  if (prs.isDistancePR) badges.push('New longest run');
+  if (prs.isPacePR) badges.push('New fastest pace');
   byId('run-summary-prs').innerHTML = badges
-    .map((text) => `<div class="card card-accent">${text}</div>`)
+    .map((text) => `<div class="card card-accent row" style="align-items:center; gap:var(--space-2);">${iconMarkup('trophy', { size: 18 })}<span>${text}</span></div>`)
     .join('');
 }
 

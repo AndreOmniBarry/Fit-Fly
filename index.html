@@ -18,11 +18,12 @@
 
 <title>Fit Fly</title>
 
-<!-- Emoji favicon, no image asset to fetch. A rasterized PNG apple-touch-icon
-     is a nice-to-have follow-up; Safari falls back to this SVG in the
-     meantime, which is enough for local/dev use. -->
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%83%3C/text%3E%3C/svg%3E">
-<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234a6b8a'/%3E%3Ctext x='50' y='68' font-size='58' text-anchor='middle'%3E%F0%9F%8F%83%3C/text%3E%3C/svg%3E">
+<!-- A real vector mark, no emoji: an ascending line, matching the "Fit
+     Fly" name. No image asset to fetch — a rasterized PNG apple-touch-icon
+     is a nice-to-have follow-up; Safari falls back to this SVG for now,
+     which is enough for local/dev use. -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath d='M20 70C30 58 40 63 48 50C56 38 65 42 74 26' stroke='%234a6b8a' stroke-width='9' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='78' cy='22' r='7' fill='%234a6b8a'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%234a6b8a'/%3E%3Cpath d='M20 70C30 58 40 63 48 50C56 38 65 42 74 26' stroke='white' stroke-width='9' stroke-linecap='round' fill='none'/%3E%3Ccircle cx='78' cy='22' r='7' fill='white'/%3E%3C/svg%3E">
 
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
@@ -31,6 +32,50 @@
 <link rel="stylesheet" href="css/mini-apps.css">
 </head>
 <body>
+
+<!-- ICON SPRITE — the app's one and only icon system, no emoji anywhere:
+     an emoji renders as a different picture per OS (or not at all on
+     some), can't take the surrounding theme color, and some screen
+     readers announce its full Unicode name instead of describing the
+     button. Every icon below is real inline SVG instead — defined once
+     here, referenced everywhere via <use href="#icon-name">, so a static
+     HTML spot and a JS-built one are always pixel-identical (see
+     js/lib/icons.ts, which emits the same <use> references). -->
+<svg style="position:absolute; width:0; height:0; overflow:hidden;" aria-hidden="true">
+  <defs>
+    <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z"/></symbol>
+    <symbol id="icon-moon-stars" viewBox="0 0 24 24"><path d="M15.5 4.5A6.5 6.5 0 1 0 19.5 15 8 8 0 0 1 15.5 4.5Z"/><path d="M19 3v2.4M17.8 4.2h2.4"/></symbol>
+    <symbol id="icon-headphones" viewBox="0 0 24 24"><path d="M4 15c2-4 4-6 4-10M12 15c2-6 2-8 2-12M20 15c1-3 1-5 1-8"/><path d="M4 15v3a2 2 0 0 0 2 2h1v-6H6a2 2 0 0 0-2 2Z"/><path d="M20 15v3a2 2 0 0 1-2 2h-1v-6h1a2 2 0 0 1 2 2Z"/></symbol>
+    <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="icon-heart-pulse" viewBox="0 0 24 24"><path d="M12 21s-7-4.6-9.3-9.1C1.2 8.6 3 5 6.6 5c1.9 0 3.4 1.1 4 2.6C11.3 6.1 12.8 5 14.7 5 18.3 5 20 8.6 20 11.9 17.7 16.4 12 21 12 21Z"/><path d="M6 12h2.5l1.5-3 2 6 1.5-3H18"/></symbol>
+    <symbol id="icon-warning" viewBox="0 0 24 24"><path d="M12 3 2 20h20L12 3Z"/><path d="M12 10v4"/><circle cx="12" cy="17" r="0.9" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></symbol>
+    <symbol id="icon-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3M9 21h6"/></symbol>
+    <symbol id="icon-lightbulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.3 1.1 2.2h5c0-.9.5-1.7 1.1-2.2A6 6 0 0 0 12 3Z"/></symbol>
+    <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5L12 2Z"/></symbol>
+    <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="icon-cloud-rain" viewBox="0 0 24 24"><path d="M6.5 17.5A4.5 4.5 0 0 1 7 8.6a6 6 0 0 1 11.3 2.1A4 4 0 0 1 17.5 18h-11Z"/><path d="M8 20l-1 2M12 20l-1 2M16 20l-1 2"/></symbol>
+    <symbol id="icon-waves" viewBox="0 0 24 24"><path d="M2 16q3-4 5 0t5 0 5 0 5 0"/><path d="M2 11q3-4 5 0t5 0 5 0 5 0" opacity="0.55"/></symbol>
+    <symbol id="icon-droplet" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></symbol>
+    <symbol id="icon-wind" viewBox="0 0 24 24"><path d="M3 12c2-3 3 3 5 0s3 3 5 0 3 3 5 0 2-3 2-3"/><path d="M3 7c1.5-2 4-1 4 1M17 17c1.5 2 4 1 4-1"/></symbol>
+    <symbol id="icon-flame" viewBox="0 0 24 24"><path d="M12 3c2 4-2 5-1 8 3-1 3-4 3-4 2 2 2 5 0 7a5 5 0 0 1-8-3c0-3 3-4 3-6 0-1-1-2-1-2Z"/></symbol>
+    <symbol id="icon-sliders" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h2M8 12h12M4 18h14M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="6" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+    <symbol id="icon-cloud-lightning" viewBox="0 0 24 24"><path d="M6.5 15.5A4.5 4.5 0 0 1 7 6.6a6 6 0 0 1 11.3 2.1A4 4 0 0 1 17.5 16h-4"/><path d="M12 15l-2 4h3l-2 4"/></symbol>
+    <symbol id="icon-trophy" viewBox="0 0 24 24"><path d="M8 4h8v4a4 4 0 0 1-8 0V4Z"/><path d="M8 5H5a3 3 0 0 0 3 5M16 5h3a3 3 0 0 1-3 5"/><path d="M12 13v3M9 20h6M10 16.5h4v3.5h-4Z"/></symbol>
+    <symbol id="icon-chart-line" viewBox="0 0 24 24"><path d="M4 19h16M4 19V5"/><path d="M7 15l3.5-4 3 2.5L18 8"/></symbol>
+    <symbol id="icon-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/></symbol>
+    <symbol id="icon-play" viewBox="0 0 24 24"><path d="M7 4.5v15l13-7.5-13-7.5Z"/></symbol>
+    <symbol id="icon-chevron-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="icon-arrow-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="icon-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+    <symbol id="icon-lungs" viewBox="0 0 24 24"><path d="M12 3v8"/><path d="M12 11c-1-3-3-3-4-1-1.5 2.4-1.5 7 0 9 1.5 1.7 3.5.3 4-2Z"/><path d="M12 11c1-3 3-3 4-1 1.5 2.4 1.5 7 0 9-1.5 1.7-3.5.3-4-2Z"/></symbol>
+    <symbol id="icon-leaf" viewBox="0 0 24 24"><path d="M5 19c8 1 13-4 14-14C10 6 5 11 5 19Z"/><path d="M6 18c3-4 6-7 12-11"/></symbol>
+    <symbol id="icon-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+    <symbol id="icon-party" viewBox="0 0 24 24"><path d="M4 20l3-10 13-6-6 13-10 3Z"/><path d="M11 13l6.5-6.5"/><circle cx="18" cy="4" r="0.8" fill="currentColor" stroke="none"/><circle cx="21" cy="9" r="0.8" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M4 10v4h3l4 4V6l-4 4H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/></symbol>
+  </defs>
+</svg>
 
 <div class="app" id="app">
 
@@ -42,6 +87,7 @@
     </div>
     <div class="stack" style="margin-top:auto;">
       <button class="btn btn-primary btn-block" id="btn-get-started">Get Started</button>
+      <button class="btn btn-ghost btn-block" id="btn-skip-onboarding">Skip for now</button>
       <p class="muted center-text" style="font-size:var(--fs-xs);">
         Your data stays on this device. Fit Fly is not medical advice —
         see the README for details.
@@ -228,12 +274,12 @@
     </div>
 
     <div class="why-this" id="ob-result-reasoning-wrap">
-      <span class="why-icon" aria-hidden="true">💡</span>
+      <span class="why-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-lightbulb"></use></svg></span>
       <ul id="ob-result-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>
     </div>
 
     <div class="safety-flag" id="ob-result-review-banner" hidden>
-      <span aria-hidden="true">⚠️</span>
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       <p>A couple of your answers are worth a quick check with a doctor or physical therapist before you dive in. Fit Fly isn't a substitute for that.</p>
     </div>
 
@@ -255,23 +301,23 @@
 
     <div class="hub-grid">
       <button class="hub-tile hub-tile--sleep" id="btn-home-sleep">
-        <span class="hub-tile-icon" aria-hidden="true">🌙</span>
+        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon"></use></svg></span>
         <span>
           <span class="hub-tile-title display">Sleep</span>
           <p class="hub-tile-sub" id="hub-sleep-sub">Log tonight's sleep</p>
         </span>
       </button>
 
-      <button class="hub-tile hub-tile--calm" id="btn-home-calm-sounds">
-        <span class="hub-tile-icon" aria-hidden="true">🎧</span>
+      <button class="hub-tile hub-tile--focus" id="btn-home-focus">
+        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></span>
         <span>
-          <span class="hub-tile-title display">Calm Sounds</span>
+          <span class="hub-tile-title display">Focus</span>
           <p class="hub-tile-sub">Rain, waves, rivers &amp; more</p>
         </span>
       </button>
 
       <button class="hub-tile hub-tile--neutral" id="btn-home-fitness-toolkit">
-        <span class="hub-tile-icon" aria-hidden="true">▦</span>
+        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-grid"></use></svg></span>
         <span>
           <span class="hub-tile-title display">Fitness Toolkit</span>
           <p class="hub-tile-sub">Programs, run, nutrition &amp; more</p>
@@ -279,7 +325,7 @@
       </button>
 
       <div class="hub-tile hub-tile--soon" aria-disabled="true">
-        <span class="hub-tile-icon" aria-hidden="true">❤️</span>
+        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-heart-pulse"></use></svg></span>
         <span>
           <span class="hub-tile-title display">Vitals &amp; Steps</span>
           <p class="hub-tile-sub">Coming soon</p>
@@ -296,6 +342,14 @@
       <button class="icon-btn" id="btn-fitness-toolkit-back" aria-label="Back to your apps">←</button>
       <h2>Fitness Toolkit</h2>
       <span class="data-badge measured" id="home-category-badge">—</span>
+    </div>
+
+    <div class="card card-accent stack" id="fitness-toolkit-no-profile-banner" hidden>
+      <p style="margin:0;">
+        Programs, calorie targets, and readiness scoring are tailored to you — set up your
+        profile to unlock them. Everything else below still works without it.
+      </p>
+      <button class="btn btn-primary" id="btn-fitness-toolkit-setup-profile">Set up your profile</button>
     </div>
 
     <div class="stack">
@@ -390,7 +444,7 @@
     <div class="row-between">
       <button class="miniapp-icon-btn" id="btn-sleep-dashboard-back" aria-label="Back to your apps">←</button>
       <span class="muted" id="sleep-dashboard-date" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">—</span>
-      <button class="miniapp-icon-btn" id="btn-sleep-insights" aria-label="Insights">📈</button>
+      <button class="miniapp-icon-btn" id="btn-sleep-insights" aria-label="Insights"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></button>
     </div>
 
     <h2 class="display" style="font-size:26px; margin-top:var(--space-4);" id="sleep-dashboard-greeting">Good evening</h2>
@@ -473,7 +527,7 @@
       </div>
 
       <button class="btn btn-ghost btn-block" id="btn-sleep-edit-log" style="margin-top:var(--space-3);">Edit tonight's log</button>
-      <button class="miniapp-cta" id="btn-sleep-start-wind-down" style="margin-top:var(--space-2);">🌙 Start Wind-Down</button>
+      <button class="miniapp-cta" id="btn-sleep-start-wind-down" style="margin-top:var(--space-2);"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon"></use></svg> Start Wind-Down</button>
     </div>
   </section>
 
@@ -486,12 +540,12 @@
 
     <div class="sleep-insight-stat-grid" style="margin-top:var(--space-4);">
       <div class="sleep-insight-stat-card sleep-insight-stat-card--streak">
-        <span aria-hidden="true">✨</span>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-sparkle"></use></svg></span>
         <div class="value" id="sleep-insight-streak">—</div>
         <div class="label">night logging streak</div>
       </div>
       <div class="sleep-insight-stat-card sleep-insight-stat-card--debt">
-        <span aria-hidden="true">⏱️</span>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-clock"></use></svg></span>
         <div class="value" id="sleep-insight-debt">—</div>
         <div class="label">sleep debt, recent nights</div>
       </div>
@@ -515,7 +569,7 @@
   </section>
 
   <!-- SLEEP: WIND DOWN — full build (breathing pacer, ambient sound picker,
-       real playback) lands once the Calm Sounds audio engine exists, so
+       real playback) lands once the Focus audio engine exists, so
        this screen and its sound isn't a button that looks real but does
        nothing when tapped. -->
   <section class="screen miniapp-night theme-sleep" id="screen-sleep-wind-down" hidden>
@@ -531,7 +585,7 @@
         <div class="breathe-ring breathe-ring--outer"></div>
         <div class="breathe-ring breathe-ring--mid"></div>
         <div class="breathe-ring breathe-ring--core"></div>
-        <span style="position:relative; font-size:34px;">🌙</span>
+        <svg class="icon" width="34" height="34" viewBox="0 0 24 24" style="position:relative; stroke-width:1.4;"><use href="#icon-moon"></use></svg>
       </div>
       <div>
         <p class="display" style="font-size:22px; margin:0;">Breathe in... and out</p>
@@ -542,8 +596,8 @@
     <div class="stack" style="gap:12px; margin-bottom:var(--space-4);">
       <div class="row-between">
         <span style="font-size:12.5px; font-weight:600; color:var(--sleep-ink-muted); letter-spacing:0.04em;">SOUND</span>
-        <button id="btn-wind-down-more-sounds" style="color:var(--calm-accent); font-size:12px; font-weight:600;">
-          More in Calm Sounds ›
+        <button id="btn-wind-down-more-sounds" style="color:var(--focus-accent); font-size:12px; font-weight:600;">
+          More in Focus ›
         </button>
       </div>
       <div class="sound-pill-row" id="wind-down-sound-picker">
@@ -559,48 +613,90 @@
     </p>
   </section>
 
-  <!-- CALM SOUNDS -->
-  <section class="screen miniapp-night theme-calm" id="screen-calm-sounds" hidden>
+  <!-- FOCUS -->
+  <section class="screen miniapp-night theme-focus" id="screen-focus" hidden>
     <div class="row-between">
-      <button class="miniapp-icon-btn" id="btn-calm-sounds-back" aria-label="Back to your apps">←</button>
-      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Calm Sounds</span>
+      <button class="miniapp-icon-btn" id="btn-focus-back" aria-label="Back to your apps">←</button>
+      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Focus</span>
       <span style="width:36px;"></span>
     </div>
 
-    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Sounds to settle into</h2>
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Take a moment</h2>
     <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">
-      For falling asleep, sitting with a busy mind, or just working with something steady in the background.
+      A short guided session, or steady sound to settle into — for falling asleep, sitting with a busy mind, or just working with something in the background.
     </p>
 
-    <p class="safety-flag" id="calm-unsupported" style="margin-top:var(--space-4);" hidden>
-      <span aria-hidden="true">⚠️</span>
+    <div style="display:flex; flex-direction:column; gap:12px; margin-top:var(--space-4);">
+      <span style="font-size:12.5px; font-weight:600; color:var(--focus-ink-muted); letter-spacing:0.04em;">GUIDED SESSIONS</span>
+      <div class="focus-sound-grid" id="guided-session-grid"></div>
+    </div>
+
+    <span style="display:block; font-size:12.5px; font-weight:600; color:var(--focus-ink-muted); letter-spacing:0.04em; margin-top:var(--space-4);">AMBIENT SOUNDS</span>
+
+    <p class="safety-flag" id="focus-unsupported" style="margin-top:var(--space-3);" hidden>
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       Ambient sound needs Web Audio, which this browser doesn't support here — everything else on this screen still works.
     </p>
 
-    <div class="calm-now-playing" id="calm-now-playing" style="margin-top:var(--space-4);" hidden>
-      <div class="calm-now-playing-icon" aria-hidden="true">🎧</div>
+    <div class="focus-now-playing" id="focus-now-playing" style="margin-top:var(--space-3);" hidden>
+      <div class="focus-now-playing-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></div>
       <div style="flex:1;">
-        <div style="font-size:14.5px; font-weight:700;" id="calm-now-playing-name">—</div>
-        <div class="muted" style="font-size:12px; margin-top:1px;" id="calm-now-playing-status">Playing</div>
+        <div style="font-size:14.5px; font-weight:700;" id="focus-now-playing-name">—</div>
+        <div class="muted" style="font-size:12px; margin-top:1px;" id="focus-now-playing-status">Playing</div>
       </div>
-      <button class="miniapp-icon-btn" id="btn-calm-stop" aria-label="Stop">⏹</button>
+      <button class="miniapp-icon-btn" id="btn-focus-stop" aria-label="Stop"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-stop"></use></svg></button>
     </div>
 
-    <div class="calm-sound-grid" style="margin-top:var(--space-4);" id="calm-sound-grid"></div>
+    <div class="focus-sound-grid" style="margin-top:var(--space-4);" id="focus-sound-grid"></div>
 
     <div style="margin-top:var(--space-4);">
-      <label for="calm-volume" style="font-size:12.5px; font-weight:600; color:var(--calm-ink-muted); letter-spacing:0.04em; text-transform:uppercase;">Volume</label>
-      <input type="range" id="calm-volume" min="0" max="100" value="70" style="width:100%; margin-top:8px;">
+      <label for="focus-volume" style="font-size:12.5px; font-weight:600; color:var(--focus-ink-muted); letter-spacing:0.04em; text-transform:uppercase;">Volume</label>
+      <input type="range" id="focus-volume" min="0" max="100" value="70" style="width:100%; margin-top:8px;">
     </div>
 
     <div style="display:flex; flex-direction:column; gap:10px; margin-top:var(--space-4);">
-      <span style="font-size:12.5px; font-weight:600; color:var(--calm-ink-muted); letter-spacing:0.04em;">STOPS AFTER</span>
-      <div class="calm-timer-row" id="calm-timer-row">
-        <button type="button" class="calm-timer-pill" data-value="15" aria-pressed="false">15m</button>
-        <button type="button" class="calm-timer-pill" data-value="30" aria-pressed="true">30m</button>
-        <button type="button" class="calm-timer-pill" data-value="60" aria-pressed="false">60m</button>
-        <button type="button" class="calm-timer-pill" data-value="none" aria-pressed="false">Until stopped</button>
+      <span style="font-size:12.5px; font-weight:600; color:var(--focus-ink-muted); letter-spacing:0.04em;">STOPS AFTER</span>
+      <div class="focus-timer-row" id="focus-timer-row">
+        <button type="button" class="focus-timer-pill" data-value="15" aria-pressed="false">15m</button>
+        <button type="button" class="focus-timer-pill" data-value="30" aria-pressed="true">30m</button>
+        <button type="button" class="focus-timer-pill" data-value="60" aria-pressed="false">60m</button>
+        <button type="button" class="focus-timer-pill" data-value="none" aria-pressed="false">Until stopped</button>
       </div>
+    </div>
+  </section>
+
+  <!-- GUIDED SESSION PLAYER — one reusable screen for all four sessions.
+       Captions are always visible, not a voice-only fallback: the voice
+       guide (free, on-device Web Speech synthesis — see
+       js/features/focus/voice-guide.ts) can be switched off entirely and
+       the session still works exactly the same, read instead of heard. -->
+  <section class="screen miniapp-night theme-focus" id="screen-guided-session" hidden>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-guided-session-back" aria-label="End session">
+        <svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-x"></use></svg>
+      </button>
+      <span class="muted" id="guided-session-title" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">—</span>
+      <button class="miniapp-icon-btn" id="btn-guided-session-voice-toggle" aria-pressed="true" aria-label="Voice guidance">
+        <svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-volume"></use></svg>
+      </button>
+    </div>
+
+    <div class="stack" style="align-items:center; text-align:center; margin:auto 0; gap:var(--space-5);">
+      <div class="breathe-pacer" id="guided-session-pacer" aria-hidden="true">
+        <div class="breathe-ring breathe-ring--outer"></div>
+        <div class="breathe-ring breathe-ring--mid"></div>
+        <div class="breathe-ring breathe-ring--core" id="guided-session-pacer-core"></div>
+      </div>
+      <p class="display" id="guided-session-caption" style="font-size:22px; margin:0; max-width:300px;" role="status" aria-live="polite">—</p>
+    </div>
+
+    <div class="focus-progress-track">
+      <div class="focus-progress-fill" id="guided-session-progress"></div>
+    </div>
+
+    <div class="row" style="margin-top:var(--space-3);">
+      <button class="btn btn-ghost" id="btn-guided-session-pause" style="flex:1;">Pause</button>
+      <button class="btn btn-ghost" id="btn-guided-session-end" style="flex:1;">End</button>
     </div>
   </section>
 
@@ -680,7 +776,7 @@
     </div>
 
     <div class="safety-flag" id="run-geo-error" hidden>
-      <span aria-hidden="true">⚠️</span>
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       <p id="run-geo-error-text">Location isn't available.</p>
     </div>
 
@@ -744,7 +840,7 @@
         Cover your rear camera with a fingertip and hold still for 15 seconds.
       </p>
       <div class="safety-flag" id="hr-camera-error" hidden>
-        <span aria-hidden="true">⚠️</span>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
         <p id="hr-camera-error-text"></p>
       </div>
       <div id="hr-camera-progress" hidden>
@@ -812,7 +908,7 @@
     </div>
 
     <div class="safety-flag" id="whealth-forgot-confirm" hidden>
-      <span aria-hidden="true">⚠️</span>
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       <div class="stack">
         <p>Resetting deletes every logged cycle entry — this can't be undone.</p>
         <button class="btn btn-danger" id="btn-whealth-forgot-confirm">Delete everything and start over</button>
@@ -825,7 +921,7 @@
   <section class="screen" id="screen-whealth-main" hidden>
     <div class="row-between">
       <h2>Cycle Tracker</h2>
-      <button class="icon-btn" id="btn-whealth-lock" aria-label="Lock">🔒</button>
+      <button class="icon-btn" id="btn-whealth-lock" aria-label="Lock"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-lock"></use></svg></button>
     </div>
 
     <div class="card card-accent stack" id="whealth-prediction" hidden>
@@ -1035,7 +1131,7 @@
     </div>
 
     <div class="why-this">
-      <span class="why-icon" aria-hidden="true">💡</span>
+      <span class="why-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-lightbulb"></use></svg></span>
       <ul id="program-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>
     </div>
 
@@ -1059,7 +1155,7 @@
     aria-pressed="false"
     aria-label="Voice command"
     style="position:fixed; bottom:calc(var(--space-5) + env(safe-area-inset-bottom)); right:var(--space-4); box-shadow:var(--shadow-md); z-index:10; background:var(--surface-raised);"
-  >🎤</button>
+  ><svg class="icon" width="20" height="20" viewBox="0 0 24 24"><use href="#icon-mic"></use></svg></button>
   <div id="voice-feedback-wrap" hidden style="position:fixed; bottom:calc(64px + var(--space-6) + env(safe-area-inset-bottom)); right:var(--space-4); max-width:220px; z-index:10;">
     <div class="card" id="voice-feedback" style="font-size:var(--fs-sm);" role="status" aria-live="polite"></div>
   </div>

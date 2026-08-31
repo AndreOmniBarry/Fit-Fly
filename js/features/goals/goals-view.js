@@ -89,7 +89,7 @@ async function applyProgressUpdate(goalId, currentValue) {
   const goal = await updateGoal(goalId, { currentValue });
   if (isGoalAchieved(goal)) {
     await markGoalAchieved(goalId);
-    showNotification('Goal achieved! 🎉', { body: goal.name });
+    showNotification('Goal achieved!', { body: goal.name });
   }
 }
 

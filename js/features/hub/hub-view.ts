@@ -1,6 +1,6 @@
 // The Hub: the app's front door. It only wires navigation between the
 // mini-app tiles and the screens they open — every mini-app owns its own
-// feature module (sleep-view.ts, calm-sounds-view.ts, ...) the same way
+// feature module (sleep-view.ts, focus-view.ts, ...) the same way
 // every pre-existing feature owns its own screen(s). Nothing here reaches
 // into another mini-app's internals.
 import { showScreen } from '../../lib/router.js';
@@ -18,8 +18,8 @@ export function initHubFeature(): void {
   byId('btn-home-sleep').addEventListener('click', () => showScreen('screen-sleep-dashboard'));
   byId('btn-sleep-dashboard-back').addEventListener('click', () => showScreen('screen-hub'));
 
-  byId('btn-home-calm-sounds').addEventListener('click', () => showScreen('screen-calm-sounds'));
-  byId('btn-calm-sounds-back').addEventListener('click', () => showScreen('screen-hub'));
+  byId('btn-home-focus').addEventListener('click', () => showScreen('screen-focus'));
+  byId('btn-focus-back').addEventListener('click', () => showScreen('screen-hub'));
 }
 
 /** Updates the Sleep tile's subtitle on the Hub — e.g. "86 · Great last

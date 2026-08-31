@@ -9,6 +9,8 @@
 import { showScreen } from '../../lib/router.js';
 import { createCountdown } from '../../lib/timer.js';
 import { iconMarkup } from '../../lib/icons.js';
+import { prefersReducedMotion } from '../../lib/motion.js';
+import { vibrateDevice } from '../../lib/audio-cue.js';
 import { GUIDED_SESSIONS, getGuidedSession, totalDurationSeconds } from './guided-sessions.js';
 import { isVoiceGuideSupported, speak, stopSpeaking } from './voice-guide.js';
 import type { GuidedSession, SessionBeat } from './guided-sessions.js';
@@ -23,17 +25,31 @@ const SESSION_ICON: Record<string, IconName> = {
   'sleep-focus': 'moon-stars',
 };
 
-const PACER_PHASE: Record<NonNullable<SessionBeat['breathPhase']>, { scale: number; opacity: number }> = {
-  in: { scale: 1.15, opacity: 1 },
-  hold: { scale: 1.15, opacity: 1 },
-  out: { scale: 0.68, opacity: 0.45 },
-  holdEmpty: { scale: 0.68, opacity: 0.45 },
+const PACER_PHASE: Record<NonNullable<SessionBeat['breathPhase']>, { scale: number; opacity: number; brightness: number }> = {
+  in: { scale: 1.15, opacity: 1, brightness: 1.18 },
+  hold: { scale: 1.15, opacity: 1, brightness: 1.05 },
+  out: { scale: 0.68, opacity: 0.45, brightness: 0.85 },
+  holdEmpty: { scale: 0.68, opacity: 0.45, brightness: 0.85 },
 };
+
+// The core swings the full amount; the mid and outer rings only follow a
+// fraction of that swing (and, per mini-apps.css, arrive a beat later) —
+// what turns three dots scaling in lockstep into something that reads as
+// a ripple moving outward through real depth.
+const RING_AMPLITUDE = { core: 1, mid: 0.7, outer: 0.45 } as const;
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`guided-session-view: missing #${id}`);
   return el as T;
+}
+
+/** Scales a ring's swing around its resting scale(1) by `amplitude` —
+ *  every ring still centers on the same resting size, only how far it
+ *  moves from it differs. */
+function ringTransform(baseScale: number, amplitude: number): string {
+  const delta = (baseScale - 1) * amplitude;
+  return `scale(${(1 + delta).toFixed(3)})`;
 }
 
 export function initGuidedSessionFeature(): void {
@@ -49,16 +65,49 @@ export function initGuidedSessionFeature(): void {
     pollHandle = null;
   }
 
-  function applyPacerPhase(phase: SessionBeat['breathPhase']): void {
+  /** Drives all four of a breath phase's sensory channels at once: each
+   *  ring's size and brightness (see PACER_PHASE/RING_AMPLITUDE and the
+   *  matching mini-apps.css block for why three rings, not one), the
+   *  transition's real duration (matching the beat exactly, never a
+   *  guessed constant), and — the one non-visual channel — a haptic pulse
+   *  on devices that support it. `durationSeconds` is unused (and no
+   *  transition/haptic fires) when clearing the pacer between sessions. */
+  function applyPacerPhase(phase: SessionBeat['breathPhase'], durationSeconds?: number): void {
+    const pacer = byId('guided-session-pacer');
     const core = byId('guided-session-pacer-core');
+    const mid = byId('guided-session-pacer-mid');
+    const outer = byId('guided-session-pacer-outer');
     if (!phase) {
-      core.style.transform = '';
-      core.style.opacity = '';
+      for (const ring of [core, mid, outer]) {
+        ring.style.transform = '';
+        ring.style.opacity = '';
+        ring.style.filter = '';
+      }
       return;
     }
-    const { scale, opacity } = PACER_PHASE[phase];
-    core.style.transform = `scale(${scale})`;
+    pacer.style.setProperty('--pacer-transition-ms', `${durationSeconds ?? 4}s`);
+
+    const { scale, opacity, brightness } = PACER_PHASE[phase];
+    core.style.transform = ringTransform(scale, RING_AMPLITUDE.core);
     core.style.opacity = String(opacity);
+    core.style.filter = `brightness(${brightness})`;
+    mid.style.transform = ringTransform(scale, RING_AMPLITUDE.mid);
+    mid.style.opacity = String(0.5 + opacity * 0.4);
+    mid.style.filter = `brightness(${brightness})`;
+    outer.style.transform = ringTransform(scale, RING_AMPLITUDE.outer);
+    outer.style.opacity = String(0.3 + opacity * 0.3);
+    outer.style.filter = `brightness(${brightness})`;
+
+    // A fourth, non-visual channel — only at the start of an actual
+    // in/out transition (holds are stillness; a buzz there would
+    // contradict the point), best-effort and a silent no-op wherever the
+    // Vibration API doesn't exist (all of iOS Safari, most desktop
+    // browsers). Skipped under reduced-motion too — less stimulation is
+    // the whole ask, not just less visual motion.
+    if (!prefersReducedMotion()) {
+      if (phase === 'in') vibrateDevice(25);
+      else if (phase === 'out') vibrateDevice([15, 30, 15]);
+    }
   }
 
   function updateVoiceToggleUI(): void {
@@ -94,7 +143,7 @@ export function initGuidedSessionFeature(): void {
     beatIndex = index;
     byId('guided-session-caption').textContent = beat.text;
     if (voiceOn) speak(beat.text);
-    applyPacerPhase(beat.breathPhase);
+    applyPacerPhase(beat.breathPhase, beat.durationSeconds);
 
     countdown = createCountdown(beat.durationSeconds * 1000);
     countdown.start();

@@ -60,6 +60,7 @@ export function initFocusFeature(): void {
     }
 
     byId('focus-unsupported').hidden = state.supported;
+    byId('focus-audio-blocked').hidden = !state.blocked;
 
     // Wind Down can change the timer/volume too — keep this screen's
     // controls in sync with whatever the shared engine actually holds,

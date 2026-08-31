@@ -75,6 +75,36 @@ test.describe('guided sessions', () => {
     expect(parseFloat(resumed)).toBeGreaterThan(parseFloat(frozen));
   });
 
+  test('the breathing pacer drives all three rings, timed to the real beat duration', async ({ page }) => {
+    await page.locator('#btn-guided-session-breathing-focus').click();
+    // The first two beats are prose (no breathPhase) — wait for the
+    // caption to actually reach the box-breathing cycle rather than
+    // guessing a timeout against their real, word-count-derived durations.
+    await expect(page.locator('#guided-session-caption')).toHaveText('Breathe in', { timeout: 15_000 });
+
+    const rings = await page.evaluate(() => {
+      const ids = ['guided-session-pacer-core', 'guided-session-pacer-mid', 'guided-session-pacer-outer'];
+      return ids.map((id) => {
+        const el = document.getElementById(id);
+        const style = getComputedStyle(el);
+        return { transform: style.transform, transitionDuration: style.transitionDuration };
+      });
+    });
+
+    // All three rings must actually be moving (not the CSS default
+    // 'none'), and the pacer element's --pacer-transition-ms must be set
+    // to the real 4s breath-phase duration (box breathing is 4-4-4-4) —
+    // regression coverage for the old fixed-3.6s mismatch.
+    for (const ring of rings) {
+      expect(ring.transform).not.toBe('none');
+      expect(ring.transitionDuration).not.toBe('');
+    }
+    const pacerVar = await page.evaluate(() =>
+      getComputedStyle(document.getElementById('guided-session-pacer')).getPropertyValue('--pacer-transition-ms')
+    );
+    expect(pacerVar.trim()).toBe('4s');
+  });
+
   test('the voice toggle switches on and off', async ({ page }) => {
     await page.locator('#btn-guided-session-focus').click();
     const initial = await page.locator('#btn-guided-session-voice-toggle').getAttribute('aria-pressed');

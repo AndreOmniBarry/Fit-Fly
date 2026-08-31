@@ -4,12 +4,15 @@
    components.css, not a replacement for them — the reset, spacing scale,
    and screen-router chrome stay shared; typography and color here are
    what let each mini-app carry its own identity, the way real apps inside
-   a hub would. The vendored Instrument Serif / Manrope pair (see
-   js/vendor/fonts/) is scoped to these surfaces via --miniapp-font-*.
+   a hub would. The vendored Space Grotesk / Manrope pair (see
+   js/vendor/fonts/) is scoped to these surfaces via --miniapp-font-* —
+   the same pair css/tokens.css's --font-display now uses app-wide, kept
+   as its own token here since these surfaces reach for it far more often
+   (every mini-app heading, stat, and score is set in it).
    ========================================================================== */
 
 :root{
-  --miniapp-font-display:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --miniapp-font-display:'Space Grotesk','Helvetica Neue',Arial,sans-serif;
   --miniapp-font-body:'Manrope',system-ui,-apple-system,sans-serif;
 
   /* ---------- Sleep: a night palette, independent of the app's light/dark toggle ---------- */
@@ -522,11 +525,31 @@
   background:linear-gradient(90deg, var(--focus-accent), #6ecbb1);
   transition:width .25s linear;
 }
-/* The pacer's core ring is driven directly by JS during a breathing beat
-   (guided-session-view.ts sets its transform inline) rather than the
-   Sleep Wind Down pacer's fixed-cadence CSS loop — a guided session's
-   breath timing has to match the actual spoken/captioned cue exactly. */
-#guided-session-pacer-core{ animation:none; transition:transform 3.6s ease-in-out, opacity 3.6s ease-in-out; }
+/* All three of the guided-session pacer's rings are driven directly by JS
+   during a breathing beat (guided-session-view.ts sets each one's
+   transform/filter inline) rather than the Sleep Wind Down pacer's
+   fixed-cadence CSS loop — a guided session's breath timing has to match
+   the actual spoken/captioned cue exactly, so --pacer-transition-ms is
+   set to that beat's real duration, never a guessed constant. Four
+   channels react to the same breath rather than one: size (each ring
+   moves a smaller fraction of the swing than the one inside it, and a
+   touch later — a ripple moving outward through real depth, not three
+   dots scaling in lockstep), brightness (a warm lift on the inhale, a
+   cooler settle on the exhale — light, not just size), and — see
+   guided-session-view.ts — a synced haptic pulse on devices that support
+   it. */
+#guided-session-pacer-outer,
+#guided-session-pacer-mid,
+#guided-session-pacer-core{
+  animation:none;
+  transition:transform var(--pacer-transition-ms, 3.6s) ease-in-out,
+             opacity var(--pacer-transition-ms, 3.6s) ease-in-out,
+             filter var(--pacer-transition-ms, 3.6s) ease-in-out;
+}
+#guided-session-pacer-mid{ transition-duration:calc(var(--pacer-transition-ms, 3.6s) * 1.08); }
+#guided-session-pacer-outer{ transition-duration:calc(var(--pacer-transition-ms, 3.6s) * 1.18); }
 @media (prefers-reduced-motion: reduce){
-  #guided-session-pacer-core{ transition:opacity .3s ease; }
+  #guided-session-pacer-outer,
+  #guided-session-pacer-mid,
+  #guided-session-pacer-core{ transition:opacity .3s ease; filter:none; }
 }

@@ -23,6 +23,7 @@
 // it running unconditionally forever is worse than idle: navigate away
 // and it just keeps ticking in the background for the rest of the
 // session.
+import { prefersReducedMotion } from './motion.js';
 
 export interface TiltHandle {
   /** iOS 13+ gates DeviceOrientationEvent behind an explicit user gesture.
@@ -43,7 +44,7 @@ interface MaybeGatedDeviceOrientationEvent {
 export function attachTilt(root: HTMLElement): TiltHandle {
   const inert = { requestMotionPermission: async () => {}, stop(): void {} };
   if (typeof window === 'undefined') return inert;
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return inert;
+  if (prefersReducedMotion()) return inert;
 
   let targetX = 0;
   let targetY = 0;

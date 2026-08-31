@@ -1,22 +1,33 @@
-/* Instrument Serif — the display face for the Hub and the mini-apps built
-   on top of it (Sleep, Focus). One weight (400) by design, italic
-   included for emphasis. */
+/* Space Grotesk — the app's one display face, everywhere: the Hub and
+   its mini-apps, the Fitness Toolkit, onboarding. A confident geometric
+   grotesk rather than an editorial serif — the typographic language real
+   product-engineering teams reach for (Vercel, Linear, GitHub, and most
+   of what a modern dev-tool/SV product actually ships), not a boutique
+   magazine. */
 @font-face {
-  font-family: 'Instrument Serif';
+  font-family: 'Space Grotesk';
   font-style: normal;
   font-weight: 400;
   font-display: swap;
-  src: url('./instrument-serif-latin-400-normal.woff2') format('woff2');
+  src: url('./space-grotesk-latin-400-normal.woff2') format('woff2');
 }
 @font-face {
-  font-family: 'Instrument Serif';
-  font-style: italic;
-  font-weight: 400;
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
   font-display: swap;
-  src: url('./instrument-serif-latin-400-italic.woff2') format('woff2');
+  src: url('./space-grotesk-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./space-grotesk-latin-700-normal.woff2') format('woff2');
 }
 
-/* Manrope — the body/UI face for the same surfaces. */
+/* Manrope — the body/UI face everywhere Space Grotesk is the display
+   face, giving the two a shared geometric character. */
 @font-face {
   font-family: 'Manrope';
   font-style: normal;

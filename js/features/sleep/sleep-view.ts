@@ -252,7 +252,7 @@ export function initSleepFeature(): void {
 
     function renderBeginButton(state: FocusAudioState): void {
       const isThisSound = state.playing && state.soundscapeId === selectedSoundId && selectedSoundId !== '';
-      beginButton.textContent = isThisSound ? 'Playing — tap to stop' : 'Begin';
+      beginButton.textContent = isThisSound ? 'Playing — tap to stop' : state.blocked ? 'Tap to try again' : 'Begin';
     }
 
     engine.onStateChange(renderBeginButton);

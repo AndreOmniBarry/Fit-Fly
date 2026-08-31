@@ -45,6 +45,14 @@ export interface FocusAudioState {
   volume: number;
   timerMinutes: number | null;
   remainingMs: number | null;
+  /** True right after a start() attempt where the AudioContext never
+   *  actually reached 'running' — a real, detectable failure (the browser
+   *  withheld playback despite the gesture), distinct from the far more
+   *  common case this API genuinely cannot detect: the context runs fine,
+   *  the graph plays fine, and the device is simply muted or its media
+   *  volume is at zero. See focus-view.ts's permanent volume-control hint
+   *  for that one — there's no programmatic signal for it to react to. */
+  blocked: boolean;
 }
 
 type Listener = (state: FocusAudioState) => void;
@@ -99,6 +107,7 @@ export class FocusAudioEngine {
   private positionHandle: ReturnType<typeof setInterval> | null = null;
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private listeners = new Set<Listener>();
+  private lastStartBlocked = false;
 
   isSupported(): boolean {
     return getAudioContextClass() != null;
@@ -112,6 +121,7 @@ export class FocusAudioEngine {
       volume: this.volume,
       timerMinutes: this.timerMinutes,
       remainingMs: this.countdown ? this.countdown.getRemainingMs() : null,
+      blocked: this.lastStartBlocked,
     };
   }
 
@@ -186,6 +196,17 @@ export class FocusAudioEngine {
         this.ctx = new AudioContextClass({ sampleRate: SAMPLE_RATE });
       }
       if (this.ctx.state === 'suspended') await this.ctx.resume().catch(() => {});
+
+      // A real, detectable failure: the browser withheld playback despite
+      // this running inside a genuine click handler. Bail out honestly —
+      // building the graph anyway would report "Playing" for a context
+      // producing no sound at all, worse than admitting it didn't start.
+      if (this.ctx.state !== 'running') {
+        this.lastStartBlocked = true;
+        this.notify();
+        return;
+      }
+      this.lastStartBlocked = false;
 
       this.teardownGraph();
 
@@ -388,6 +409,7 @@ export class FocusAudioEngine {
   }
 
   stop(): void {
+    this.lastStartBlocked = false; // a fresh stop clears any stale "didn't start" state too
     if (!this.ctx || !this.masterGain || !this.graph) {
       this.teardownGraph();
       this.notify();

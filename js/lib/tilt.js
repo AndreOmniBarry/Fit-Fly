@@ -23,13 +23,14 @@
 // it running unconditionally forever is worse than idle: navigate away
 // and it just keeps ticking in the background for the rest of the
 // session.
+import { prefersReducedMotion } from './motion.js';
 const MAX_DEG = 6;
 const LERP = 0.12;
 export function attachTilt(root) {
     const inert = { requestMotionPermission: async () => { }, stop() { } };
     if (typeof window === 'undefined')
         return inert;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches)
+    if (prefersReducedMotion())
         return inert;
     let targetX = 0;
     let targetY = 0;

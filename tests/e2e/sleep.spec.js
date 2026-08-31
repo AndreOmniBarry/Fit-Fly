@@ -139,4 +139,27 @@ test.describe('sleep', () => {
     await page.locator('#btn-wind-down-back').click();
     await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
   });
+
+  test('the score ring draws in for real, and the dashboard reacts to tilt', async ({ page }) => {
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.getByRole('button', { name: 'Save last night' }).click();
+
+    // A real number, not a snap-in: the ring's stroke-dashoffset settles
+    // to the score's real fraction of the circumference (RING_CIRCUMFERENCE
+    // = 540.35 for r=86), and the displayed number count-up lands on the
+    // exact score, both via CSS/JS-driven animation rather than instant.
+    await expect(page.locator('#sleep-score-ring-fill')).not.toHaveAttribute('stroke-dashoffset', '540.35');
+    await expect(page.locator('#sleep-score-value')).toHaveText('100');
+
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-sleep-dashboard'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
 });

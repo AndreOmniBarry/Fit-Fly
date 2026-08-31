@@ -5,6 +5,7 @@
 // see audio-engine.ts's getFocusAudioEngine().
 import { showScreen } from '../../lib/router.js';
 import { iconMarkup } from '../../lib/icons.js';
+import { attachTilt } from '../../lib/tilt.js';
 import { getFocusAudioEngine } from './audio-engine.js';
 import { SOUNDSCAPES } from './soundscapes.js';
 import type { FocusAudioState } from './audio-engine.js';
@@ -26,13 +27,14 @@ export function initFocusFeature(): void {
   const grid = byId('focus-sound-grid');
   const tileButtons = new Map<string, HTMLButtonElement>();
 
-  for (const soundscape of SOUNDSCAPES) {
+  SOUNDSCAPES.forEach((soundscape, index) => {
     const tile = document.createElement('button');
     tile.type = 'button';
-    tile.className = 'focus-sound-tile';
+    tile.className = 'focus-sound-tile tilt-card tilt-enter';
     tile.id = `focus-sound-${soundscape.id}`;
     tile.setAttribute('aria-pressed', 'false');
-    tile.innerHTML = `${iconMarkup(soundscape.icon, { size: 20 })}<span class="name">${soundscape.name}</span>`;
+    tile.style.animationDelay = `${index * 0.05}s`; // materializes in tile-by-tile, same as the Hub's grid
+    tile.innerHTML = `<span class="focus-sound-tile-face tilt-press"><span data-tilt-depth="1">${iconMarkup(soundscape.icon, { size: 20 })}</span><span class="name">${soundscape.name}</span></span>`;
     tile.addEventListener('click', () => {
       const state = engine.getState();
       if (state.playing && state.soundscapeId === soundscape.id) {
@@ -43,7 +45,7 @@ export function initFocusFeature(): void {
     });
     grid.append(tile);
     tileButtons.set(soundscape.id, tile);
-  }
+  });
 
   function render(state: FocusAudioState): void {
     for (const [id, tile] of tileButtons) {
@@ -96,4 +98,8 @@ export function initFocusFeature(): void {
   });
 
   byId('btn-focus-back').addEventListener('click', () => showScreen('screen-hub'));
+
+  // Same spatial-tilt language as the Hub and Sleep's dashboard.
+  const tilt = attachTilt(byId('screen-focus'));
+  byId('screen-focus').addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
 }

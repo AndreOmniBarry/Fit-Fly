@@ -140,7 +140,7 @@ css/
   mini-apps.css              # Hub + Sleep + Focus's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (Hub spatial-tilt), motion.ts (shared prefers-reduced-motion check)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -409,6 +409,20 @@ three concentric rings) plus three quick ambient-sound picks — drives the
 exact same shared audio engine Focus's own screen does (see below),
 not a disconnected copy.
 
+**The dashboard carries the same spatial-tilt/kinetic-data language as
+the Hub** (`js/lib/tilt.ts`, `js/lib/count-up.ts`) — deliberately scoped
+to the dashboard only, not Insights (chart-dense) or Wind Down (its own
+breathing-pacer motion language already fills that role): restraint, not
+the effect applied everywhere it could technically go. The score ring
+draws in for real via a `stroke-dashoffset` transition instead of
+snapping to its final state, its number counts up rather than appearing
+outright, the streak/debt stats on Insights do the same, and the week
+strip's bars grow in from zero — real data (each bar's height already
+*is* that night's real duration) drawn as motion, not decoration. Stat
+tiles tilt with the rest of the screen; the ring itself deliberately
+doesn't (a precise data circle spinning in 3D reads as a gimmick, not
+depth) — only its value floats a little via `data-tilt-depth`.
+
 ## Focus
 
 A second, standalone mini-app — not a Sleep sub-feature — for anyone who
@@ -481,6 +495,18 @@ cannot know or override that, and shouldn't try to. The only honest fix
 is the permanent hint under the volume slider: *"Plays through your
 media volume — check your device isn't muted or on silent if you don't
 hear anything."*
+
+**The catalog carries the same spatial-tilt language as the Hub and
+Sleep's dashboard**, `attachTilt()`'d the same way. The sound/session
+tiles are structured the same two-layer way the Hub's tiles are —
+`.focus-sound-tile` is the `.tilt-card` (surface + rotation),
+`.focus-sound-tile-face` its `.tilt-press` (layout + the press-spring) —
+because a JS-lerped rotate and a CSS-sprung press can't safely share one
+`transform` declaration (see `js/lib/tilt.ts`'s doc comment). These three
+primitives (`.tilt-card`, `.tilt-press`, `data-tilt-depth`) are shared,
+generic CSS now, not Hub-specific — the Hub's own tiles were refactored
+onto them at the same time this was built, so there's exactly one
+implementation of the mechanism, used in three places.
 
 ### Guided sessions
 

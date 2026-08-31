@@ -37,6 +37,7 @@ async function completeOnboarding(page, { goal = 'build-muscle', hasInjury = fal
   }
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
+  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
 }
 
 test.describe('my program', () => {

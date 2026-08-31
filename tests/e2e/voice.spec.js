@@ -103,6 +103,7 @@ test.describe('voice control (fake SpeechRecognition)', () => {
   });
 
   test('works from a screen other than home', async ({ page }) => {
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
     await page.locator('#btn-home-nutrition').click();
     await expect(page.getByRole('heading', { name: 'Nutrition' })).toBeVisible();
 

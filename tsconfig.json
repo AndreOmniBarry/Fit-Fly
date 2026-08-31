@@ -1,0 +1,41 @@
+{
+  "compilerOptions": {
+    // This is still a bundler-free, plain-ES-module PWA (see scripts/serve.mjs
+    // and vercel.json — the deployed site is served as-is, no build step) —
+    // so TypeScript is used purely as a stricter authoring layer. Source
+    // .ts files sit next to the existing .js modules under js/, and tsc
+    // emits plain .js in place, imported with a literal ".js" specifier
+    // exactly like every hand-written module already in this codebase.
+    // The compiled .js is committed, same as the vendored fonts.
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "moduleDetection": "force",
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // The pre-existing feature modules stay plain, hand-written .js —
+    // untouched and unrecompiled. New .ts modules that need to call into
+    // one get a hand-written sidecar *.d.ts next to the real *.js (TS's
+    // standard "extension substitution": `import './router.js'` resolves
+    // to `router.d.ts` for types, `router.js` at runtime) instead of
+    // allowJs's loose structural inference — an explicit typed contract,
+    // and it keeps tsc from ever considering re-emitting hand-written JS.
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+
+    "noEmit": false,
+    "declaration": false,
+    "sourceMap": true,
+    "removeComments": false,
+    "noEmitOnError": true
+  },
+  "include": ["js/**/*.ts"]
+}

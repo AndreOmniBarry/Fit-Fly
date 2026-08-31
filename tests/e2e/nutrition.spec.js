@@ -27,6 +27,7 @@ async function completeOnboarding(page) {
   await page.locator('#ob-has-injury button[data-value="no"]').click();
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
+  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
 }
 
 test.describe('nutrition', () => {
@@ -98,6 +99,7 @@ test.describe('nutrition', () => {
     await page.locator('#btn-nutrition-add').click();
 
     await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
     await page.locator('#btn-home-nutrition').click();
     await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Oatmeal');
   });

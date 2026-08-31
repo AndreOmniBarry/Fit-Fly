@@ -27,6 +27,7 @@ async function completeOnboarding(page) {
   await page.locator('#ob-has-injury button[data-value="no"]').click();
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
+  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
 }
 
 test.describe('goals', () => {
@@ -120,6 +121,7 @@ test.describe('goals', () => {
     await page.locator('#btn-goal-create').click();
 
     await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
     await page.locator('#btn-home-goals').click();
     await expect(page.locator('#goals-list .card').first()).toContainText('Run a 5K');
   });

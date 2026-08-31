@@ -1,10 +1,20 @@
 # Fit Fly
 
-A personalized, on-device fitness and health tracker. Onboarding places you
-into one category — sedentary start, cut/fat loss, recomposition,
-rehab/recuperation, hypertrophy, or endurance — and that choice shapes
-everything downstream: your programs, your warm-ups, safety flags, even the
-app's accent color. Built by OmniBarry Inc Labs.
+A personalized, on-device health app built as a **hub of mini-apps** — open
+it and you land on a launcher (the Hub) with each mini-app as its own
+equal-weight tile, the same way opening a phone shows you a home screen of
+separate apps rather than one monolithic tool. **Sleep** and **Calm
+Sounds** are the first two, built to real, commercial-grade depth rather
+than broad-but-shallow; the original 14-phase fitness feature set (activity
+logging, tailored programs, run mode, heart rate, women's health,
+nutrition, recovery, goals, voice control) still lives in full behind the
+**Fitness Toolkit** tile, unchanged. More mini-apps (vitals, step counting)
+are planned to land in the Hub the same way. Built by OmniBarry Inc Labs.
+
+Onboarding still places you into one fitness category — sedentary start,
+cut/fat loss, recomposition, rehab/recuperation, hypertrophy, or endurance —
+and that choice shapes everything inside the Fitness Toolkit: your
+programs, your warm-ups, safety flags, even that section's accent color.
 
 Genuinely inspired by the broader "personal fitness tracker" category,
 built from scratch — this repo, like its sibling projects, never names or
@@ -44,48 +54,91 @@ presented with false precision. Look for the badge:
 
 ## Platform notes (why web, not a native app)
 
-Fit Fly is a plain ES-module web app — no framework, no bundler — the same
-proven pattern as this publisher's other on-device apps. It's installable
-as a home-screen PWA on iOS/Android and works fully offline once loaded.
-The trade-off, accepted deliberately: GPS tracking only works while the
-screen is on (mitigated with the Screen Wake Lock API), there's no
-HealthKit/Google Fit bridge, and iOS has no Bluetooth heart-rate-strap
-support in the browser — camera-based PPG heart-rate estimation and manual
-entry cover that gap, always labeled as an estimate per the rule above.
+Fit Fly is a web app — installable as a home-screen PWA on iOS/Android,
+works fully offline once loaded — built with **no bundler and no dev
+server rewrite step**: every module the browser loads is a real file at a
+real path, the same file `import` statements reference. The original
+14-phase feature set is plain ES modules; the Hub, Sleep, and Calm Sounds
+are authored in **TypeScript** (strict mode) and compiled in place by
+`tsc` to the adjacent `.js` the browser actually loads — see "TypeScript,
+without a bundler" below. Neither approach pulls in a UI framework.
+
+The trade-off accepted deliberately across the whole app: GPS tracking
+only works while the screen is on (mitigated with the Screen Wake Lock
+API), background audio (Calm Sounds, Sleep's Wind Down) is unreliable once
+the screen locks — that's the OS's rule, stated plainly in the UI rather
+than glossed over — there's no HealthKit/Google Fit bridge, and iOS has no
+Bluetooth heart-rate-strap support in the browser. Camera-based PPG
+heart-rate estimation and manual entry cover that last gap, always labeled
+as an estimate per the rule above. Sleep, similarly, never claims to sense
+anything passively overnight — see "Sleep" below for why.
+
+## TypeScript, without a bundler
+
+`tsconfig.json` compiles every `js/**/*.ts` file **in place** — `tsc`
+emits `foo.js` right next to `foo.ts`, imported everywhere (including from
+`index.html`) with a literal `.js` specifier, exactly like every
+hand-written module in the original 14-phase build. There's still no
+bundler and no dev-server rewrite step: the compiled `.js` is committed
+alongside its `.ts` source, the same way the vendored fonts and Dexie
+build are committed rather than fetched at build time — Vercel serves this
+repo as a static site with no build command (see `vercel.json`), so
+whatever ships has to already be plain, runnable JS.
+
+`npm run build` runs the compiler; `pretest`/`pretest:e2e`/`preserve` hooks
+run it automatically before Vitest, Playwright, or the dev server, so the
+compiled output is never stale when you run any of those. A hand-written
+`.d.ts` sits next to a handful of the original build's plain-JS modules
+(`router.js`, `timer.js`, `id.js`, `chip-group.js`, `client.js`) — a real
+typed contract for the boundary where new TypeScript code calls into old
+JavaScript, rather than leaving those calls untyped.
+
+The original 14-phase feature set stays plain JavaScript, deliberately not
+migrated — rewriting already-shipped, already-tested code wholesale is a
+real regression risk with no user-facing benefit, not something to do
+opportunistically alongside unrelated feature work.
 
 ## Layout
 
 ```
 index.html            # app shell: splash + screen router mount point
 manifest.json          # PWA manifest
+tsconfig.json           # compiles js/**/*.ts in place — see "TypeScript, without a bundler"
 css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
   components.css           # shared buttons/cards/forms/chips/nav
+  mini-apps.css              # Hub + Sleep + Calm Sounds' own night-surface visual identity
 js/
   main.js                   # bootstrap
   lib/                       # cross-feature pure logic + small DOM helpers
   db/                         # Dexie (IndexedDB) schema and store access
   features/
-    onboarding/                # profile/BMI intake + category engine
-    activity/                    # activity logging, measured-vs-estimated UI
-    programs/                     # tailored exercise programs, periodization
-    exercises/                     # exercise library + hand-authored demo SVGs
-    run/                             # GPS run mode: map, history, PRs
-    heart-rate/                       # camera PPG, manual entry, BLE (feature-detected)
-    womens-health/                     # cycle tracker (encrypted store)
-    nutrition/                          # macro/nutrition tracking
-    recovery/                            # recovery + readiness scoring
-    goals/                                # goals + local notifications
-    voice/                                 # closed-grammar voice commands
-  vendor/                                  # vendored libraries (npm registry, not a live CDN)
+    hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
+    sleep/                       # Sleep mini-app: score/consistency/debt, dashboard, Wind Down, Insights (TypeScript)
+    calm-sounds/                  # Calm Sounds mini-app: real Web Audio spatial engine + catalog (TypeScript)
+    onboarding/                    # profile/BMI intake + category engine
+    activity/                       # activity logging, measured-vs-estimated UI
+    programs/                        # tailored exercise programs, periodization
+    exercises/                        # exercise library + hand-authored demo SVGs
+    run/                                # GPS run mode: map, history, PRs
+    heart-rate/                          # camera PPG, manual entry, BLE (feature-detected)
+    womens-health/                        # cycle tracker (encrypted store)
+    nutrition/                             # macro/nutrition tracking
+    recovery/                               # recovery + readiness scoring
+    goals/                                   # goals + local notifications
+    voice/                                    # closed-grammar voice commands
+  vendor/
+    dexie.min.mjs, fonts/                       # vendored libraries + fonts (npm registry, not a live CDN)
 assets/
   icons/                     # app icons
   exercise-svgs/              # hand-authored exercise demonstration SVGs
 tests/
   unit/                       # Vitest — pure-logic math (BMI/BMR/TDEE, GPS,
                                 # cycle prediction, program generation, 1RM,
-                                # PPG signal processing, voice-grammar matching)
+                                # PPG signal processing, voice-grammar matching,
+                                # sleep scoring/consistency/debt/trends/insights,
+                                # calm sounds noise synthesis/spatial motion/impulse response)
   e2e/                          # Playwright — real UI flows, zero console errors
 scripts/
   serve.mjs                   # zero-dependency static server (dev + e2e)
@@ -98,7 +151,8 @@ npm install
 npm run serve
 ```
 
-Then open `http://127.0.0.1:4173`.
+Then open `http://127.0.0.1:4173`. (`npm run serve` compiles TypeScript
+first automatically — see "TypeScript, without a bundler" above.)
 
 ## Deploying to Vercel
 
@@ -141,17 +195,21 @@ runs, before any phase of work is considered done.
 
 ## Status
 
-Built in 14 phases — foundation, data layer, onboarding/category engine,
-activity tracking, timers, tailored programs, run mode, heart rate,
-women's health, nutrition, recovery, goals, voice, and a final polish
-pass. **All 14 phases are complete.** 300 Vitest unit tests and 136
+The original fitness tracker was built in 14 phases — foundation, data
+layer, onboarding/category engine, activity tracking, timers, tailored
+programs, run mode, heart rate, women's health, nutrition, recovery,
+goals, voice, and a final polish pass — and lives on in full behind the
+Hub's Fitness Toolkit tile. On top of that, the app restructured into the
+Hub/mini-apps model described above, with **Sleep** and **Calm Sounds**
+built out as the first two real mini-apps. 405 Vitest unit tests and 168
 Playwright end-to-end tests (desktop + mobile-viewport, zero console
 errors) are green.
 
 Known, deliberate gaps rather than oversights: no export/import for
 on-device data (see above), no offline service worker/asset caching yet,
-and voice commands cover a small closed set of navigation phrases, not
-open-ended control.
+voice commands cover a small closed set of navigation phrases (not yet
+extended to Sleep/Calm Sounds), and Sleep currently uses a fixed 8-hour
+goal rather than a per-person configurable one.
 
 ## Data layer
 
@@ -205,6 +263,120 @@ table exists for) to IndexedDB. `js/lib/router.js` is the generic
 show/hide screen router every later phase's navigation builds on, and
 `js/lib/chip-group.js` is the single/multi-select control used throughout
 the wizard.
+
+## The Hub
+
+Onboarding hands off to the Hub (`#screen-hub` in `index.html`,
+`js/features/hub/hub-view.ts`) instead of straight into a feature list.
+It's an **equal-weight grid** — every mini-app is the same size tile, none
+made a hero at the expense of the others — deliberately, because it's the
+pattern every future mini-app (vitals, step counting, and beyond) has to
+slot into without the grid needing a rework or something ending up buried
+under "more tools." Sleep and Calm Sounds get their own gradient identity
+per tile; Fitness Toolkit and the "Vitals & Steps — coming soon" tile use
+the app's existing neutral surface, since they aren't mini-apps with their
+own visual identity (yet, in the coming-soon case).
+
+## Sleep
+
+Sleep is built to the standard the rest of this README holds every
+feature to — real math, honest about what it doesn't know, nothing
+fabricated — applied to a category where that's easy to get wrong.
+
+**No passive overnight sensing, on purpose, not as a limitation to work
+around later.** A phone's microphone and motion sensors both stop
+receiving data the moment the screen locks (iOS Safari, confirmed
+directly), so any "senses your sleep automatically" claim from a
+browser-based PWA would be fiction. Sleep is a fast, honest manual log
+instead — bedtime, wake time, how it felt — surfaced right on the
+dashboard, never hidden behind a settings screen.
+
+`js/features/sleep/sleep-score.ts` blends three components into one 0-100
+score, each with its own reasoning string, the same "why this, not just a
+number" contract as `readiness.js`:
+- **Duration** — logged hours against an 8-hour goal.
+- **Consistency** — `sleep-consistency.ts` computes the standard deviation
+  of recent bedtimes (shifted so "noon" is the zero-point, so a bedtime
+  that crosses midnight doesn't register a fake ~24-hour jump) — tight
+  bedtimes score high, erratic ones score low. Needs at least two logged
+  nights; returns `null` rather than guessing with less.
+- **Quality** — the person's own 1-5 rating of how it felt. Optional —
+  omitting it doesn't block a score, the other components just carry more
+  weight.
+
+`sleep-debt.ts` sums only the *shortfall* against the goal across recent
+nights — a great night deliberately doesn't cancel out debt from a rough
+one, since sleep debt doesn't work that way physiologically and pretending
+otherwise would be exactly the kind of fabricated precision this app
+avoids everywhere else. `sleep-insights.ts`'s "what's helping" cards are
+**real correlations pulled from a person's own logged nights** (e.g.
+"consistent bedtime" vs. not, compared by average score) — a card only
+renders once there are enough nights on both sides of the comparison to
+say anything meaningful; there is no generic or placeholder stat standing
+in for missing data.
+
+Sleep's Wind Down screen — a pulsating breathing pacer (CSS animation,
+three concentric rings) plus three quick ambient-sound picks — drives the
+exact same shared audio engine Calm Sounds' own screen does (see below),
+not a disconnected copy.
+
+## Calm Sounds
+
+A second, standalone mini-app — not a Sleep sub-feature — for anyone who
+wants steady background sound while falling asleep, sitting with a busy
+mind, or just working: rain, ocean waves, a river, wind, a fireplace, or
+plain steady noise. The catalog and its framing (`js/features/calm-sounds/soundscapes.ts`)
+deliberately avoid diagnostic or clinical language — it offers sounds, it
+doesn't suggest a reason you might need them.
+
+**Real audio, not a looped sample file** — there's nothing to fetch in an
+offline-first PWA with no server, so every soundscape is procedurally
+generated Web Audio, run at a requested 48kHz:
+- `noise-synthesis.ts` generates real white/pink/brown noise PCM (Paul
+  Kellet's refined pink-noise filter; a leaky-integrator random walk for
+  brown), then blends the buffer's tail into its head
+  (`crossfadeLoopBuffer`) so a long loop never exposes an audible seam.
+- Each soundscape layers one or more of those buffers through a real
+  `BiquadFilterNode` chain (highpass/lowpass/bandpass) that shapes plain
+  noise into something that actually sounds like rain, waves, or wind —
+  data-driven per soundscape, not a single fixed filter for everything.
+- **Genuinely 3D, not stereo panning** — a `PannerNode` in `HRTF` mode,
+  animated by `spatial-motion.ts`'s pure orbit math (`positionAtTime`),
+  moves each soundscape's sound around the listener over tens of seconds
+  (wind drifts, waves roll) rather than sitting static in one spot.
+- `impulse-response.ts` procedurally generates a reverb tail
+  (exponentially-decaying filtered noise — the standard way to build a
+  plausible room IR when no real IR file can be fetched) fed into a
+  `ConvolverNode` for spatial depth.
+
+`js/features/calm-sounds/audio-engine.ts` is the thin, stateful
+orchestration layer that wires all of the above into a real Web Audio
+graph — feature-detected and defensive throughout (a missing/blocked
+`AudioContext` degrades to "nothing plays," never a thrown error), the
+same contract as `audio-cue.js`'s `primeAudio()`. It owns a **single
+shared engine instance** (`getCalmAudioEngine()`) so Calm Sounds' own
+screen and Sleep's Wind Down screen always reflect the exact same live
+playback state — start a sound from Wind Down, open the full Calm Sounds
+screen, and it shows that same sound already playing, not a second
+disconnected player. Every pure math module above is Vitest-tested
+directly (deterministic via a seeded PRNG, `prng.ts`); `audio-engine.ts`
+itself — real `AudioContext`/`PannerNode`/`ConvolverNode` construction —
+is exercised through Playwright in a real Chromium instead, since Node has
+no Web Audio implementation for Vitest to run against.
+
+Same platform honesty as everywhere else in this README: background audio
+is unreliable once the screen locks (stated plainly in the Wind Down
+screen's own copy, not glossed over) — that's the OS's rule, not a bug
+here.
+
+## The Fitness Toolkit
+
+Everything from the original 14-phase build — activity logging, tailored
+programs, run mode, heart rate, women's health, nutrition, recovery,
+goals, voice control — lives on unchanged, just one tap deeper behind the
+Hub's Fitness Toolkit tile instead of being the app's front door. Every
+id, every controller, every test below is exactly as it was; only the
+navigation path to reach it moved.
 
 ## Activity tracking
 

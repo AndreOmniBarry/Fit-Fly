@@ -12,6 +12,9 @@ import { initNutritionFeature } from './features/nutrition/nutrition-view.js';
 import { initReadinessFeature } from './features/recovery/readiness-view.js';
 import { initGoalsFeature } from './features/goals/goals-view.js';
 import { initVoiceFeature } from './features/voice/voice-control.js';
+import { initHubFeature } from './features/hub/hub-view.js';
+import { initSleepFeature } from './features/sleep/sleep-view.js';
+import { initCalmSoundsFeature } from './features/calm-sounds/calm-sounds-view.js';
 import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
@@ -41,6 +44,9 @@ async function init() {
   initReadinessFeature();
   initGoalsFeature();
   initVoiceFeature();
+  initHubFeature();
+  initSleepFeature();
+  initCalmSoundsFeature();
   seedExerciseLibrary(); // fire-and-forget — a mirror of the built-in library for future browsing/customization, not on the read path today
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {
@@ -48,7 +54,7 @@ async function init() {
       document.getElementById('home-category-badge').textContent = formatCategoryLabel(
         categoryResult.category
       );
-      showScreen('screen-home');
+      showScreen('screen-hub');
     },
   });
 
@@ -59,7 +65,7 @@ async function init() {
 
   if (profile && assignment) {
     renderHome(profile, assignment);
-    showScreen('screen-home', { focus: false });
+    showScreen('screen-hub', { focus: false });
   }
 
   document.getElementById('btn-get-started').addEventListener('click', () => {

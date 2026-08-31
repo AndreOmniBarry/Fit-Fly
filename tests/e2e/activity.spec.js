@@ -27,6 +27,7 @@ async function completeOnboarding(page) {
   await page.locator('#ob-has-injury button[data-value="no"]').click();
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
+  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
 }
 
 test.describe('activity logging', () => {
@@ -52,8 +53,9 @@ test.describe('activity logging', () => {
     await page.locator('#activity-duration').fill('30');
     await page.getByRole('button', { name: 'Save' }).click();
 
-    // saving returns to home
-    await expect(page.getByRole('heading', { name: 'Fit Fly' })).toBeVisible();
+    // saving returns to the Fitness Toolkit (the parent screen these tests
+    // operate from), not all the way up to the Hub
+    await expect(page.getByRole('heading', { name: 'Fitness Toolkit' })).toBeVisible();
 
     await page.locator('#btn-home-history').click();
     await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
@@ -87,6 +89,7 @@ test.describe('activity logging', () => {
     await page.getByRole('button', { name: 'Save' }).click();
 
     await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
     await page.locator('#btn-home-history').click();
     const entry = page.locator('#activity-history-list .card').first();
     await expect(entry).toContainText('Yoga');

@@ -173,4 +173,25 @@ export function defineSchema(db) {
     // boolean, for the same IndexedDB-indexing reason as programs.status.
     goals: 'id, status, createdAt',
   });
+
+  // v8 — Sleep, the first "mini-app": one logged night, keyed by date like
+  // cycleLogs/readinessCheckins.
+  db.version(8).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+
+    sleepLogs: 'date, loggedAt',
+  });
 }

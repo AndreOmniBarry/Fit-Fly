@@ -27,6 +27,7 @@ async function completeOnboarding(page) {
   await page.locator('#ob-has-injury button[data-value="no"]').click();
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
+  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
 }
 
 test.describe('women\'s health / cycle tracker', () => {
@@ -81,7 +82,7 @@ test.describe('women\'s health / cycle tracker', () => {
     await expect(page.locator('#whealth-history-list .card').first()).toContainText('Cramps');
 
     await page.locator('#btn-whealth-lock').click();
-    await expect(page.getByRole('heading', { name: 'Fit Fly' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Fitness Toolkit' })).toBeVisible();
 
     await page.locator('#btn-home-womens-health').click();
     await expect(page.locator('#whealth-unlock-pane')).toBeVisible();
@@ -136,6 +137,7 @@ test.describe('women\'s health / cycle tracker', () => {
     await expect(page.locator('#whealth-flow')).toBeVisible();
 
     await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
     await page.locator('#btn-home-womens-health').click();
     await expect(page.locator('#whealth-unlock-pane')).toBeVisible();
   });

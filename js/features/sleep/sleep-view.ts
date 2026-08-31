@@ -10,7 +10,7 @@ import { buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
 import { computeSleepLogTimes } from './sleep-duration.js';
 import { formatClockTime, formatDurationHM, formatTimeInputValue } from './format.js';
-import { setSleepTileSubtitle } from '../hub/hub-view.js';
+import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import type { FocusAudioState } from '../focus/audio-engine.js';
 import type { SleepCategory, SleepLog } from './types.js';
@@ -124,6 +124,7 @@ export function initSleepFeature(): void {
 
     renderWeekStrip();
     setSleepTileSubtitle(`${score.score} · ${CATEGORY_LABEL[score.category]} last night`);
+    setSleepTileScore(score.score);
   }
 
   async function loadDashboard(): Promise<void> {

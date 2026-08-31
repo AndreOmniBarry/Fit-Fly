@@ -140,7 +140,7 @@ css/
   mini-apps.css              # Hub + Sleep + Focus's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers, including icons.ts (the app's icon system)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (the app's icon system), tilt.ts (the Hub's spatial-tilt engine)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -232,9 +232,10 @@ goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
 Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
-sessions with free, on-device voice guidance. 425 Vitest unit tests and
-198 Playwright end-to-end tests (desktop + mobile-viewport, zero console
-errors) are green.
+sessions with free, on-device voice guidance — and the Hub itself rebuilt
+as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
+Hub" above). 425 Vitest unit tests and 210 Playwright end-to-end tests
+(desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
 still entirely on-device, no server, by design (a real backend for
@@ -331,6 +332,29 @@ benefits from a real profile (personalized programs, calorie targets,
 readiness scoring), so it shows a plain "set up your profile" prompt
 instead of silently rendering blank targets when one is missing — onboard
 later, from inside the Fitness Toolkit, whenever it's actually wanted.
+
+**The grid is a shared 3D scene, not a stack of flat cards.**
+`js/lib/tilt.ts` reads real input — pointer movement on desktop, actual
+device tilt on a phone, once granted — and turns it into a few degrees of
+rotation applied to every tile at once, with each tile's icon and its
+kinetic-data layer sitting at their own depth so they visually separate as
+the grid tilts, the way things at different distances from a light source
+actually do. One rAF loop lerps toward the latest reading every frame —
+that lerp *is* the spring, deliberately with no competing CSS transition
+fighting it — and the loop only runs while the Hub is actually the visible
+screen (a `MutationObserver` on `hidden`), so it costs nothing, and risks
+nothing, the moment you navigate away. Under `prefers-reduced-motion` the
+whole thing is a no-op: full depth via static shadows and layering, zero
+motion.
+
+**The tile data is real, not decorative.** The Sleep tile's mini ring runs
+the exact same score math as its dashboard ring and draws in via a real
+`stroke-dashoffset` transition the moment a night is logged — before that,
+it's an honest empty "waiting for data" state, never a fabricated number.
+Focus's mini waveform only animates when a soundscape is actually playing
+(subscribed to the same shared audio engine's state, live, from wherever
+playback was started — its own screen or Wind Down), and sits low and
+still otherwise.
 
 ## Sleep
 

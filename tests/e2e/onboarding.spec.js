@@ -63,7 +63,7 @@ test.describe('onboarding wizard', () => {
     // Onboarding hands off to the Hub, not straight into the Fitness
     // Toolkit — every mini-app tile is equal-weight and visible immediately.
     await expect(page.getByRole('button', { name: 'Sleep' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Calm Sounds' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Focus' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Fitness Toolkit' })).toBeVisible();
 
     await page.getByRole('button', { name: 'Fitness Toolkit' }).click();

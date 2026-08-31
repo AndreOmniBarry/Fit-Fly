@@ -92,6 +92,16 @@ input,select,textarea{font-family:var(--font-body); font-size:var(--fs-md);}
 .muted{color:var(--ink-2);}
 .center-text{text-align:center;}
 
+/* The app's icon system — every icon is a <use> reference into the sprite
+   defined at the top of index.html (js/lib/icons.ts emits the same
+   markup). fill:none + stroke:currentColor is what lets one icon look
+   right in every theme/accent color with zero per-icon overrides. */
+.icon{
+  display:inline-block; vertical-align:middle; flex-shrink:0;
+  fill:none; stroke:currentColor; stroke-width:1.8;
+  stroke-linecap:round; stroke-linejoin:round;
+}
+
 /* ---------- measured vs. estimated data ---------- */
 /* Every number the app cannot directly measure (calories out, camera-PPG
    heart rate, etc.) MUST carry one of these badges — see README's honesty

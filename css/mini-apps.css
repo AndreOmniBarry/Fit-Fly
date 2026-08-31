@@ -1,6 +1,6 @@
 /* ============================================================================
-   MINI-APPS: the Hub, and the mini-apps built on top of it (Sleep, Calm
-   Sounds). Deliberately its own visual layer on top of base.css/
+   MINI-APPS: the Hub, and the mini-apps built on top of it (Sleep, Focus).
+   Deliberately its own visual layer on top of base.css/
    components.css, not a replacement for them — the reset, spacing scale,
    and screen-router chrome stay shared; typography and color here are
    what let each mini-app carry its own identity, the way real apps inside
@@ -25,19 +25,25 @@
   --sleep-accent-2:#f2895a;
   --sleep-accent-soft:rgba(245,198,109,0.16);
 
-  /* ---------- Calm Sounds: a teal palette, its own identity again ---------- */
-  --calm-bg-start:#164852;
-  --calm-bg-mid:#0f2d33;
-  --calm-bg-end:#0a2024;
-  --calm-ink:#f2fbf8;
-  --calm-ink-muted:rgba(242,251,248,0.55);
-  --calm-card-bg:rgba(242,251,248,0.06);
-  --calm-card-border:rgba(242,251,248,0.1);
-  --calm-accent:#8ce0c9;
-  --calm-accent-soft:rgba(140,224,201,0.16);
+  /* ---------- Focus: a teal palette, its own identity again ---------- */
+  --focus-bg-start:#164852;
+  --focus-bg-mid:#0f2d33;
+  --focus-bg-end:#0a2024;
+  --focus-ink:#f2fbf8;
+  --focus-ink-muted:rgba(242,251,248,0.55);
+  --focus-card-bg:rgba(242,251,248,0.06);
+  --focus-card-border:rgba(242,251,248,0.1);
+  --focus-accent:#8ce0c9;
+  --focus-accent-soft:rgba(140,224,201,0.16);
+
+  /* The breathing pacer (Sleep's Wind Down, and every guided session) is
+     shared markup across both night surfaces — this is what lets its
+     glow/ring color follow whichever theme it's actually drawn on
+     instead of Sleep's amber leaking into Focus. Default: Sleep's amber. */
+  --pacer-accent-rgb:245,198,109;
 }
 
-/* ---------- shared night-surface mechanics (Sleep + Calm Sounds) ---------- */
+/* ---------- shared night-surface mechanics (Sleep + Focus) ---------- */
 .miniapp-night{
   font-family:var(--miniapp-font-body);
   min-height:100%;
@@ -58,7 +64,7 @@
   color:inherit;
 }
 .theme-sleep .muted, .theme-sleep .field label, .theme-sleep .field-hint{ color:var(--sleep-ink-muted); }
-.theme-calm .muted, .theme-calm .field label, .theme-calm .field-hint{ color:var(--calm-ink-muted); }
+.theme-focus .muted, .theme-focus .field label, .theme-focus .field-hint{ color:var(--focus-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -66,25 +72,35 @@
 .theme-sleep .chip[aria-pressed="true"]{
   background:var(--sleep-accent-soft); border-color:rgba(245,198,109,0.4); color:var(--sleep-accent); font-weight:700;
 }
-.theme-calm .chip{
-  background:rgba(242,251,248,0.06); border:1px solid rgba(242,251,248,0.12); color:var(--calm-ink-muted);
+.theme-focus .chip{
+  background:rgba(242,251,248,0.06); border:1px solid rgba(242,251,248,0.12); color:var(--focus-ink-muted);
 }
-.theme-calm .chip[aria-pressed="true"]{
-  background:var(--calm-accent-soft); border-color:rgba(140,224,201,0.4); color:var(--calm-accent); font-weight:700;
+.theme-focus .chip[aria-pressed="true"]{
+  background:var(--focus-accent-soft); border-color:rgba(140,224,201,0.4); color:var(--focus-accent); font-weight:700;
 }
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
 .theme-sleep .btn-ghost{ color:var(--sleep-ink); border-color:var(--sleep-card-border); }
-.theme-calm .btn-ghost{ color:var(--calm-ink); border-color:var(--calm-card-border); }
+.theme-focus .btn-ghost{ color:var(--focus-ink); border-color:var(--focus-card-border); }
+
+/* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
+   readable enough on the app's light/dark surfaces, but noticeably lower
+   contrast against these night gradients than each mini-app's own bright
+   accent already proven to read well there (the score ring, selected
+   chips, ...). Keyboard focus deserves the same contrast everything else
+   on the screen already gets. */
+.theme-sleep :focus-visible{ outline-color:var(--sleep-accent); }
+.theme-focus :focus-visible{ outline-color:var(--focus-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
   color:var(--sleep-ink);
 }
-.theme-calm{
-  background:radial-gradient(120% 70% at 25% -10%, var(--calm-bg-start) 0%, var(--calm-bg-mid) 45%, var(--calm-bg-end) 100%);
-  color:var(--calm-ink);
+.theme-focus{
+  background:radial-gradient(120% 70% at 25% -10%, var(--focus-bg-start) 0%, var(--focus-bg-mid) 45%, var(--focus-bg-end) 100%);
+  color:var(--focus-ink);
+  --pacer-accent-rgb:140,224,201;
 }
 
 /* drifting stars, shared between the two night surfaces — tone follows
@@ -154,13 +170,13 @@
 .hub-tile--sleep .hub-tile-icon{ background:var(--sleep-accent-soft); }
 .hub-tile--sleep .hub-tile-sub{ color:var(--sleep-accent); }
 
-.hub-tile--calm{
-  background:linear-gradient(150deg, var(--calm-bg-mid) 0%, var(--calm-bg-start) 55%, #164852 100%);
+.hub-tile--focus{
+  background:linear-gradient(150deg, var(--focus-bg-mid) 0%, var(--focus-bg-start) 55%, #164852 100%);
   box-shadow:0 14px 30px -16px rgba(15,45,51,0.5);
-  color:var(--calm-ink);
+  color:var(--focus-ink);
 }
-.hub-tile--calm .hub-tile-icon{ background:var(--calm-accent-soft); }
-.hub-tile--calm .hub-tile-sub{ color:var(--calm-accent); }
+.hub-tile--focus .hub-tile-icon{ background:var(--focus-accent-soft); }
+.hub-tile--focus .hub-tile-sub{ color:var(--focus-accent); }
 
 .hub-tile--neutral{
   background:var(--surface);
@@ -246,11 +262,11 @@
   position:absolute; border-radius:50%;
   animation:miniapp-breathe 4.6s cubic-bezier(.45,0,.55,1) infinite;
 }
-.breathe-ring--outer{ width:210px; height:210px; border:1px solid rgba(245,198,109,0.18); }
-.breathe-ring--mid{ width:160px; height:160px; border:1px solid rgba(245,198,109,0.3); animation-delay:.1s; }
+.breathe-ring--outer{ width:210px; height:210px; border:1px solid rgba(var(--pacer-accent-rgb),0.18); }
+.breathe-ring--mid{ width:160px; height:160px; border:1px solid rgba(var(--pacer-accent-rgb),0.3); animation-delay:.1s; }
 .breathe-ring--core{
   width:112px; height:112px;
-  background:radial-gradient(circle at 35% 30%, rgba(245,198,109,0.4), rgba(245,198,109,0.1) 70%);
+  background:radial-gradient(circle at 35% 30%, rgba(var(--pacer-accent-rgb),0.4), rgba(var(--pacer-accent-rgb),0.1) 70%);
   animation-delay:.2s, .2s;
   animation-name:miniapp-breathe, miniapp-breathe-glow;
 }
@@ -259,8 +275,8 @@
   50%{ transform:scale(1.1); opacity:1; }
 }
 @keyframes miniapp-breathe-glow{
-  0%, 100%{ box-shadow:0 0 0 0 rgba(245,198,109,0); }
-  50%{ box-shadow:0 0 46px 14px rgba(245,198,109,0.32); }
+  0%, 100%{ box-shadow:0 0 0 0 rgba(var(--pacer-accent-rgb),0); }
+  50%{ box-shadow:0 0 46px 14px rgba(var(--pacer-accent-rgb),0.32); }
 }
 @media (prefers-reduced-motion: reduce){
   .breathe-ring{ animation:none; }
@@ -305,7 +321,7 @@
 .sleep-insight-stat-card{
   border-radius:20px; padding:16px;
 }
-.sleep-insight-stat-card--streak{ background:var(--calm-accent-soft); border:1px solid rgba(140,224,201,0.22); }
+.sleep-insight-stat-card--streak{ background:var(--focus-accent-soft); border:1px solid rgba(140,224,201,0.22); }
 .sleep-insight-stat-card--debt{ background:var(--sleep-accent-soft); border:1px solid rgba(245,198,109,0.22); }
 .sleep-insight-stat-card .value{ font-family:var(--miniapp-font-display); font-size:26px; margin-top:10px; }
 .sleep-insight-stat-card .label{ font-size:12px; color:var(--sleep-ink-muted); margin-top:2px; }
@@ -319,74 +335,95 @@
   border-radius:16px; padding:14px 16px;
   display:flex; align-items:center; justify-content:space-between;
 }
-.sleep-factor-card .delta.favorable{ color:var(--calm-accent); }
+.sleep-factor-card .delta.favorable{ color:var(--focus-accent); }
 .sleep-factor-card .delta.unfavorable{ color:var(--sleep-accent-2); }
 
 /* ============================================================================
-   CALM SOUNDS
+   FOCUS
    ========================================================================== */
-.calm-now-playing{
+.focus-now-playing{
   display:flex; align-items:center; gap:14px;
-  background:var(--calm-accent-soft); border:1px solid rgba(140,224,201,0.28);
+  background:var(--focus-accent-soft); border:1px solid rgba(140,224,201,0.28);
   border-radius:20px; padding:14px 16px;
 }
-.calm-now-playing-icon{
+.focus-now-playing-icon{
   position:relative; width:44px; height:44px; border-radius:50%;
-  background:var(--calm-accent-soft);
+  background:var(--focus-accent-soft);
   display:flex; align-items:center; justify-content:center; flex-shrink:0;
 }
-.calm-now-playing-icon::before{
+.focus-now-playing-icon::before{
   content:''; position:absolute; inset:0; border-radius:50%;
-  border:1.5px solid var(--calm-accent);
+  border:1.5px solid var(--focus-accent);
   animation:miniapp-ripple 2.4s ease-out infinite;
 }
 @keyframes miniapp-ripple{
   0%{ transform:scale(0.9); opacity:.5; }
   100%{ transform:scale(1.6); opacity:0; }
 }
+@media (prefers-reduced-motion: reduce){
+  .focus-now-playing-icon::before{ animation:none; opacity:.4; }
+}
 
-.calm-sound-grid{
+.focus-sound-grid{
   display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;
 }
-.calm-sound-tile{
+.focus-sound-tile{
   border-radius:20px; padding:16px;
-  background:var(--calm-card-bg); border:1px solid var(--calm-card-border);
+  background:var(--focus-card-bg); border:1px solid var(--focus-card-border);
   text-align:left; color:inherit;
   display:flex; flex-direction:column; gap:12px;
 }
-.calm-sound-tile[aria-pressed="true"]{
-  background:var(--calm-accent-soft); border-color:rgba(140,224,201,0.4);
+.focus-sound-tile[aria-pressed="true"]{
+  background:var(--focus-accent-soft); border-color:rgba(140,224,201,0.4);
 }
-.calm-sound-tile .name{ font-size:14px; font-weight:700; }
-.calm-sound-tile[aria-pressed="true"] .name{ color:var(--calm-accent); }
+.focus-sound-tile .name{ font-size:14px; font-weight:700; }
+.focus-sound-tile[aria-pressed="true"] .name{ color:var(--focus-accent); }
 
-.calm-timer-row{ display:flex; gap:8px; }
-.calm-timer-pill{
+.focus-timer-row{ display:flex; gap:8px; }
+.focus-timer-pill{
   flex:1; text-align:center; padding:10px 4px; border-radius:12px;
   font-size:12.5px; font-weight:600;
-  background:var(--calm-card-bg); border:1px solid var(--calm-card-border);
+  background:var(--focus-card-bg); border:1px solid var(--focus-card-border);
   color:rgba(242,251,248,0.7);
 }
-.calm-timer-pill[aria-pressed="true"]{
-  background:var(--calm-accent-soft); border-color:rgba(140,224,201,0.4);
-  color:var(--calm-accent); font-weight:700;
+.focus-timer-pill[aria-pressed="true"]{
+  background:var(--focus-accent-soft); border-color:rgba(140,224,201,0.4);
+  color:var(--focus-accent); font-weight:700;
 }
 
-.theme-calm input[type="range"]{
+.theme-focus input[type="range"]{
   -webkit-appearance:none; appearance:none;
   height:4px; border-radius:2px; background:rgba(242,251,248,0.15); outline:none;
 }
-.theme-calm input[type="range"]::-webkit-slider-thumb{
+.theme-focus input[type="range"]::-webkit-slider-thumb{
   -webkit-appearance:none; appearance:none;
   width:18px; height:18px; border-radius:50%;
-  background:var(--calm-accent); box-shadow:0 2px 8px rgba(140,224,201,0.5);
+  background:var(--focus-accent); box-shadow:0 2px 8px rgba(140,224,201,0.5);
   cursor:pointer;
 }
-.theme-calm input[type="range"]::-moz-range-thumb{
+.theme-focus input[type="range"]::-moz-range-thumb{
   width:18px; height:18px; border-radius:50%; border:none;
-  background:var(--calm-accent); box-shadow:0 2px 8px rgba(140,224,201,0.5);
+  background:var(--focus-accent); box-shadow:0 2px 8px rgba(140,224,201,0.5);
   cursor:pointer;
 }
-.theme-calm input[type="range"]::-moz-range-track{
+.theme-focus input[type="range"]::-moz-range-track{
   height:4px; border-radius:2px; background:rgba(242,251,248,0.15);
+}
+
+/* ---------- Guided session player ---------- */
+.focus-progress-track{
+  height:4px; border-radius:2px; background:rgba(242,251,248,0.12); overflow:hidden;
+}
+.focus-progress-fill{
+  height:100%; width:0%; border-radius:2px;
+  background:linear-gradient(90deg, var(--focus-accent), #6ecbb1);
+  transition:width .25s linear;
+}
+/* The pacer's core ring is driven directly by JS during a breathing beat
+   (guided-session-view.ts sets its transform inline) rather than the
+   Sleep Wind Down pacer's fixed-cadence CSS loop — a guided session's
+   breath timing has to match the actual spoken/captioned cue exactly. */
+#guided-session-pacer-core{ animation:none; transition:transform 3.6s ease-in-out, opacity 3.6s ease-in-out; }
+@media (prefers-reduced-motion: reduce){
+  #guided-session-pacer-core{ transition:opacity .3s ease; }
 }

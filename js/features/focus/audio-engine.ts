@@ -1,4 +1,4 @@
-// The real, stateful Calm Sounds engine — Web Audio only, no audio files
+// The real, stateful Focus engine — Web Audio only, no audio files
 // (nothing to fetch in an offline-first, no-server PWA). Every soundscape
 // is layered procedural noise (see noise-synthesis.ts) run through a real
 // filter chain, a shared PannerNode in HRTF mode animated along a 3D orbit
@@ -17,6 +17,7 @@ import { crossfadeLoopBuffer, generateBrownNoise, generatePinkNoise, generateWhi
 import { createPrng } from './prng.js';
 import { positionAtTime } from './spatial-motion.js';
 import { generateImpulseResponse } from './impulse-response.js';
+import { generateThunderclapBurst, randomThunderclapDuration } from './thunder.js';
 import { getSoundscape } from './soundscapes.js';
 import type { NoiseColor } from './noise-synthesis.js';
 
@@ -34,8 +35,10 @@ const REVERB_DECAY = 2.6;
 const FADE_SECONDS = 1.4; // start/stop ramp — no click, no jarring onset for a calming sound
 const POSITION_UPDATE_INTERVAL_MS = 200; // how often the panner's target position is re-issued; the ramp between updates is what makes the motion smooth, not this cadence
 const STATE_POLL_INTERVAL_MS = 1000;
+const MIN_THUNDER_DELAY_S = 9;
+const MAX_THUNDER_DELAY_S = 32; // real storms don't clap on a beat — a wide, randomized gap is what keeps it from feeling looped
 
-export interface CalmAudioState {
+export interface FocusAudioState {
   supported: boolean;
   playing: boolean;
   soundscapeId: string | null;
@@ -44,7 +47,7 @@ export interface CalmAudioState {
   remainingMs: number | null;
 }
 
-type Listener = (state: CalmAudioState) => void;
+type Listener = (state: FocusAudioState) => void;
 
 function getAudioContextClass(): typeof AudioContext | null {
   return window.AudioContext ?? window.webkitAudioContext ?? null;
@@ -80,9 +83,12 @@ interface ActiveGraph {
   convolver: ConvolverNode;
   motionStartTime: number;
   motionProfile: ReturnType<typeof getSoundscape> extends infer S ? (S extends { motion: infer M } ? M : never) : never;
+  /** Pending "play the next thunderclap" timer — see
+   *  scheduleNextThunderclap. null when this soundscape has no thunder. */
+  thunderTimeoutId: ReturnType<typeof setTimeout> | null;
 }
 
-export class CalmAudioEngine {
+export class FocusAudioEngine {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private graph: ActiveGraph | null = null;
@@ -98,7 +104,7 @@ export class CalmAudioEngine {
     return getAudioContextClass() != null;
   }
 
-  getState(): CalmAudioState {
+  getState(): FocusAudioState {
     return {
       supported: this.isSupported(),
       playing: this.graph != null,
@@ -247,6 +253,7 @@ export class CalmAudioEngine {
         convolver,
         motionStartTime: ctx.currentTime,
         motionProfile: soundscape.motion,
+        thunderTimeoutId: null,
       };
       this.soundscapeId = soundscapeId;
 
@@ -256,6 +263,7 @@ export class CalmAudioEngine {
 
       this.startPositionAnimation();
       this.restartCountdown();
+      if (soundscape.hasThunder) this.scheduleNextThunderclap(this.graph, ctx);
       this.notify();
     } catch {
       // best-effort only — a blocked/failing Web Audio API leaves nothing
@@ -288,12 +296,67 @@ export class CalmAudioEngine {
     this.positionHandle = null;
   }
 
+  /** Schedules the next thunderclap at a random delay, and reschedules
+   *  itself after each one fires — an open-ended cadence for as long as
+   *  this graph stays the active one. */
+  private scheduleNextThunderclap(graph: ActiveGraph, ctx: AudioContext): void {
+    const delayMs = (MIN_THUNDER_DELAY_S + Math.random() * (MAX_THUNDER_DELAY_S - MIN_THUNDER_DELAY_S)) * 1000;
+    graph.thunderTimeoutId = setTimeout(() => {
+      if (this.graph !== graph) return; // stopped or switched to a different soundscape in the meantime
+      this.playThunderclap(graph, ctx);
+      this.scheduleNextThunderclap(graph, ctx);
+    }, delayMs);
+  }
+
+  /** One real, synthesized thunderclap (see thunder.ts) — a fresh burst
+   *  every time, positioned in a random direction on its own one-shot
+   *  PannerNode (independent of the continuous layers' motion, since real
+   *  thunder doesn't travel with the rain), fed into the same dry/wet
+   *  reverb send as everything else so it shares the room. */
+  private playThunderclap(graph: ActiveGraph, ctx: AudioContext): void {
+    const duration = randomThunderclapDuration();
+    const data = generateThunderclapBurst(ctx.sampleRate, duration);
+    const buffer = toAudioBuffer(ctx, data, ctx.sampleRate);
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    const rumbleFilter = ctx.createBiquadFilter();
+    rumbleFilter.type = 'lowpass';
+    rumbleFilter.frequency.value = 900 + Math.random() * 400;
+
+    const clapGain = ctx.createGain();
+    clapGain.gain.value = 0.55 + Math.random() * 0.25; // not every clap is equally loud, like a real storm
+
+    const clapPanner = ctx.createPanner();
+    clapPanner.panningModel = 'HRTF';
+    clapPanner.distanceModel = 'inverse';
+    clapPanner.refDistance = 1;
+    const angle = Math.random() * Math.PI * 2;
+    const radius = 4 + Math.random() * 4; // farther out than the continuous ambience — thunder reads as "out there", not in-ear
+    clapPanner.positionX.value = Math.cos(angle) * radius;
+    clapPanner.positionZ.value = Math.sin(angle) * radius;
+
+    source.connect(rumbleFilter).connect(clapGain).connect(clapPanner);
+    clapPanner.connect(graph.dryGain);
+    clapPanner.connect(graph.wetGain);
+
+    source.start();
+    source.onended = () => {
+      source.disconnect();
+      rumbleFilter.disconnect();
+      clapGain.disconnect();
+      clapPanner.disconnect();
+    };
+  }
+
   /** Disposes exactly the audio nodes belonging to one captured graph.
    *  Deliberately touches nothing on `this` — see stop()'s deferred call
    *  below: by the time this runs, `this.graph` may already be a *newer*
    *  graph from a fresh start() called in the interim, and this must
    *  never reach in and clobber that. */
   private disposeGraphNodes(graph: ActiveGraph): void {
+    if (graph.thunderTimeoutId != null) clearTimeout(graph.thunderTimeoutId);
     for (const layer of graph.layers) {
       try {
         layer.source.stop();
@@ -365,16 +428,16 @@ function hashSeed(...parts: (string | number)[]): number {
   return hash >>> 0;
 }
 
-export function createCalmAudioEngine(): CalmAudioEngine {
-  return new CalmAudioEngine();
+export function createFocusAudioEngine(): FocusAudioEngine {
+  return new FocusAudioEngine();
 }
 
-// One shared engine instance for the whole app — Calm Sounds and Sleep's
+// One shared engine instance for the whole app — Focus and Sleep's
 // Wind Down screen both control and observe the exact same playback
 // state, rather than each owning a disconnected AudioContext.
-let sharedEngine: CalmAudioEngine | null = null;
+let sharedEngine: FocusAudioEngine | null = null;
 
-export function getCalmAudioEngine(): CalmAudioEngine {
-  if (!sharedEngine) sharedEngine = createCalmAudioEngine();
+export function getFocusAudioEngine(): FocusAudioEngine {
+  if (!sharedEngine) sharedEngine = createFocusAudioEngine();
   return sharedEngine;
 }

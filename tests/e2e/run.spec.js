@@ -32,6 +32,7 @@ async function completeOnboarding(page) {
   await page.locator('#ob-has-injury button[data-value="no"]').click();
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
+  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
 }
 
 /** Nudges the mocked GPS position northeast in small steps, giving

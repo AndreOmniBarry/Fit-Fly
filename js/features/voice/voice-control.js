@@ -16,7 +16,7 @@ function getSpeechRecognitionClass() {
 // copy of that logic here. Voice control can reach any of these from
 // any screen, not just from home — the button is hidden, not absent.
 const COMMAND_ACTIONS = Object.freeze({
-  'go-home': () => showScreen('screen-home'),
+  'go-home': () => showScreen('screen-hub'),
   'start-rest-timer': () => byId('btn-home-rest-timer')?.click(),
   'log-activity': () => byId('btn-home-log-activity')?.click(),
   'start-run': () => byId('btn-home-run')?.click(),

@@ -1,0 +1,392 @@
+/* ============================================================================
+   MINI-APPS: the Hub, and the mini-apps built on top of it (Sleep, Calm
+   Sounds). Deliberately its own visual layer on top of base.css/
+   components.css, not a replacement for them — the reset, spacing scale,
+   and screen-router chrome stay shared; typography and color here are
+   what let each mini-app carry its own identity, the way real apps inside
+   a hub would. The vendored Instrument Serif / Manrope pair (see
+   js/vendor/fonts/) is scoped to these surfaces via --miniapp-font-*.
+   ========================================================================== */
+
+:root{
+  --miniapp-font-display:'Instrument Serif',Georgia,'Times New Roman',serif;
+  --miniapp-font-body:'Manrope',system-ui,-apple-system,sans-serif;
+
+  /* ---------- Sleep: a night palette, independent of the app's light/dark toggle ---------- */
+  --sleep-bg-start:#2c2159;
+  --sleep-bg-mid:#181a3d;
+  --sleep-bg-end:#100f2b;
+  --sleep-ink:#f5f3ff;
+  --sleep-ink-muted:rgba(245,243,255,0.55);
+  --sleep-ink-faint:rgba(245,243,255,0.4);
+  --sleep-card-bg:rgba(245,243,255,0.06);
+  --sleep-card-border:rgba(245,243,255,0.08);
+  --sleep-accent:#f5c66d;
+  --sleep-accent-2:#f2895a;
+  --sleep-accent-soft:rgba(245,198,109,0.16);
+
+  /* ---------- Calm Sounds: a teal palette, its own identity again ---------- */
+  --calm-bg-start:#164852;
+  --calm-bg-mid:#0f2d33;
+  --calm-bg-end:#0a2024;
+  --calm-ink:#f2fbf8;
+  --calm-ink-muted:rgba(242,251,248,0.55);
+  --calm-card-bg:rgba(242,251,248,0.06);
+  --calm-card-border:rgba(242,251,248,0.1);
+  --calm-accent:#8ce0c9;
+  --calm-accent-soft:rgba(140,224,201,0.16);
+}
+
+/* ---------- shared night-surface mechanics (Sleep + Calm Sounds) ---------- */
+.miniapp-night{
+  font-family:var(--miniapp-font-body);
+  min-height:100%;
+  position:relative;
+  overflow-x:hidden;
+}
+.miniapp-night h1, .miniapp-night h2, .miniapp-night h3, .miniapp-night .display{
+  font-family:var(--miniapp-font-display);
+  font-weight:400;
+}
+
+/* base.css/components.css set several colors directly (h1-h4, p, .muted,
+   .field label, .chip, ...) rather than leaving them to inherit — right
+   for the app's neutral light/dark surfaces, wrong once nested inside a
+   night surface with its own fixed palette. One override block here
+   instead of re-fighting each shared class per screen. */
+.miniapp-night h1, .miniapp-night h2, .miniapp-night h3, .miniapp-night p{
+  color:inherit;
+}
+.theme-sleep .muted, .theme-sleep .field label, .theme-sleep .field-hint{ color:var(--sleep-ink-muted); }
+.theme-calm .muted, .theme-calm .field label, .theme-calm .field-hint{ color:var(--calm-ink-muted); }
+
+.theme-sleep .chip{
+  background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
+}
+.theme-sleep .chip[aria-pressed="true"]{
+  background:var(--sleep-accent-soft); border-color:rgba(245,198,109,0.4); color:var(--sleep-accent); font-weight:700;
+}
+.theme-calm .chip{
+  background:rgba(242,251,248,0.06); border:1px solid rgba(242,251,248,0.12); color:var(--calm-ink-muted);
+}
+.theme-calm .chip[aria-pressed="true"]{
+  background:var(--calm-accent-soft); border-color:rgba(140,224,201,0.4); color:var(--calm-accent); font-weight:700;
+}
+
+.miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
+
+.theme-sleep .btn-ghost{ color:var(--sleep-ink); border-color:var(--sleep-card-border); }
+.theme-calm .btn-ghost{ color:var(--calm-ink); border-color:var(--calm-card-border); }
+
+.theme-sleep{
+  background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
+  color:var(--sleep-ink);
+}
+.theme-calm{
+  background:radial-gradient(120% 70% at 25% -10%, var(--calm-bg-start) 0%, var(--calm-bg-mid) 45%, var(--calm-bg-end) 100%);
+  color:var(--calm-ink);
+}
+
+/* drifting stars, shared between the two night surfaces — tone follows
+   currentColor via opacity only, no separate star markup needed */
+.miniapp-stars{
+  position:absolute; inset:0; pointer-events:none; overflow:hidden; z-index:0;
+}
+.miniapp-stars span{
+  position:absolute; border-radius:50%; background:currentColor;
+  animation:miniapp-star-twinkle 4.5s ease-in-out infinite;
+}
+@keyframes miniapp-star-twinkle{
+  0%, 100%{ opacity:.3; }
+  50%{ opacity:.85; }
+}
+@media (prefers-reduced-motion: reduce){
+  .miniapp-stars span{ animation:none; opacity:.55; }
+}
+
+.miniapp-icon-btn{
+  width:36px; height:36px; border-radius:50%;
+  background:rgba(255,255,255,0.08);
+  border:none; display:flex; align-items:center; justify-content:center;
+  color:inherit; flex-shrink:0;
+}
+
+/* ============================================================================
+   HUB
+   ========================================================================== */
+.hub-grid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:var(--space-3);
+}
+.hub-tile{
+  position:relative;
+  border-radius:var(--radius-lg);
+  padding:var(--space-4) var(--space-3);
+  min-height:172px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  overflow:hidden;
+  text-align:left;
+  isolation:isolate;
+}
+.hub-tile-icon{
+  width:36px; height:36px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  position:relative; z-index:1;
+}
+.hub-tile-title{
+  font-family:var(--miniapp-font-display);
+  font-size:19px;
+  position:relative; z-index:1;
+}
+.hub-tile-sub{
+  font-size:12px; font-weight:700; margin-top:3px;
+  position:relative; z-index:1;
+}
+
+.hub-tile--sleep{
+  background:linear-gradient(150deg, var(--sleep-bg-mid) 0%, var(--sleep-bg-start) 55%, #2c2159 100%);
+  box-shadow:0 14px 30px -16px rgba(24,26,61,0.5);
+  color:var(--sleep-ink);
+}
+.hub-tile--sleep .hub-tile-icon{ background:var(--sleep-accent-soft); }
+.hub-tile--sleep .hub-tile-sub{ color:var(--sleep-accent); }
+
+.hub-tile--calm{
+  background:linear-gradient(150deg, var(--calm-bg-mid) 0%, var(--calm-bg-start) 55%, #164852 100%);
+  box-shadow:0 14px 30px -16px rgba(15,45,51,0.5);
+  color:var(--calm-ink);
+}
+.hub-tile--calm .hub-tile-icon{ background:var(--calm-accent-soft); }
+.hub-tile--calm .hub-tile-sub{ color:var(--calm-accent); }
+
+.hub-tile--neutral{
+  background:var(--surface);
+  border:1px solid var(--border);
+  color:var(--ink-0);
+}
+.hub-tile--neutral .hub-tile-icon{ background:var(--bg-2); }
+.hub-tile--neutral .hub-tile-sub{ font-weight:500; color:var(--ink-2); }
+
+.hub-tile--soon{
+  background:var(--bg-1);
+  border:1px dashed var(--border-strong);
+  color:var(--ink-2);
+}
+.hub-tile--soon .hub-tile-icon{ background:var(--bg-2); }
+.hub-tile--soon .hub-tile-title{ color:var(--ink-2); }
+.hub-tile--soon .hub-tile-sub{ font-weight:500; color:var(--ink-muted); }
+
+/* ============================================================================
+   SLEEP
+   ========================================================================== */
+.sleep-score-ring{
+  position:relative; width:200px; height:200px; margin:0 auto;
+}
+.sleep-score-ring svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+.sleep-score-ring-value{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+}
+.sleep-score-ring-value .score{
+  font-family:var(--miniapp-font-display); font-size:64px; line-height:1;
+}
+.sleep-score-ring-value .label{
+  font-size:13px; font-weight:700; color:var(--sleep-accent); letter-spacing:0.02em;
+}
+
+.sleep-stat-row{
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:10px;
+}
+.sleep-stat-tile{
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  border-radius:16px; padding:14px 10px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.sleep-stat-tile .value{ font-size:15px; font-weight:700; }
+.sleep-stat-tile .label{ font-size:11px; color:var(--sleep-ink-muted); }
+
+.sleep-week-strip{
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  border-radius:20px; padding:18px;
+}
+.sleep-week-bars{
+  display:flex; align-items:flex-end; gap:10px; height:64px;
+}
+.sleep-week-bar-col{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:6px;
+  height:100%; justify-content:flex-end;
+}
+.sleep-week-bar{
+  width:100%; border-radius:6px; background:rgba(245,243,255,0.18);
+}
+.sleep-week-bar.is-best{ background:linear-gradient(180deg, var(--sleep-accent), var(--sleep-accent-2)); }
+.sleep-week-bar-col .day-label{ font-size:10.5px; color:var(--sleep-ink-faint); }
+.sleep-week-bar-col.is-best .day-label{ color:var(--sleep-accent); font-weight:700; }
+
+.miniapp-cta{
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  padding:17px; border-radius:999px;
+  font-weight:800; font-size:15.5px;
+  border:none; width:100%;
+  background:linear-gradient(90deg, var(--sleep-accent), var(--sleep-accent-2));
+  color:#241f4d;
+  box-shadow:0 14px 30px -12px rgba(242,166,90,0.5);
+}
+.miniapp-cta:active{ transform:scale(.98); }
+
+/* breathing pacer — a stronger pulsating scale + a glow that peaks with it */
+.breathe-pacer{
+  position:relative; width:210px; height:210px; margin:0 auto;
+  display:flex; align-items:center; justify-content:center;
+}
+.breathe-ring{
+  position:absolute; border-radius:50%;
+  animation:miniapp-breathe 4.6s cubic-bezier(.45,0,.55,1) infinite;
+}
+.breathe-ring--outer{ width:210px; height:210px; border:1px solid rgba(245,198,109,0.18); }
+.breathe-ring--mid{ width:160px; height:160px; border:1px solid rgba(245,198,109,0.3); animation-delay:.1s; }
+.breathe-ring--core{
+  width:112px; height:112px;
+  background:radial-gradient(circle at 35% 30%, rgba(245,198,109,0.4), rgba(245,198,109,0.1) 70%);
+  animation-delay:.2s, .2s;
+  animation-name:miniapp-breathe, miniapp-breathe-glow;
+}
+@keyframes miniapp-breathe{
+  0%, 100%{ transform:scale(0.68); opacity:0.4; }
+  50%{ transform:scale(1.1); opacity:1; }
+}
+@keyframes miniapp-breathe-glow{
+  0%, 100%{ box-shadow:0 0 0 0 rgba(245,198,109,0); }
+  50%{ box-shadow:0 0 46px 14px rgba(245,198,109,0.32); }
+}
+@media (prefers-reduced-motion: reduce){
+  .breathe-ring{ animation:none; }
+}
+
+.sound-pill-row{ display:flex; gap:8px; }
+.sound-pill{
+  flex:1; text-align:center; padding:11px 6px; border-radius:14px;
+  font-size:13px; font-weight:600;
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  color:rgba(245,243,255,0.75);
+}
+.sound-pill[aria-pressed="true"]{
+  background:var(--sleep-accent-soft); border-color:rgba(245,198,109,0.4);
+  color:var(--sleep-accent); font-weight:700;
+}
+
+/* ---------- Sleep: quick-log form (shown when today has no entry yet) ---------- */
+.sleep-log-form{
+  display:flex; flex-direction:column; gap:14px;
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  border-radius:20px; padding:18px;
+}
+.sleep-log-form label{
+  font-size:12.5px; font-weight:600; color:var(--sleep-ink-muted);
+  display:block; margin-bottom:6px;
+}
+.sleep-log-row{ display:flex; gap:10px; }
+.sleep-log-row > div{ flex:1; }
+.sleep-log-form input[type="time"],
+.sleep-log-form textarea{
+  width:100%; background:rgba(245,243,255,0.05); border:1px solid var(--sleep-card-border);
+  border-radius:12px; padding:10px 12px; color:var(--sleep-ink); font-family:var(--miniapp-font-body);
+  font-size:15px;
+}
+.sleep-log-form textarea{ resize:vertical; min-height:44px; }
+
+/* ---------- Insights ---------- */
+.sleep-insight-stat-grid{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;
+}
+.sleep-insight-stat-card{
+  border-radius:20px; padding:16px;
+}
+.sleep-insight-stat-card--streak{ background:var(--calm-accent-soft); border:1px solid rgba(140,224,201,0.22); }
+.sleep-insight-stat-card--debt{ background:var(--sleep-accent-soft); border:1px solid rgba(245,198,109,0.22); }
+.sleep-insight-stat-card .value{ font-family:var(--miniapp-font-display); font-size:26px; margin-top:10px; }
+.sleep-insight-stat-card .label{ font-size:12px; color:var(--sleep-ink-muted); margin-top:2px; }
+
+.sleep-chart-card{
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  border-radius:20px; padding:18px 16px;
+}
+.sleep-factor-card{
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  border-radius:16px; padding:14px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.sleep-factor-card .delta.favorable{ color:var(--calm-accent); }
+.sleep-factor-card .delta.unfavorable{ color:var(--sleep-accent-2); }
+
+/* ============================================================================
+   CALM SOUNDS
+   ========================================================================== */
+.calm-now-playing{
+  display:flex; align-items:center; gap:14px;
+  background:var(--calm-accent-soft); border:1px solid rgba(140,224,201,0.28);
+  border-radius:20px; padding:14px 16px;
+}
+.calm-now-playing-icon{
+  position:relative; width:44px; height:44px; border-radius:50%;
+  background:var(--calm-accent-soft);
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+}
+.calm-now-playing-icon::before{
+  content:''; position:absolute; inset:0; border-radius:50%;
+  border:1.5px solid var(--calm-accent);
+  animation:miniapp-ripple 2.4s ease-out infinite;
+}
+@keyframes miniapp-ripple{
+  0%{ transform:scale(0.9); opacity:.5; }
+  100%{ transform:scale(1.6); opacity:0; }
+}
+
+.calm-sound-grid{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px;
+}
+.calm-sound-tile{
+  border-radius:20px; padding:16px;
+  background:var(--calm-card-bg); border:1px solid var(--calm-card-border);
+  text-align:left; color:inherit;
+  display:flex; flex-direction:column; gap:12px;
+}
+.calm-sound-tile[aria-pressed="true"]{
+  background:var(--calm-accent-soft); border-color:rgba(140,224,201,0.4);
+}
+.calm-sound-tile .name{ font-size:14px; font-weight:700; }
+.calm-sound-tile[aria-pressed="true"] .name{ color:var(--calm-accent); }
+
+.calm-timer-row{ display:flex; gap:8px; }
+.calm-timer-pill{
+  flex:1; text-align:center; padding:10px 4px; border-radius:12px;
+  font-size:12.5px; font-weight:600;
+  background:var(--calm-card-bg); border:1px solid var(--calm-card-border);
+  color:rgba(242,251,248,0.7);
+}
+.calm-timer-pill[aria-pressed="true"]{
+  background:var(--calm-accent-soft); border-color:rgba(140,224,201,0.4);
+  color:var(--calm-accent); font-weight:700;
+}
+
+.theme-calm input[type="range"]{
+  -webkit-appearance:none; appearance:none;
+  height:4px; border-radius:2px; background:rgba(242,251,248,0.15); outline:none;
+}
+.theme-calm input[type="range"]::-webkit-slider-thumb{
+  -webkit-appearance:none; appearance:none;
+  width:18px; height:18px; border-radius:50%;
+  background:var(--calm-accent); box-shadow:0 2px 8px rgba(140,224,201,0.5);
+  cursor:pointer;
+}
+.theme-calm input[type="range"]::-moz-range-thumb{
+  width:18px; height:18px; border-radius:50%; border:none;
+  background:var(--calm-accent); box-shadow:0 2px 8px rgba(140,224,201,0.5);
+  cursor:pointer;
+}
+.theme-calm input[type="range"]::-moz-range-track{
+  height:4px; border-radius:2px; background:rgba(242,251,248,0.15);
+}

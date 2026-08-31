@@ -60,7 +60,13 @@ test.describe('onboarding wizard', () => {
 
     await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
 
-    // Home
+    // Onboarding hands off to the Hub, not straight into the Fitness
+    // Toolkit — every mini-app tile is equal-weight and visible immediately.
+    await expect(page.getByRole('button', { name: 'Sleep' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Calm Sounds' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Fitness Toolkit' })).toBeVisible();
+
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
     await expect(page.locator('#home-category-badge')).toHaveText('Hypertrophy');
 
     expect(consoleErrors).toEqual([]);

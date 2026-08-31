@@ -27,6 +27,8 @@
 <link rel="stylesheet" href="css/tokens.css">
 <link rel="stylesheet" href="css/base.css">
 <link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="js/vendor/fonts/fonts.css">
+<link rel="stylesheet" href="css/mini-apps.css">
 </head>
 <body>
 
@@ -240,10 +242,59 @@
     </div>
   </section>
 
-  <!-- HOME -->
-  <section class="screen" id="screen-home" hidden>
+  <!-- HUB: the launcher. Every mini-app is an equal-weight tile in one
+       scalable grid — never one hero feature plus a hidden pile — because
+       more mini-apps land here later (vitals, steps, and beyond). -->
+  <section class="screen" id="screen-hub" hidden>
     <div class="row-between">
       <h2>Fit Fly</h2>
+    </div>
+    <p class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">
+      Your apps
+    </p>
+
+    <div class="hub-grid">
+      <button class="hub-tile hub-tile--sleep" id="btn-home-sleep">
+        <span class="hub-tile-icon" aria-hidden="true">🌙</span>
+        <span>
+          <span class="hub-tile-title display">Sleep</span>
+          <p class="hub-tile-sub" id="hub-sleep-sub">Log tonight's sleep</p>
+        </span>
+      </button>
+
+      <button class="hub-tile hub-tile--calm" id="btn-home-calm-sounds">
+        <span class="hub-tile-icon" aria-hidden="true">🎧</span>
+        <span>
+          <span class="hub-tile-title display">Calm Sounds</span>
+          <p class="hub-tile-sub">Rain, waves, rivers &amp; more</p>
+        </span>
+      </button>
+
+      <button class="hub-tile hub-tile--neutral" id="btn-home-fitness-toolkit">
+        <span class="hub-tile-icon" aria-hidden="true">▦</span>
+        <span>
+          <span class="hub-tile-title display">Fitness Toolkit</span>
+          <p class="hub-tile-sub">Programs, run, nutrition &amp; more</p>
+        </span>
+      </button>
+
+      <div class="hub-tile hub-tile--soon" aria-disabled="true">
+        <span class="hub-tile-icon" aria-hidden="true">❤️</span>
+        <span>
+          <span class="hub-tile-title display">Vitals &amp; Steps</span>
+          <p class="hub-tile-sub">Coming soon</p>
+        </span>
+      </div>
+    </div>
+  </section>
+
+  <!-- FITNESS TOOLKIT: everything from the original 14-phase build, unchanged
+       — same ids, same controllers, just reachable one level deeper behind
+       the Hub now instead of being the app's front door. -->
+  <section class="screen" id="screen-home" hidden>
+    <div class="row-between">
+      <button class="icon-btn" id="btn-fitness-toolkit-back" aria-label="Back to your apps">←</button>
+      <h2>Fitness Toolkit</h2>
       <span class="data-badge measured" id="home-category-badge">—</span>
     </div>
 
@@ -331,6 +382,226 @@
       Tailored programs, run mode, and everything else are on their way — built phase by phase.
     </p>
     <button class="btn btn-ghost" id="btn-home-restart" style="margin-top:auto;">Start over</button>
+  </section>
+
+  <!-- SLEEP: DASHBOARD -->
+  <section class="screen miniapp-night theme-sleep" id="screen-sleep-dashboard" hidden>
+    <div class="miniapp-stars" aria-hidden="true"></div>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-sleep-dashboard-back" aria-label="Back to your apps">←</button>
+      <span class="muted" id="sleep-dashboard-date" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">—</span>
+      <button class="miniapp-icon-btn" id="btn-sleep-insights" aria-label="Insights">📈</button>
+    </div>
+
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);" id="sleep-dashboard-greeting">Good evening</h2>
+
+    <!-- Shown when tonight has no entry yet. -->
+    <form class="sleep-log-form" id="sleep-log-form" style="margin-top:var(--space-4);">
+      <p class="muted" style="font-size:var(--fs-sm); margin:0;">
+        No fake overnight sensing here — a phone's mic/motion sensors stop working the moment the screen locks, so this is a quick, honest log instead.
+      </p>
+      <div class="sleep-log-row">
+        <div>
+          <label for="sleep-log-bedtime">Bedtime</label>
+          <input class="input" type="time" id="sleep-log-bedtime">
+        </div>
+        <div>
+          <label for="sleep-log-waketime">Wake time</label>
+          <input class="input" type="time" id="sleep-log-waketime">
+        </div>
+      </div>
+      <div class="field">
+        <label id="lbl-sleep-log-quality">How did it feel?</label>
+        <div class="chip-group" id="sleep-log-quality" role="group" aria-labelledby="lbl-sleep-log-quality">
+          <button type="button" class="chip" data-value="1" aria-pressed="false">1</button>
+          <button type="button" class="chip" data-value="2" aria-pressed="false">2</button>
+          <button type="button" class="chip" data-value="3" aria-pressed="false">3</button>
+          <button type="button" class="chip" data-value="4" aria-pressed="false">4</button>
+          <button type="button" class="chip" data-value="5" aria-pressed="false">5</button>
+        </div>
+      </div>
+      <div>
+        <label for="sleep-log-notes">Notes (optional)</label>
+        <textarea id="sleep-log-notes" rows="2"></textarea>
+      </div>
+      <span class="field-error" id="err-sleep-log" hidden>Enter a bedtime and wake time that make sense together.</span>
+      <button type="submit" class="miniapp-cta" id="btn-sleep-log-save">Save last night</button>
+    </form>
+
+    <!-- Shown once tonight's log exists. -->
+    <div id="sleep-dashboard-result" hidden>
+      <div class="sleep-score-ring">
+        <svg width="200" height="200" viewBox="0 0 200 200">
+          <circle cx="100" cy="100" r="86" fill="none" stroke="rgba(245,243,255,0.08)" stroke-width="14"/>
+          <circle cx="100" cy="100" r="86" fill="none" stroke="url(#sleepScoreGrad)" stroke-width="14" stroke-linecap="round"
+                  stroke-dasharray="540.35" stroke-dashoffset="540.35" id="sleep-score-ring-fill"/>
+          <defs>
+            <linearGradient id="sleepScoreGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="var(--sleep-accent)"/>
+              <stop offset="100%" stop-color="var(--sleep-accent-2)"/>
+            </linearGradient>
+          </defs>
+        </svg>
+        <div class="sleep-score-ring-value">
+          <span class="score" id="sleep-score-value">—</span>
+          <span class="label" id="sleep-score-label">—</span>
+        </div>
+      </div>
+      <p class="muted center-text" id="sleep-score-description" style="font-size:var(--fs-sm); max-width:280px; margin:var(--space-2) auto 0;"></p>
+
+      <div class="sleep-stat-row" style="margin-top:var(--space-4);">
+        <div class="sleep-stat-tile">
+          <span class="value" id="sleep-stat-bedtime">—</span>
+          <span class="label">Bedtime</span>
+        </div>
+        <div class="sleep-stat-tile">
+          <span class="value" id="sleep-stat-wake">—</span>
+          <span class="label">Wake</span>
+        </div>
+        <div class="sleep-stat-tile">
+          <span class="value" id="sleep-stat-duration">—</span>
+          <span class="label">Duration</span>
+        </div>
+      </div>
+
+      <div class="sleep-week-strip" style="margin-top:var(--space-4);">
+        <div class="row-between">
+          <strong style="font-size:14px;">This week</strong>
+          <span class="muted" id="sleep-week-avg" style="font-size:12px;"></span>
+        </div>
+        <div class="sleep-week-bars" id="sleep-week-bars" style="margin-top:14px;"></div>
+      </div>
+
+      <button class="btn btn-ghost btn-block" id="btn-sleep-edit-log" style="margin-top:var(--space-3);">Edit tonight's log</button>
+      <button class="miniapp-cta" id="btn-sleep-start-wind-down" style="margin-top:var(--space-2);">🌙 Start Wind-Down</button>
+    </div>
+  </section>
+
+  <!-- SLEEP: INSIGHTS -->
+  <section class="screen miniapp-night theme-sleep" id="screen-sleep-insights" hidden>
+    <div class="row">
+      <button class="miniapp-icon-btn" id="btn-sleep-insights-back" aria-label="Back">←</button>
+      <h2 class="display" style="margin-left:var(--space-3);">Insights</h2>
+    </div>
+
+    <div class="sleep-insight-stat-grid" style="margin-top:var(--space-4);">
+      <div class="sleep-insight-stat-card sleep-insight-stat-card--streak">
+        <span aria-hidden="true">✨</span>
+        <div class="value" id="sleep-insight-streak">—</div>
+        <div class="label">night logging streak</div>
+      </div>
+      <div class="sleep-insight-stat-card sleep-insight-stat-card--debt">
+        <span aria-hidden="true">⏱️</span>
+        <div class="value" id="sleep-insight-debt">—</div>
+        <div class="label">sleep debt, recent nights</div>
+      </div>
+    </div>
+
+    <div class="sleep-chart-card" style="margin-top:var(--space-4);">
+      <div class="row-between" style="margin-bottom:var(--space-3);">
+        <strong style="font-size:14px;">Recent nights</strong>
+        <span class="muted" style="font-size:11.5px;">score per night</span>
+      </div>
+      <svg width="100%" height="120" viewBox="0 0 320 120" preserveAspectRatio="none" id="sleep-insight-chart" role="img" aria-label="Sleep score trend over recent logged nights"></svg>
+      <p class="muted center-text" id="sleep-insight-chart-empty" style="font-size:var(--fs-sm);" hidden>Log a second night to start a trend line.</p>
+      <div class="row-between" id="sleep-insight-chart-labels" style="font-size:10.5px; color:var(--sleep-ink-faint); margin-top:4px;"></div>
+    </div>
+
+    <div class="stack" id="sleep-insight-factors" style="margin-top:var(--space-4);"></div>
+
+    <p class="muted center-text" id="sleep-insight-empty" style="font-size:var(--fs-sm); margin-top:var(--space-4);" hidden>
+      Log a few more nights and real patterns will start showing up here.
+    </p>
+  </section>
+
+  <!-- SLEEP: WIND DOWN — full build (breathing pacer, ambient sound picker,
+       real playback) lands once the Calm Sounds audio engine exists, so
+       this screen and its sound isn't a button that looks real but does
+       nothing when tapped. -->
+  <section class="screen miniapp-night theme-sleep" id="screen-sleep-wind-down" hidden>
+    <div class="miniapp-stars" aria-hidden="true"></div>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-wind-down-back" aria-label="Back">←</button>
+      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Wind Down</span>
+      <span style="width:36px;"></span>
+    </div>
+
+    <div class="stack" style="align-items:center; text-align:center; margin:auto 0; gap:var(--space-4);">
+      <div class="breathe-pacer" aria-hidden="true">
+        <div class="breathe-ring breathe-ring--outer"></div>
+        <div class="breathe-ring breathe-ring--mid"></div>
+        <div class="breathe-ring breathe-ring--core"></div>
+        <span style="position:relative; font-size:34px;">🌙</span>
+      </div>
+      <div>
+        <p class="display" style="font-size:22px; margin:0;">Breathe in... and out</p>
+        <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">Follow the ring — slow in, slower out.</p>
+      </div>
+    </div>
+
+    <div class="stack" style="gap:12px; margin-bottom:var(--space-4);">
+      <div class="row-between">
+        <span style="font-size:12.5px; font-weight:600; color:var(--sleep-ink-muted); letter-spacing:0.04em;">SOUND</span>
+        <button id="btn-wind-down-more-sounds" style="color:var(--calm-accent); font-size:12px; font-weight:600;">
+          More in Calm Sounds ›
+        </button>
+      </div>
+      <div class="sound-pill-row" id="wind-down-sound-picker">
+        <button type="button" class="sound-pill" data-value="rain" aria-pressed="true">Rain</button>
+        <button type="button" class="sound-pill" data-value="steady-noise" aria-pressed="false">Brown Noise</button>
+        <button type="button" class="sound-pill" data-value="" aria-pressed="false">Quiet</button>
+      </div>
+    </div>
+
+    <button class="miniapp-cta" id="btn-wind-down-begin">Begin</button>
+    <p class="muted center-text" style="font-size:11.5px; margin-top:14px;">
+      Keeps playing while your screen's dimmed. If you lock it, your phone may pause the sound — that's the OS's rule, not ours.
+    </p>
+  </section>
+
+  <!-- CALM SOUNDS -->
+  <section class="screen miniapp-night theme-calm" id="screen-calm-sounds" hidden>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-calm-sounds-back" aria-label="Back to your apps">←</button>
+      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Calm Sounds</span>
+      <span style="width:36px;"></span>
+    </div>
+
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Sounds to settle into</h2>
+    <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">
+      For falling asleep, sitting with a busy mind, or just working with something steady in the background.
+    </p>
+
+    <p class="safety-flag" id="calm-unsupported" style="margin-top:var(--space-4);" hidden>
+      <span aria-hidden="true">⚠️</span>
+      Ambient sound needs Web Audio, which this browser doesn't support here — everything else on this screen still works.
+    </p>
+
+    <div class="calm-now-playing" id="calm-now-playing" style="margin-top:var(--space-4);" hidden>
+      <div class="calm-now-playing-icon" aria-hidden="true">🎧</div>
+      <div style="flex:1;">
+        <div style="font-size:14.5px; font-weight:700;" id="calm-now-playing-name">—</div>
+        <div class="muted" style="font-size:12px; margin-top:1px;" id="calm-now-playing-status">Playing</div>
+      </div>
+      <button class="miniapp-icon-btn" id="btn-calm-stop" aria-label="Stop">⏹</button>
+    </div>
+
+    <div class="calm-sound-grid" style="margin-top:var(--space-4);" id="calm-sound-grid"></div>
+
+    <div style="margin-top:var(--space-4);">
+      <label for="calm-volume" style="font-size:12.5px; font-weight:600; color:var(--calm-ink-muted); letter-spacing:0.04em; text-transform:uppercase;">Volume</label>
+      <input type="range" id="calm-volume" min="0" max="100" value="70" style="width:100%; margin-top:8px;">
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:10px; margin-top:var(--space-4);">
+      <span style="font-size:12.5px; font-weight:600; color:var(--calm-ink-muted); letter-spacing:0.04em;">STOPS AFTER</span>
+      <div class="calm-timer-row" id="calm-timer-row">
+        <button type="button" class="calm-timer-pill" data-value="15" aria-pressed="false">15m</button>
+        <button type="button" class="calm-timer-pill" data-value="30" aria-pressed="true">30m</button>
+        <button type="button" class="calm-timer-pill" data-value="60" aria-pressed="false">60m</button>
+        <button type="button" class="calm-timer-pill" data-value="none" aria-pressed="false">Until stopped</button>
+      </div>
+    </div>
   </section>
 
   <!-- ACTIVITY: LOG -->

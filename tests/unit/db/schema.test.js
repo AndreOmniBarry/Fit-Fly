@@ -22,6 +22,7 @@ describe('schema', () => {
         'sessions',
         'sets',
         'settings',
+        'sleepLogs',
       ].sort()
     );
     db.close();

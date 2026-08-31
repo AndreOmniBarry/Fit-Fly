@@ -299,36 +299,68 @@
       Your apps
     </p>
 
+    <!-- Every tile is a small 3D scene, not a flat card: js/lib/tilt.ts
+         drives --tilt-rx/--tilt-ry/--tilt-tx/--tilt-ty from real pointer
+         or device-tilt input, and .hub-tile-icon / .hub-tile-kinetic sit
+         at different translateZ depths so they visually separate as the
+         whole grid tilts, like they're actually lit from one side. The
+         kinetic layer is real, mount-computed data, never decoration —
+         Sleep's ring is the same score math as its dashboard ring; Focus's
+         waveform is only "live" when a soundscape is actually playing. -->
     <div class="hub-grid">
-      <button class="hub-tile hub-tile--sleep" id="btn-home-sleep">
-        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon"></use></svg></span>
-        <span>
-          <span class="hub-tile-title display">Sleep</span>
-          <p class="hub-tile-sub" id="hub-sleep-sub">Log tonight's sleep</p>
+      <button class="hub-tile hub-tile--sleep hub-tile--no-score" id="btn-home-sleep">
+        <span class="hub-tile-face">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon"></use></svg></span>
+            <svg class="hub-tile-kinetic hub-tile-kinetic--ring" data-tilt-depth="2" viewBox="0 0 40 40" aria-hidden="true">
+              <circle class="hub-ring-track" cx="20" cy="20" r="16"/>
+              <circle class="hub-ring-fill" id="hub-sleep-ring-fill" cx="20" cy="20" r="16"
+                      stroke-dasharray="100.53" stroke-dashoffset="100.53"/>
+            </svg>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Sleep</span>
+            <p class="hub-tile-sub" id="hub-sleep-sub">Log tonight's sleep</p>
+          </span>
         </span>
       </button>
 
       <button class="hub-tile hub-tile--focus" id="btn-home-focus">
-        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></span>
-        <span>
-          <span class="hub-tile-title display">Focus</span>
-          <p class="hub-tile-sub">Rain, waves, rivers &amp; more</p>
+        <span class="hub-tile-face">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-headphones"></use></svg></span>
+            <span class="hub-tile-kinetic hub-tile-kinetic--wave" id="hub-focus-wave" data-tilt-depth="2" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span>
+            </span>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Focus</span>
+            <p class="hub-tile-sub">Rain, waves, rivers &amp; more</p>
+          </span>
         </span>
       </button>
 
       <button class="hub-tile hub-tile--neutral" id="btn-home-fitness-toolkit">
-        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-grid"></use></svg></span>
-        <span>
-          <span class="hub-tile-title display">Fitness Toolkit</span>
-          <p class="hub-tile-sub">Programs, run, nutrition &amp; more</p>
+        <span class="hub-tile-face">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-grid"></use></svg></span>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Fitness Toolkit</span>
+            <p class="hub-tile-sub">Programs, run, nutrition &amp; more</p>
+          </span>
         </span>
       </button>
 
       <div class="hub-tile hub-tile--soon" aria-disabled="true">
-        <span class="hub-tile-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-heart-pulse"></use></svg></span>
-        <span>
-          <span class="hub-tile-title display">Vitals &amp; Steps</span>
-          <p class="hub-tile-sub">Coming soon</p>
+        <span class="hub-tile-face">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-heart-pulse"></use></svg></span>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Vitals &amp; Steps</span>
+            <p class="hub-tile-sub">Coming soon</p>
+          </span>
         </span>
       </div>
     </div>

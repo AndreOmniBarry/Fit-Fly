@@ -1,15 +1,28 @@
-// The Hub: the app's front door. It only wires navigation between the
-// mini-app tiles and the screens they open — every mini-app owns its own
-// feature module (sleep-view.ts, focus-view.ts, ...) the same way
-// every pre-existing feature owns its own screen(s). Nothing here reaches
-// into another mini-app's internals.
+// The Hub: the app's front door. It wires navigation between the mini-app
+// tiles and the screens they open — every mini-app owns its own feature
+// module (sleep-view.ts, focus-view.ts, ...) the same way every
+// pre-existing feature owns its own screen(s). It also owns the tiles'
+// kinetic-data readouts (the Sleep ring, the Focus waveform) and the
+// spatial-tilt effect, since both are Hub presentation, not something any
+// mini-app should need to know exists.
 import { showScreen } from '../../lib/router.js';
+import { attachTilt } from '../../lib/tilt.js';
+import { getFocusAudioEngine } from '../focus/audio-engine.js';
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`hub-view: missing #${id}`);
   return el as T;
 }
+
+function bySvgId<T extends SVGElement = SVGElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`hub-view: missing #${id}`);
+  return el as unknown as T;
+}
+
+// Matches .hub-ring-fill's r=16 in index.html/mini-apps.css.
+const HUB_RING_CIRCUMFERENCE = 2 * Math.PI * 16;
 
 export function initHubFeature(): void {
   byId('btn-home-fitness-toolkit').addEventListener('click', () => showScreen('screen-home'));
@@ -20,6 +33,22 @@ export function initHubFeature(): void {
 
   byId('btn-home-focus').addEventListener('click', () => showScreen('screen-focus'));
   byId('btn-focus-back').addEventListener('click', () => showScreen('screen-hub'));
+
+  // Spatial tilt: one shared reading (pointer, or real device tilt once
+  // granted) drives every tile's depth-layered parallax at once. iOS 13+
+  // gates device-tilt behind a user gesture — asking on the Hub's own
+  // first tap is the least intrusive place to do that, and everywhere
+  // else this is simply a silent no-op.
+  const tilt = attachTilt(byId('screen-hub'));
+  byId('screen-hub').addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
+
+  // Focus's mini waveform reflects real playback state, live, from
+  // wherever it was started (its own screen or Wind Down) — not just
+  // clicks made on this screen.
+  const focusWave = byId('hub-focus-wave');
+  getFocusAudioEngine().onStateChange((state) => {
+    focusWave.classList.toggle('is-live', state.playing);
+  });
 }
 
 /** Updates the Sleep tile's subtitle on the Hub — e.g. "86 · Great last
@@ -29,4 +58,15 @@ export function initHubFeature(): void {
  * that text. */
 export function setSleepTileSubtitle(text: string): void {
   byId('hub-sleep-sub').textContent = text;
+}
+
+/** Draws the Sleep tile's mini ring in to a real score (0-100), or back to
+ * its empty "waiting for data" state for `null` — the same honesty rule as
+ * the subtitle: never a number that isn't backed by an actual logged
+ * night. */
+export function setSleepTileScore(score: number | null): void {
+  const fraction = score == null ? 0 : Math.max(0, Math.min(100, score)) / 100;
+  const offset = HUB_RING_CIRCUMFERENCE * (1 - fraction);
+  bySvgId('hub-sleep-ring-fill').setAttribute('stroke-dashoffset', offset.toFixed(2));
+  byId('btn-home-sleep').classList.toggle('hub-tile--no-score', score == null);
 }

@@ -128,29 +128,63 @@
 }
 
 /* ============================================================================
-   HUB
+   HUB — a shared 3D scene, not a flat list.
+   js/lib/tilt.ts drives --tilt-rx/--tilt-ry (rotation) and --tilt-tx/--tilt-ty
+   (parallax offset) on #screen-hub from real pointer or device-tilt input.
+   .hub-grid supplies the perspective; each .hub-tile rotates together as one
+   shared surface; .hub-tile-icon and .hub-tile-kinetic sit at their own
+   translateZ depth inside it so they visually separate as it tilts, the way
+   things at different distances from a light actually do. --tilt-* default
+   to 0 so every rule below is a no-op — full depth, zero motion — under
+   prefers-reduced-motion (tilt.ts never sets them there at all).
    ========================================================================== */
 .hub-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:var(--space-3);
+  perspective:1000px;
 }
 .hub-tile{
   position:relative;
   border-radius:var(--radius-lg);
-  padding:var(--space-4) var(--space-3);
-  min-height:172px;
-  display:flex;
-  flex-direction:column;
-  justify-content:space-between;
   overflow:hidden;
   text-align:left;
   isolation:isolate;
+  transform:rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg));
+  transform-style:preserve-3d;
+  /* JS already lerps --tilt-* every frame — that motion *is* the spring.
+     A transition here would fight it and read as laggy, so this element
+     carries none; only .hub-tile-face (the press feedback) gets one. */
+}
+.hub-tile-face{
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  height:100%;
+  padding:var(--space-4) var(--space-3);
+  min-height:172px;
+  transform:scale(1);
+  transform-style:preserve-3d;
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1);
+}
+.hub-tile:active .hub-tile-face{
+  transform:scale(.96);
+  transition-duration:.15s;
+}
+@media (prefers-reduced-motion: reduce){
+  .hub-tile:active .hub-tile-face{ transform:none; }
+}
+.hub-tile-top{
+  position:relative;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
 }
 .hub-tile-icon{
   width:36px; height:36px; border-radius:11px;
   display:flex; align-items:center; justify-content:center;
   position:relative; z-index:1;
+  transform:translate3d(var(--tilt-tx, 0px), var(--tilt-ty, 0px), 22px);
 }
 .hub-tile-title{
   font-family:var(--miniapp-font-display);
@@ -160,6 +194,75 @@
 .hub-tile-sub{
   font-size:12px; font-weight:700; margin-top:3px;
   position:relative; z-index:1;
+}
+
+/* entrance: the grid materializes into the scene it already tilts in,
+   each tile a beat behind the last */
+.hub-tile{ animation:hub-tile-in .6s cubic-bezier(.16,1,.3,1) both; }
+.hub-grid .hub-tile:nth-child(1){ animation-delay:.02s; }
+.hub-grid .hub-tile:nth-child(2){ animation-delay:.08s; }
+.hub-grid .hub-tile:nth-child(3){ animation-delay:.14s; }
+.hub-grid .hub-tile:nth-child(4){ animation-delay:.2s; }
+@keyframes hub-tile-in{
+  from{ opacity:0; transform:translateY(16px) scale(.95) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)); }
+  to{ opacity:1; transform:translateY(0) scale(1) rotateX(var(--tilt-rx, 0deg)) rotateY(var(--tilt-ry, 0deg)); }
+}
+@media (prefers-reduced-motion: reduce){
+  .hub-tile{ animation:none; }
+}
+
+/* ---------- kinetic data: real numbers, drawn as motion ---------- */
+.hub-tile-kinetic{
+  position:relative; z-index:1;
+  transform:translate3d(calc(var(--tilt-tx, 0px) * .5), calc(var(--tilt-ty, 0px) * .5), 10px);
+}
+
+.hub-tile-kinetic--ring{ width:30px; height:30px; overflow:visible; }
+.hub-ring-track, .hub-ring-fill{
+  fill:none; stroke-width:5; stroke-linecap:round;
+}
+.hub-ring-track{ stroke:currentColor; opacity:.18; }
+.hub-ring-fill{
+  /* stroke-dasharray/-dashoffset deliberately left to the HTML attributes
+     (index.html's initial values, hub-view.ts's setSleepTileScore after) —
+     a CSS declaration here would always win over both, since presentation
+     attributes lose to any author CSS rule regardless of specificity. */
+  stroke:currentColor;
+  transform:rotate(-90deg); transform-origin:20px 20px;
+  transition:stroke-dashoffset 1s cubic-bezier(.16,1,.3,1);
+}
+.hub-tile--sleep .hub-ring-fill{ color:var(--sleep-accent); }
+/* no score logged yet (hub-view.ts's setSleepTileScore(null) toggles this):
+   a slow, honest "waiting for data" breathe on the track — never on the
+   fill, which only ever reflects a real number */
+.hub-tile--sleep.hub-tile--no-score .hub-ring-track{
+  animation:hub-ring-idle 3.2s ease-in-out infinite;
+}
+@keyframes hub-ring-idle{ 0%, 100%{ opacity:.12; } 50%{ opacity:.3; } }
+@media (prefers-reduced-motion: reduce){
+  .hub-tile--sleep.hub-tile--no-score .hub-ring-track{ animation:none; opacity:.18; }
+}
+
+.hub-tile-kinetic--wave{
+  display:flex; align-items:flex-end; gap:3px; height:26px;
+}
+.hub-tile-kinetic--wave span{
+  width:3px; border-radius:2px; background:var(--focus-accent);
+  height:20%; opacity:.4;
+  transition:height .3s ease, opacity .3s ease;
+}
+.hub-tile-kinetic--wave.is-live span{ opacity:.95; animation:hub-wave-bounce 1.1s ease-in-out infinite; }
+.hub-tile-kinetic--wave span:nth-child(1){ animation-delay:-.9s; }
+.hub-tile-kinetic--wave span:nth-child(2){ animation-delay:-.6s; }
+.hub-tile-kinetic--wave span:nth-child(3){ animation-delay:-.3s; }
+.hub-tile-kinetic--wave span:nth-child(4){ animation-delay:-.75s; }
+.hub-tile-kinetic--wave span:nth-child(5){ animation-delay:-.45s; }
+@keyframes hub-wave-bounce{
+  0%, 100%{ height:20%; }
+  50%{ height:100%; }
+}
+@media (prefers-reduced-motion: reduce){
+  .hub-tile-kinetic--wave.is-live span{ animation:none; height:60%; opacity:.8; }
 }
 
 .hub-tile--sleep{

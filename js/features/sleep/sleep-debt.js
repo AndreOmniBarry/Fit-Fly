@@ -1,4 +1,17 @@
-export const DEFAULT_SLEEP_GOAL_MINUTES = 480; // 8 hours
+// Rolling sleep debt: the total shortfall against a goal over a trailing
+// stretch of logged nights. Deliberately one-directional — a great night
+// doesn't erase two rough ones, since that's not how sleep debt actually
+// works physiologically, and pretending otherwise would be exactly the
+// kind of fabricated precision this app avoids everywhere else.
+import { GENERAL_ADULT_BAND } from './sleep-duration-guideline.js';
+// 7 hours — the National Sleep Foundation's recommended-range *minimum*
+// for every adult age band (young adult, adult, and older adult alike;
+// see sleep-duration-guideline.ts), not an arbitrary round number. Debt
+// specifically measures shortfall against a practical floor, so the
+// recommended minimum — not the age-varying max, which is about scoring
+// a specific night's duration, not a debt target — is the right anchor
+// here regardless of exact age.
+export const DEFAULT_SLEEP_GOAL_MINUTES = GENERAL_ADULT_BAND.recommendedMinHours * 60;
 export function calculateSleepDebt(recentLogs, goalMinutes = DEFAULT_SLEEP_GOAL_MINUTES) {
     if (recentLogs.length === 0) {
         return { debtMinutes: 0, nightsConsidered: 0, goalMinutes, averageMinutes: null };

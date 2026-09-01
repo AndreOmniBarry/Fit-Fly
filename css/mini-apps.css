@@ -501,6 +501,57 @@
 .sleep-factor-card .delta.favorable{ color:var(--focus-accent); }
 .sleep-factor-card .delta.unfavorable{ color:var(--sleep-accent-2); }
 
+/* ---------- quality rating: real anchors, not bare numbers ---------- */
+#sleep-log-quality{ flex-wrap:nowrap; }
+.chip--rating{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:2px;
+  padding:10px 3px;
+}
+.chip--rating .chip-rating-num{ font-family:var(--miniapp-font-display); font-size:16px; line-height:1; }
+.chip--rating .chip-rating-label{ font-size:9px; font-weight:600; letter-spacing:0.01em; text-align:center; }
+
+/* ---------- History: a real calendar, not just "today" ---------- */
+.sleep-date-btn{
+  display:flex; align-items:center; gap:5px;
+  color:var(--sleep-ink-muted);
+  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;
+}
+.sleep-date-btn .icon{ width:13px; height:13px; opacity:.7; }
+
+.sleep-calendar-weekdays{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+  text-align:center; font-size:11px; font-weight:700; color:var(--sleep-ink-faint);
+}
+.sleep-calendar-grid{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+  gap:4px; margin-top:8px;
+}
+.sleep-calendar-day{
+  aspect-ratio:1; border-radius:12px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  font-size:12.5px; font-weight:600; color:var(--sleep-ink);
+  background:var(--sleep-card-bg); border:1px solid transparent;
+}
+.sleep-calendar-day--out-of-month{ opacity:.3; }
+.sleep-calendar-day--future{ opacity:.25; }
+.sleep-calendar-day--today{ border-color:var(--sleep-accent); }
+.sleep-calendar-day-dot{ width:6px; height:6px; border-radius:50%; }
+.sleep-calendar-day--logged.sleep-calendar-day--poor .sleep-calendar-day-dot{ background:var(--danger); }
+.sleep-calendar-day--logged.sleep-calendar-day--fair .sleep-calendar-day-dot{ background:var(--warning); }
+.sleep-calendar-day--logged.sleep-calendar-day--good .sleep-calendar-day-dot{ background:var(--sleep-accent); }
+.sleep-calendar-day--logged.sleep-calendar-day--great .sleep-calendar-day-dot{ background:var(--success); }
+
+.sleep-calendar-legend{
+  display:flex; flex-wrap:wrap; gap:14px;
+  font-size:11.5px; color:var(--sleep-ink-muted);
+}
+.sleep-calendar-legend span{ display:flex; align-items:center; gap:5px; }
+.sleep-calendar-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; font-style:normal; }
+.sleep-calendar-dot[data-category="great"]{ background:var(--success); }
+.sleep-calendar-dot[data-category="good"]{ background:var(--sleep-accent); }
+.sleep-calendar-dot[data-category="fair"]{ background:var(--warning); }
+.sleep-calendar-dot[data-category="poor"]{ background:var(--danger); }
+
 /* ============================================================================
    FOCUS
    ========================================================================== */

@@ -1,11 +1,15 @@
-// A transparent, rule-based Sleep score — duration vs. goal, bedtime
-// consistency, and self-rated quality, blended and explained in plain
-// language. Same honesty stance as readiness.js: no wearable-derived
-// metric this app doesn't actually have, no invented precision, and the
-// component breakdown always ships alongside the number so "why this" is
-// never a black box.
+// A transparent, rule-based Sleep score — duration scored against the
+// National Sleep Foundation's own age-banded recommendations (not an
+// arbitrary flat goal — see sleep-duration-guideline.ts), bedtime
+// consistency, and self-rated quality (the Consensus Sleep Diary's
+// 5-point quality wording — see index.html's #sleep-log-quality chips),
+// blended and explained in plain language. Same honesty stance as
+// readiness.js: no wearable-derived metric this app doesn't actually
+// have, no invented precision, and the component breakdown always ships
+// alongside the number so "why this" is never a black box.
 import { calculateSleepConsistency } from './sleep-consistency.js';
-import { DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
+import { durationBandForAge, scoreDurationAgainstBand } from './sleep-duration-guideline.js';
+import type { DurationBand } from './sleep-duration-guideline.js';
 import type { SleepCategory, SleepLog, SleepScoreComponents, SleepScoreResult } from './types.js';
 
 const WEIGHTS: Record<keyof SleepScoreComponents, number> = {
@@ -18,11 +22,8 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function durationScore(durationMinutes: number, goalMinutes: number): number {
-  return clamp((durationMinutes / goalMinutes) * 100, 0, 100);
-}
-
-/** 1 (terrible) - 5 (excellent) self-rating. */
+/** 1 (very poor) - 5 (very good) self-rating — see #sleep-log-quality's
+ *  Consensus Sleep Diary-worded chips. */
 function qualityScore(quality: number): number {
   return clamp((quality / 5) * 100, 0, 100);
 }
@@ -39,17 +40,21 @@ function categoryFor(score: number): SleepCategory {
  * @param recentLogs A trailing window of logs (tonight included, if it's
  *   already saved) used only to compute bedtime consistency — pass
  *   whatever's already been fetched, no I/O happens here.
- * @param goalMinutes The person's sleep goal, in minutes.
+ * @param age Whole years, if known (Sleep works without a profile — see
+ *   the README's "Onboarding is optional") — picks which NSF age band
+ *   duration is scored against; `null` falls back to the general-adult
+ *   band, the same one every band's recommended minimum agrees on.
  */
 export function calculateSleepScore(
   tonight: Pick<SleepLog, 'durationMinutes' | 'quality'>,
   recentLogs: SleepLog[] = [],
-  goalMinutes: number = DEFAULT_SLEEP_GOAL_MINUTES
+  age: number | null = null
 ): SleepScoreResult {
   const consistency = calculateSleepConsistency(recentLogs);
+  const band = durationBandForAge(age);
 
   const components: SleepScoreComponents = {
-    duration: durationScore(tonight.durationMinutes, goalMinutes),
+    duration: scoreDurationAgainstBand(tonight.durationMinutes, band),
     quality: tonight.quality == null ? null : qualityScore(tonight.quality),
     consistency: consistency.score,
   };
@@ -62,21 +67,25 @@ export function calculateSleepScore(
   const score = Math.round(weightedSum / totalWeight);
   const category = categoryFor(score);
 
-  return { score, category, components, reasoning: buildReasoning(components, category, goalMinutes, tonight.durationMinutes) };
+  return { score, category, components, reasoning: buildReasoning(components, category, band, tonight.durationMinutes) };
 }
 
 function buildReasoning(
   components: SleepScoreComponents,
   category: SleepCategory,
-  goalMinutes: number,
+  band: DurationBand,
   durationMinutes: number
 ): string[] {
   const reasoning: string[] = [];
-  const goalHours = Math.round((goalMinutes / 60) * 10) / 10;
   const gotHours = Math.round((durationMinutes / 60) * 10) / 10;
+  const rangeLabel = `${band.recommendedMinHours}-${band.recommendedMaxHours}h`;
 
   if (components.duration != null && components.duration < 70) {
-    reasoning.push(`${gotHours}h is short of your ${goalHours}h goal — that's usually the biggest lever here.`);
+    if (gotHours < band.recommendedMinHours) {
+      reasoning.push(`${gotHours}h is short of the ${rangeLabel} range your age group typically needs — that's usually the biggest lever here.`);
+    } else {
+      reasoning.push(`${gotHours}h runs longer than the ${rangeLabel} range your age group typically needs — habitually long sleep has its own research-backed downsides, same as running short.`);
+    }
   }
   if (components.consistency != null && components.consistency < 60) {
     reasoning.push('Your bedtime has been swinging around a lot lately.');

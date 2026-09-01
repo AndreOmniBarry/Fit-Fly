@@ -58,7 +58,8 @@ test.describe('my program', () => {
     await page.getByRole('button', { name: 'My Program' }).click();
 
     await expect(page.getByRole('heading', { name: 'My Program' })).toBeVisible();
-    await expect(page.locator('#program-week-label')).toContainText('Week 1');
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#program-block-label')).toContainText('Block');
     await expect(page.locator('#program-reasoning li').first()).toBeVisible();
 
     const dayCards = page.locator('#program-days > .card');
@@ -79,15 +80,18 @@ test.describe('my program', () => {
     // Demo SVGs load asynchronously per exercise, and their <title> text
     // counts toward textContent — wait for every one of them, or a visit
     // whose fetches haven't all resolved yet reads as "different" from
-    // one where they have.
-    const exerciseSlotCount = await page.locator('#program-days [id^="program-svg-"]').count();
-    await expect(page.locator('#program-days svg')).toHaveCount(exerciseSlotCount);
+    // one where they have. Scoped to just the exercise demo slots, not
+    // every svg under #program-days — each day card also carries its own
+    // (synchronously-rendered) day-type badge icon.
+    const exerciseSlots = page.locator('#program-days [id^="program-svg-"]');
+    const exerciseSlotCount = await exerciseSlots.count();
+    await expect(exerciseSlots.locator('svg')).toHaveCount(exerciseSlotCount);
     const firstVisitText = await page.locator('#program-days').textContent();
 
     await page.getByRole('button', { name: 'Back' }).click();
     await page.getByRole('button', { name: 'My Program' }).click();
     await expect(page.locator('#program-days .card').first()).toBeVisible();
-    await expect(page.locator('#program-days svg')).toHaveCount(exerciseSlotCount);
+    await expect(page.locator('#program-days [id^="program-svg-"] svg')).toHaveCount(exerciseSlotCount);
     const secondVisitText = await page.locator('#program-days').textContent();
 
     expect(secondVisitText).toBe(firstVisitText);
@@ -154,5 +158,26 @@ test.describe('my program', () => {
     await expect(oneRmSpans.nth(1)).toContainText('Estimated 1RM'); // the Day 3 occurrence updated too
 
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('reacts to tilt, and every day card carries a real day-type icon', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-program'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+
+    const dayCards = page.locator('#program-days > .card');
+    const count = await dayCards.count();
+    for (let i = 0; i < count; i++) {
+      await expect(dayCards.nth(i).locator('.fitness-row-icon .icon')).toBeVisible();
+    }
   });
 });

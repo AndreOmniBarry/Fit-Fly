@@ -75,6 +75,7 @@
     <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
     <symbol id="icon-party" viewBox="0 0 24 24"><path d="M4 20l3-10 13-6-6 13-10 3Z"/><path d="M11 13l6.5-6.5"/><circle cx="18" cy="4" r="0.8" fill="currentColor" stroke="none"/><circle cx="21" cy="9" r="0.8" fill="currentColor" stroke="none"/></symbol>
     <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M4 10v4h3l4 4V6l-4 4H4Z"/><path d="M16 9a4 4 0 0 1 0 6"/></symbol>
+    <symbol id="icon-dumbbell" viewBox="0 0 24 24"><path d="M8 12h8"/><path d="M6 8v8M4.2 9.5v5"/><path d="M18 8v8M19.8 9.5v5"/></symbol>
   </defs>
 </svg>
 
@@ -931,22 +932,26 @@
       <p id="run-geo-error-text">Location isn't available.</p>
     </div>
 
-    <div class="row" style="justify-content:space-around; text-align:center;">
-      <div class="stack" style="align-items:center;">
-        <span class="muted" style="font-size:var(--fs-xs);">Distance</span>
-        <strong id="run-distance" style="font-size:var(--fs-xl);">0 m</strong>
-      </div>
-      <div class="stack" style="align-items:center;">
-        <span class="muted" style="font-size:var(--fs-xs);">Duration</span>
-        <strong id="run-duration" style="font-size:var(--fs-xl);">0:00</strong>
-      </div>
-      <div class="stack" style="align-items:center;">
-        <span class="muted" style="font-size:var(--fs-xs);">Pace</span>
-        <strong id="run-pace" style="font-size:var(--fs-xl);">—</strong>
-      </div>
-    </div>
+    <div class="card tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <div class="row" style="justify-content:space-around; text-align:center;" data-tilt-depth="1">
+          <div class="stack" style="align-items:center;">
+            <span class="muted" style="font-size:var(--fs-xs);">Distance</span>
+            <strong id="run-distance" style="font-size:var(--fs-xl);">0 m</strong>
+          </div>
+          <div class="stack" style="align-items:center;">
+            <span class="muted" style="font-size:var(--fs-xs);">Duration</span>
+            <strong id="run-duration" style="font-size:var(--fs-xl);">0:00</strong>
+          </div>
+          <div class="stack" style="align-items:center;">
+            <span class="muted" style="font-size:var(--fs-xs);">Pace</span>
+            <strong id="run-pace" style="font-size:var(--fs-xl);">—</strong>
+          </div>
+        </div>
 
-    <canvas id="run-canvas" width="320" height="200" style="width:100%; height:200px; color:var(--accent);" aria-label="Route shape"></canvas>
+        <canvas id="run-canvas" width="320" height="200" style="width:100%; height:200px; color:var(--accent);" aria-label="Route shape" data-tilt-depth="2"></canvas>
+      </span>
+    </div>
 
     <div class="row" style="margin-top:auto;">
       <button class="btn btn-danger" id="btn-run-finish" hidden>Finish</button>
@@ -957,12 +962,14 @@
   <!-- RUN SUMMARY -->
   <section class="screen" id="screen-run-summary" hidden>
     <h2>Run Complete</h2>
-    <div class="card stack">
-      <div class="row-between"><span class="muted">Distance</span><strong id="run-summary-distance">—</strong></div>
-      <div class="row-between"><span class="muted">Duration</span><strong id="run-summary-duration">—</strong></div>
-      <div class="row-between"><span class="muted">Pace</span><strong id="run-summary-pace">—</strong></div>
+    <div class="card card-accent tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <div class="row-between" data-tilt-depth="1"><span class="muted">Distance</span><strong id="run-summary-distance">—</strong></div>
+        <div class="row-between" data-tilt-depth="1"><span class="muted">Duration</span><strong id="run-summary-duration">—</strong></div>
+        <div class="row-between" data-tilt-depth="1"><span class="muted">Pace</span><strong id="run-summary-pace">—</strong></div>
+      </span>
     </div>
-    <div class="stack" id="run-summary-prs"></div>
+    <div class="stack tilt-stagger" id="run-summary-prs"></div>
     <div class="row" style="margin-top:auto;">
       <button class="btn btn-ghost" id="btn-run-summary-history">View History</button>
       <button class="btn btn-primary btn-block" id="btn-run-summary-done">Done</button>
@@ -975,7 +982,7 @@
       <h2>Run History</h2>
       <button class="icon-btn" id="btn-run-history-back" aria-label="Back">←</button>
     </div>
-    <div class="stack" id="run-history-list"></div>
+    <div class="stack tilt-stagger" id="run-history-list"></div>
   </section>
 
   <!-- HEART RATE -->
@@ -1124,45 +1131,54 @@
       <button class="icon-btn" id="btn-nutrition-back" aria-label="Back">←</button>
     </div>
 
-    <div class="card card-accent stack">
-      <div class="row-between">
-        <strong>Today's calorie target</strong>
-        <span class="data-badge estimated" id="nutrition-calorie-confidence">estimated</span>
-      </div>
-      <p id="nutrition-calorie-target">—</p>
-      <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);" id="nutrition-macro-targets">
-        <span>Protein: <strong id="nutrition-target-protein">—</strong></span>
-        <span>Carbs: <strong id="nutrition-target-carbs">—</strong></span>
-        <span>Fat: <strong id="nutrition-target-fat">—</strong></span>
-      </div>
+    <div class="card card-accent tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <div class="row-between">
+          <span class="row" style="gap:10px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-flame"></use></svg></span>
+            <strong>Today's calorie target</strong>
+          </span>
+          <span class="data-badge estimated" id="nutrition-calorie-confidence">estimated</span>
+        </div>
+        <p id="nutrition-calorie-target">—</p>
+        <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);" id="nutrition-macro-targets">
+          <span>Protein: <strong id="nutrition-target-protein">—</strong></span>
+          <span>Carbs: <strong id="nutrition-target-carbs">—</strong></span>
+          <span>Fat: <strong id="nutrition-target-fat">—</strong></span>
+        </div>
+      </span>
     </div>
 
-    <div class="card stack">
-      <strong>So far today</strong>
-      <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
-        <span>Calories: <strong id="nutrition-total-calories">0</strong></span>
-        <span>Protein: <strong id="nutrition-total-protein">0g</strong></span>
-        <span>Carbs: <strong id="nutrition-total-carbs">0g</strong></span>
-        <span>Fat: <strong id="nutrition-total-fat">0g</strong></span>
-      </div>
+    <div class="card tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <strong>So far today</strong>
+        <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
+          <span>Calories: <strong id="nutrition-total-calories">0</strong></span>
+          <span>Protein: <strong id="nutrition-total-protein">0g</strong></span>
+          <span>Carbs: <strong id="nutrition-total-carbs">0g</strong></span>
+          <span>Fat: <strong id="nutrition-total-fat">0g</strong></span>
+        </div>
+      </span>
     </div>
 
-    <div class="card stack">
-      <h3>Quick Add</h3>
-      <input class="input" type="text" id="nutrition-name" placeholder="What did you eat?">
-      <div class="row">
-        <input class="input" type="number" id="nutrition-calories" min="0" placeholder="kcal">
-        <input class="input" type="number" id="nutrition-protein" min="0" placeholder="protein g">
-      </div>
-      <div class="row">
-        <input class="input" type="number" id="nutrition-carbs" min="0" placeholder="carbs g">
-        <input class="input" type="number" id="nutrition-fat" min="0" placeholder="fat g">
-      </div>
-      <span class="field-error" id="err-nutrition-entry" hidden>Enter a name and at least a calorie amount.</span>
-      <button class="btn btn-primary btn-block" id="btn-nutrition-add">Add</button>
+    <div class="card tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <h3>Quick Add</h3>
+        <input class="input" type="text" id="nutrition-name" placeholder="What did you eat?">
+        <div class="row">
+          <input class="input" type="number" id="nutrition-calories" min="0" placeholder="kcal">
+          <input class="input" type="number" id="nutrition-protein" min="0" placeholder="protein g">
+        </div>
+        <div class="row">
+          <input class="input" type="number" id="nutrition-carbs" min="0" placeholder="carbs g">
+          <input class="input" type="number" id="nutrition-fat" min="0" placeholder="fat g">
+        </div>
+        <span class="field-error" id="err-nutrition-entry" hidden>Enter a name and at least a calorie amount.</span>
+        <button class="btn btn-primary btn-block" id="btn-nutrition-add">Add</button>
+      </span>
     </div>
 
-    <div class="stack" id="nutrition-entry-list"></div>
+    <div class="stack tilt-stagger" id="nutrition-entry-list"></div>
   </section>
 
   <!-- READINESS -->
@@ -1274,7 +1290,17 @@
       <h2>My Program</h2>
       <button class="icon-btn" id="btn-program-back" aria-label="Back">←</button>
     </div>
-    <p class="muted" id="program-week-label">—</p>
+
+    <div class="card card-accent tilt-card tilt-enter" style="text-align:center;">
+      <span class="tilt-press stack" style="align-items:center; gap:2px;">
+        <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true" style="margin-bottom:4px;">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-dumbbell"></use></svg>
+        </span>
+        <span class="muted" style="font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.06em;">Week</span>
+        <strong style="font-size:var(--fs-xl);" id="program-week-number">—</strong>
+        <span class="muted" style="font-size:var(--fs-sm);" id="program-block-label">—</span>
+      </span>
+    </div>
 
     <div class="card card-accent stack" id="program-deload-banner" hidden>
       <strong>Deload week</strong>
@@ -1286,7 +1312,7 @@
       <ul id="program-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>
     </div>
 
-    <div class="stack" id="program-days"></div>
+    <div class="stack tilt-stagger" id="program-days"></div>
   </section>
 
   <!-- ACTIVITY: HISTORY -->

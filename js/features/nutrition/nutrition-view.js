@@ -1,5 +1,7 @@
 import { showScreen } from '../../lib/router.js';
 import { escapeHtml } from '../../lib/html.js';
+import { attachTilt } from '../../lib/tilt.js';
+import { animateCountUp } from '../../lib/count-up.js';
 import { calculateBmr, calculateTdee, calorieTargetForCategory, tdeeConfidenceBand } from './bmr-tdee.js';
 import { calculateMacroTargets } from './macro-targets.js';
 import { getProfile } from '../../db/repositories/profile.js';
@@ -26,6 +28,14 @@ export function initNutritionFeature() {
     showScreen('screen-nutrition');
   });
   byId('btn-nutrition-back').addEventListener('click', () => showScreen('screen-home'));
+
+  // Same spatial-tilt language as the Fitness Toolkit home list — scoped
+  // to just this screen.
+  const nutritionScreen = byId('screen-nutrition');
+  const nutritionTilt = attachTilt(nutritionScreen);
+  nutritionScreen.addEventListener('pointerdown', () => void nutritionTilt.requestMotionPermission(), {
+    once: true,
+  });
 
   byId('btn-nutrition-add').addEventListener('click', async () => {
     const name = byId('nutrition-name').value.trim();
@@ -81,10 +91,14 @@ async function renderToday() {
   const entries = await listNutritionEntriesForDate(todayIsoDate());
   const totals = sumNutritionEntries(entries);
 
-  byId('nutrition-total-calories').textContent = totals.calories;
-  byId('nutrition-total-protein').textContent = `${totals.proteinG}g`;
-  byId('nutrition-total-carbs').textContent = `${totals.carbsG}g`;
-  byId('nutrition-total-fat').textContent = `${totals.fatG}g`;
+  // Real numbers arriving, same kinetic-data language as the rest of the
+  // app — this is the one figure on the screen that actually changes as
+  // you use it, so it's the one worth animating.
+  const gramsFormatter = (n) => `${Math.round(n)}g`;
+  animateCountUp(byId('nutrition-total-calories'), totals.calories);
+  animateCountUp(byId('nutrition-total-protein'), totals.proteinG, { formatter: gramsFormatter });
+  animateCountUp(byId('nutrition-total-carbs'), totals.carbsG, { formatter: gramsFormatter });
+  animateCountUp(byId('nutrition-total-fat'), totals.fatG, { formatter: gramsFormatter });
 
   const list = byId('nutrition-entry-list');
   if (entries.length === 0) {
@@ -95,10 +109,13 @@ async function renderToday() {
   list.innerHTML = entries
     .map(
       (entry) => `
-        <div class="card row-between">
-          <span>
-            <strong>${escapeHtml(entry.name)}</strong>
-            <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${entry.calories} kcal · P${entry.proteinG}g C${entry.carbsG}g F${entry.fatG}g</p>
+        <div class="card row-between tilt-card tilt-enter">
+          <span class="row" style="gap:10px; align-items:center;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-flame"></use></svg></span>
+            <span>
+              <strong>${escapeHtml(entry.name)}</strong>
+              <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${entry.calories} kcal · P${entry.proteinG}g C${entry.carbsG}g F${entry.fatG}g</p>
+            </span>
           </span>
           <button class="btn btn-ghost" data-delete-id="${entry.id}" aria-label="Delete ${escapeHtml(entry.name)}">✕</button>
         </div>

@@ -1,5 +1,7 @@
 import { showScreen } from '../../lib/router.js';
 import { loadInlineSvg } from '../../lib/svg-loader.js';
+import { attachTilt } from '../../lib/tilt.js';
+import { animateCountUp } from '../../lib/count-up.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import { listInjuryScreens } from '../../db/repositories/injury-screens.js';
@@ -23,6 +25,16 @@ const DAY_TYPE_LABELS = {
   mobility: 'Mobility',
 };
 
+// A badge per day type — real training-signal icons, not the same
+// dumbbell repeated regardless of what the day actually is.
+const DAY_TYPE_ICONS = {
+  'full-body': 'dumbbell',
+  upper: 'dumbbell',
+  lower: 'dumbbell',
+  cardio: 'wind',
+  mobility: 'leaf',
+};
+
 let activeProgramId = null;
 
 export function initProgramFeature() {
@@ -31,6 +43,14 @@ export function initProgramFeature() {
     showScreen('screen-program');
   });
   byId('btn-program-back').addEventListener('click', () => showScreen('screen-home'));
+
+  // Same spatial-tilt language as the Fitness Toolkit home list — scoped
+  // to just this screen.
+  const programScreen = byId('screen-program');
+  const programTilt = attachTilt(programScreen);
+  programScreen.addEventListener('pointerdown', () => void programTilt.requestMotionPermission(), {
+    once: true,
+  });
 
   byId('program-days').addEventListener('click', async (event) => {
     const button = event.target.closest('[data-log-set]');
@@ -91,7 +111,8 @@ async function renderProgramScreen() {
     weekNumber,
   });
 
-  byId('program-week-label').textContent = `Week ${generated.weekNumber} · Block ${generated.blockNumber}`;
+  animateCountUp(byId('program-week-number'), generated.weekNumber);
+  byId('program-block-label').textContent = `Block ${generated.blockNumber}`;
   byId('program-deload-banner').hidden = !generated.isDeload;
   byId('program-reasoning').innerHTML = generated.reasoning.map((line) => `<li>${line}</li>`).join('');
   byId('program-days').innerHTML = generated.days.map(renderDay).join('');
@@ -128,10 +149,14 @@ function renderDay(day) {
     day.exercises.length === 0
       ? '<p class="muted">Nothing safe matched this slot this week.</p>'
       : day.exercises.map((exercise) => renderExercise(day.dayIndex, exercise)).join('');
+  const icon = DAY_TYPE_ICONS[day.dayType] ?? 'dumbbell';
 
   return `
-    <div class="card stack">
-      <h3>Day ${day.dayIndex} · ${DAY_TYPE_LABELS[day.dayType] ?? day.dayType}</h3>
+    <div class="card stack tilt-card tilt-enter">
+      <div class="row" style="gap:10px;">
+        <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-${icon}"></use></svg></span>
+        <h3 style="margin:0;">Day ${day.dayIndex} · ${DAY_TYPE_LABELS[day.dayType] ?? day.dayType}</h3>
+      </div>
       <details>
         <summary class="muted" style="font-size:var(--fs-sm); cursor:pointer;">Warm-up</summary>
         <ul style="margin:4px 0 0; padding-left:1.2em; font-size:var(--fs-sm);">
@@ -154,7 +179,7 @@ function renderExercise(dayIndex, exercise) {
   return `
     <div class="stack" style="border-top:1px solid var(--border); padding-top:var(--space-3);">
       <div class="row" style="align-items:flex-start;">
-        <div id="${svgSlotId(dayIndex, exercise.exerciseId)}" style="width:48px; height:40px; flex-shrink:0; color:var(--ink-2);" aria-hidden="true"></div>
+        <div id="${svgSlotId(dayIndex, exercise.exerciseId)}" data-tilt-depth="2" style="width:48px; height:40px; flex-shrink:0; color:var(--ink-2);" aria-hidden="true"></div>
         <div class="stack" style="gap:2px;">
           <strong>${exercise.name}</strong>
           <span class="muted" style="font-size:var(--fs-sm);">${exercise.sets} sets × ${exercise.reps} reps · rest ${exercise.restSec}s</span>

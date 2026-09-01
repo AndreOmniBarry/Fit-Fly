@@ -103,4 +103,20 @@ test.describe('nutrition', () => {
     await page.locator('#btn-home-nutrition').click();
     await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Oatmeal');
   });
+
+  test('reacts to tilt, and a logged entry carries a real icon badge', async ({ page }) => {
+    await page.locator('#nutrition-name').fill('Chicken and rice');
+    await page.locator('#nutrition-calories').fill('550');
+    await page.locator('#btn-nutrition-add').click();
+    await expect(page.locator('#nutrition-entry-list .card').first().locator('.fitness-row-icon .icon')).toBeVisible();
+
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-nutrition'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
 });

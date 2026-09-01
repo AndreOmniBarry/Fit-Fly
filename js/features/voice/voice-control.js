@@ -20,8 +20,15 @@ const COMMAND_ACTIONS = Object.freeze({
   'start-rest-timer': () => byId('btn-home-rest-timer')?.click(),
   'log-activity': () => byId('btn-home-log-activity')?.click(),
   'start-run': () => byId('btn-home-run')?.click(),
+  'show-run-history': () => byId('btn-home-run-history')?.click(),
   'show-program': () => byId('btn-home-program')?.click(),
   'check-readiness': () => byId('btn-home-readiness')?.click(),
+  'open-nutrition': () => byId('btn-home-nutrition')?.click(),
+  'open-heart-rate': () => byId('btn-home-heart-rate')?.click(),
+  'open-cycle-tracker': () => byId('btn-home-womens-health')?.click(),
+  'open-goals': () => byId('btn-home-goals')?.click(),
+  'open-sleep': () => byId('btn-home-sleep')?.click(),
+  'open-focus': () => byId('btn-home-focus')?.click(),
 });
 
 const COMMAND_FEEDBACK = Object.freeze({
@@ -29,11 +36,24 @@ const COMMAND_FEEDBACK = Object.freeze({
   'start-rest-timer': 'Opening the rest timer',
   'log-activity': 'Opening activity log',
   'start-run': 'Opening run mode',
+  'show-run-history': 'Opening run history',
   'show-program': "Opening your program",
   'check-readiness': 'Opening readiness check-in',
+  'open-nutrition': 'Opening nutrition',
+  'open-heart-rate': 'Opening heart rate',
+  'open-cycle-tracker': 'Opening cycle tracker',
+  'open-goals': 'Opening goals',
+  'open-sleep': 'Opening Sleep',
+  'open-focus': 'Opening Focus',
 });
 
-const FEEDBACK_TIMEOUT_MS = 3000;
+// Shown while listening so a first-time (or forgetful) user has somewhere
+// to look, rather than a bare mic icon with no indication of what it
+// understands — a fixed, small sample, not the full list (there isn't
+// room, and it isn't necessary — any phrase from VOICE_COMMANDS works).
+const EXAMPLE_PHRASES = ['"log activity"', '"start a run"', '"open nutrition"', '"go home"'];
+
+const FEEDBACK_TIMEOUT_MS = 4000;
 
 export function initVoiceFeature() {
   const SpeechRecognitionClass = getSpeechRecognitionClass();
@@ -57,13 +77,25 @@ export function initVoiceFeature() {
     toggleBtn.setAttribute('aria-pressed', String(value));
   }
 
-  function showFeedback(text) {
-    byId('voice-feedback').textContent = text;
+  /** `hint`, when given, renders as a small example-phrase line under the
+   *  main message — only used for "Listening…", where someone genuinely
+   *  needs to know what to say. Every bubble also gets a real dismiss
+   *  button: the previous version only ever went away on its own after a
+   *  few seconds, with no way to close it sooner — the exact "it won't
+   *  leave" complaint this fixes. */
+  function showFeedback(text, hint) {
+    byId('voice-feedback-text').textContent = text;
+    const hintEl = byId('voice-feedback-hint');
+    hintEl.textContent = hint ?? '';
+    hintEl.hidden = !hint;
     byId('voice-feedback-wrap').hidden = false;
     clearTimeout(feedbackTimer);
-    feedbackTimer = setTimeout(() => {
-      byId('voice-feedback-wrap').hidden = true;
-    }, FEEDBACK_TIMEOUT_MS);
+    feedbackTimer = setTimeout(hideFeedback, FEEDBACK_TIMEOUT_MS);
+  }
+
+  function hideFeedback() {
+    clearTimeout(feedbackTimer);
+    byId('voice-feedback-wrap').hidden = true;
   }
 
   function handleTranscript(transcript) {
@@ -94,11 +126,13 @@ export function initVoiceFeature() {
     try {
       recognition.start();
       setListening(true);
-      showFeedback('Listening…');
+      showFeedback('Listening…', `Try: ${EXAMPLE_PHRASES.join(', ')}`);
     } catch {
       setListening(false);
     }
   });
+
+  byId('btn-voice-feedback-dismiss').addEventListener('click', hideFeedback);
 
   toggleBtn.hidden = false;
 }

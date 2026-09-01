@@ -10,8 +10,15 @@ export const VOICE_COMMANDS = Object.freeze([
   { id: 'start-rest-timer', phrases: ['start timer', 'start rest timer', 'start the timer', 'open rest timer'] },
   { id: 'log-activity', phrases: ['log activity', 'log an activity', 'log my activity'] },
   { id: 'start-run', phrases: ['start run', 'start a run', 'start running', 'go for a run'] },
+  { id: 'show-run-history', phrases: ['run history', 'show run history', 'open run history', 'my runs'] },
   { id: 'show-program', phrases: ['show my program', 'show program', 'open my program', 'my program'] },
   { id: 'check-readiness', phrases: ['check readiness', 'check my readiness', 'readiness check'] },
+  { id: 'open-nutrition', phrases: ['open nutrition', 'show nutrition', 'log food', 'log a meal', 'nutrition'] },
+  { id: 'open-heart-rate', phrases: ['open heart rate', 'check heart rate', 'heart rate', 'check my heart rate'] },
+  { id: 'open-cycle-tracker', phrases: ['open cycle tracker', 'cycle tracker', 'open my cycle tracker'] },
+  { id: 'open-goals', phrases: ['open goals', 'show goals', 'my goals', 'goals'] },
+  { id: 'open-sleep', phrases: ['open sleep', 'log sleep', 'log my sleep', 'sleep'] },
+  { id: 'open-focus', phrases: ['open focus', 'start focus', 'focus'] },
 ]);
 
 function normalize(text) {

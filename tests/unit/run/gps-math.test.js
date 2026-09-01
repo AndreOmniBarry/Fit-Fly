@@ -5,6 +5,7 @@ import {
   formatDistance,
   formatPace,
   haversineDistanceMeters,
+  recentPaceSecPerKm,
   totalRouteDistanceMeters,
 } from '../../../js/features/run/gps-math.js';
 
@@ -85,6 +86,33 @@ describe('formatPace', () => {
     expect(formatPace(null)).toBe('—');
     expect(formatPace(Infinity)).toBe('—');
     expect(formatPace(NaN)).toBe('—');
+  });
+});
+
+describe('recentPaceSecPerKm', () => {
+  it('is null with fewer than 2 points total', () => {
+    expect(recentPaceSecPerKm([])).toBeNull();
+    expect(recentPaceSecPerKm([{ lat: 0, lon: 0, tMs: 0 }])).toBeNull();
+  });
+
+  it('is null when fewer than 2 points fall inside the window', () => {
+    const points = [
+      { lat: 0, lon: 0, tMs: 0 },
+      { lat: 0, lon: 0.02, tMs: 60000 }, // 60s ago — outside a 30s window
+    ];
+    expect(recentPaceSecPerKm(points, 30000)).toBeNull();
+  });
+
+  it('reflects only the recent window, not the whole route — a slow start then a fast recent burst reads as fast', () => {
+    const points = [
+      { lat: 0, lon: 0, tMs: 0 },
+      { lat: 0, lon: 0.0001, tMs: 60000 }, // crawled for a minute (outside the window)
+      { lat: 0, lon: 0.02, tMs: 65000 }, // then covered real ground in the last 5s
+    ];
+    const whole = calculatePaceSecPerKm(totalRouteDistanceMeters(points), 65000);
+    const recent = recentPaceSecPerKm(points, 30000);
+    expect(recent).not.toBeNull();
+    expect(recent).toBeLessThan(whole); // faster (lower sec/km) than the whole-run average
   });
 });
 

@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 444 Vitest unit tests and 248 Playwright end-to-end tests
+Hub" above). 458 Vitest unit tests and 264 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -769,6 +769,49 @@ as one embedded array on that run's own record rather than a separate
 table, since they're only ever read back as a whole to redraw that run's
 own path, never queried across runs.
 
+**Real runner-facing depth, not just distance/duration/pace.**
+`gps-math.js`'s `recentPaceSecPerKm` computes pace over only the last
+30 seconds of recorded points — that's the live "Pace" number on the
+run screen, a real current speed rather than the whole-run average
+(shown underneath it, labeled `avg`, so both are visible at once — a
+runner cares whether they've sped up in the last minute, which an
+average by definition can't show). `js/features/run/splits.js`'s
+`computeSplits` walks the recorded route and records a real split every
+time cumulative distance crosses a full km/mile, each with its own pace
+— shown live as they're crossed, on the finish summary, and (computed
+fresh from the saved route) under a "Splits" disclosure on every past
+run in History, so "which part of this run was fastest" has a real
+answer instead of needing to be inferred from one average number.
+`js/features/run/run-units.js` adds a persisted km/mi distance-unit
+preference (same `js/lib/storage.js` pattern as theme), with unit-aware
+formatters wrapping — not duplicating — `gps-math.js`'s existing metric
+formatters; the toggle lives on the live screen and applies everywhere
+distance/pace show up. And the live screen now checks the person's own
+prior runs (snapshotted once at Start, not re-queried every tick) against
+their current distance/pace with every render, surfacing a real "on pace
+for a new best" badge *during* the run — the app already computed this
+for the post-run summary; this is the same honest math, just also shown
+while it can still change how the run goes.
+
+**A geolocation permission bug, actually diagnosed, not just retried.**
+"Location access was denied" persisting after fixing it in Settings
+almost always means one specific thing on iOS: a web app installed via
+Add to Home Screen runs as its own origin-scoped context, with its own
+location permission entirely separate from the Safari tab it was
+installed from — granting it in Safari does nothing for the installed
+app, and vice versa. The error copy now says this plainly instead of a
+generic "check your browser settings" that doesn't fix that case. Two
+real bugs went with it: `startWatching()` never actually reported failure
+to its caller (a denied fix still flipped the UI into "Pause"/tracking
+state, an honestly confusing state to be in), and a fresh attempt didn't
+clear the previous error, so a genuinely-fixed permission could still
+look stuck through a retry. Both are fixed — the banner now clears
+optimistically on every fresh attempt, carries a real **Try Again**
+button wired to the exact same start path the main button uses, and
+`checkGeoPermissionUpfront()` best-effort checks the Permissions API on
+screen entry so a known-denied state shows before anyone has to tap
+Start and watch it fail.
+
 ## Heart rate
 
 Three sources feed one `heartRateSamples` store, distinguished by
@@ -937,3 +980,13 @@ installs a fake `SpeechRecognition` class via `page.addInitScript`
 tests drive through `window.__voiceTestHooks.fireResult(transcript)`,
 exercising the real recognition-event-handling and command-dispatch code
 end to end without ever touching an actual microphone.
+
+The vocabulary originally only covered six of the app's screens; it now
+reaches Nutrition, Heart Rate, the Cycle Tracker, Goals, Run History,
+Sleep, and Focus too. The feedback bubble also picked up two real fixes:
+it shows a few example phrases while listening (`EXAMPLE_PHRASES` in
+`voice-control.js`) instead of a bare "Listening…" with no indication of
+what it understands, and it now carries a real dismiss button rather
+than only ever going away on its own timeout — the mic button showing up
+with no visible purpose and no way to make its feedback leave was a fair
+complaint about the control as it shipped, not a request to remove it.

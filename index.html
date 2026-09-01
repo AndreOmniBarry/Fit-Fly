@@ -385,83 +385,145 @@
       <button class="btn btn-primary" id="btn-fitness-toolkit-setup-profile">Set up your profile</button>
     </div>
 
-    <div class="stack">
-      <button class="card card-button row-between" id="btn-home-log-activity">
-        <span>
-          <strong>Log Activity</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">Quick-log a walk, run, ride, lift, or anything else.</p>
+    <!-- Same spatial-tilt/kinetic-data language as the Hub, Sleep, and
+         Focus, carried into the Fitness Toolkit: each row is a .tilt-card
+         (js/main.js calls attachTilt on #screen-home) with a .tilt-press
+         face and a depth-separated icon badge — the shared, generic
+         primitives from mini-apps.css, not a re-implementation, just
+         applied inside the app's own light/dark-adaptive theme instead of
+         a mini-app's fixed night surface. -->
+    <div class="stack fitness-home-list">
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-log-activity">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-sliders"></use></svg></span>
+            <span>
+              <strong>Log Activity</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Quick-log a walk, run, ride, lift, or anything else.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">＋</span>
         </span>
-        <span aria-hidden="true">＋</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-history">
-        <span>
-          <strong>History</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">See what you've logged so far.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-history">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></span>
+            <span>
+              <strong>History</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">See what you've logged so far.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-rest-timer">
-        <span>
-          <strong>Rest Timer</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">Time your rest between sets.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-rest-timer">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-clock"></use></svg></span>
+            <span>
+              <strong>Rest Timer</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Time your rest between sets.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-program">
-        <span>
-          <strong>My Program</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">This week's tailored workouts.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-program">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-grid"></use></svg></span>
+            <span>
+              <strong>My Program</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">This week's tailored workouts.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-run">
-        <span>
-          <strong>Run</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">GPS-tracked run, live distance and pace.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-run">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-wind"></use></svg></span>
+            <span>
+              <strong>Run</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">GPS-tracked run, live distance and pace.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-run-history">
-        <span>
-          <strong>Run History</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">Past runs and personal records.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-run-history">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-trophy"></use></svg></span>
+            <span>
+              <strong>Run History</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Past runs and personal records.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-heart-rate">
-        <span>
-          <strong>Heart Rate</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">Camera reading, manual entry, or a BLE strap.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-heart-rate">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-heart-pulse"></use></svg></span>
+            <span>
+              <strong>Heart Rate</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Camera reading, manual entry, or a BLE strap.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-womens-health">
-        <span>
-          <strong>Cycle Tracker</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">PIN-protected and encrypted on this device.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-womens-health">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-droplet"></use></svg></span>
+            <span>
+              <strong>Cycle Tracker</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">PIN-protected and encrypted on this device.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-nutrition">
-        <span>
-          <strong>Nutrition</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">Calorie/macro targets and a daily log.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-nutrition">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-flame"></use></svg></span>
+            <span>
+              <strong>Nutrition</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Calorie/macro targets and a daily log.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-readiness">
-        <span>
-          <strong>Readiness</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">A quick daily check-in: sleep, energy, soreness.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-readiness">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-sparkle"></use></svg></span>
+            <span>
+              <strong>Readiness</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">A quick daily check-in: sleep, energy, soreness.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
-      <button class="card card-button row-between" id="btn-home-goals">
-        <span>
-          <strong>Goals</strong>
-          <p class="muted" style="font-size:var(--fs-sm);">Set a target, track progress, get notified.</p>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-goals">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-target"></use></svg></span>
+            <span>
+              <strong>Goals</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Set a target, track progress, get notified.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
         </span>
-        <span aria-hidden="true">›</span>
       </button>
     </div>
 
@@ -561,11 +623,11 @@
       </div>
 
       <div class="sleep-week-strip tilt-enter" style="margin-top:var(--space-4);">
-        <div class="row-between">
-          <strong style="font-size:14px;">This week</strong>
-          <span class="muted" id="sleep-week-avg" style="font-size:12px;"></span>
+        <div class="sleep-week-strip-label">
+          <strong>This week</strong>
+          <span class="muted" id="sleep-week-avg"></span>
         </div>
-        <div class="sleep-week-bars" id="sleep-week-bars" style="margin-top:14px;"></div>
+        <div class="sleep-week-bars" id="sleep-week-bars" role="img" aria-label="Sleep duration trend, this week"></div>
       </div>
 
       <button class="btn btn-ghost btn-block" id="btn-sleep-edit-log" style="margin-top:var(--space-3);">Edit tonight's log</button>

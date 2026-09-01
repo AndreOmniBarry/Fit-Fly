@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 444 Vitest unit tests and 236 Playwright end-to-end tests
+Hub" above). 444 Vitest unit tests and 242 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -465,6 +465,15 @@ tiles tilt with the rest of the screen; the ring itself deliberately
 doesn't (a precise data circle spinning in 3D reads as a gimmick, not
 depth) — only its value floats a little via `data-tilt-depth`.
 
+The week strip itself is a compact single row, not two stacked ones — a
+label+stat on the left beside a tight sparkline on the right, the way
+real analytics apps (Whoop, Oura) show a weekly trend chip: a shape at a
+glance, not a labeled bar chart to read exact values off of (that finer
+detail already lives on Insights' full trend chart). Per-day letters
+came off the bars for it — the sparkline carries one summary
+`aria-label` instead, and each bar keeps a real hover `title` for
+anyone using a mouse.
+
 ## Focus
 
 A second, standalone mini-app — not a Sleep sub-feature — for anyone who
@@ -627,6 +636,18 @@ goals, voice control — lives on unchanged, just one tap deeper behind the
 Hub's Fitness Toolkit tile instead of being the app's front door. Every
 id, every controller, every test below is exactly as it was; only the
 navigation path to reach it moved.
+
+**The home list now carries the same spatial-tilt/kinetic-data language
+as the Hub, Sleep, and Focus** — `js/main.js` calls `attachTilt()` on
+`#screen-home` the same way each mini-app does on its own screen, and
+every row is a `.tilt-card`/`.tilt-press` pair with a depth-separated
+icon badge, using the exact same shared, generic primitives from
+`mini-apps.css` (not a reimplementation) inside the app's own
+light/dark-adaptive theme rather than a mini-app's fixed night surface.
+Each of the 11 rows also gained a real icon for the first time — the
+same icon-sprite system as everywhere else, chosen for what the row
+actually does (a heart for Heart Rate, a flame for Nutrition, a target
+for Goals, ...), not decoration.
 
 ## Activity tracking
 

@@ -19,6 +19,7 @@ import { initGuidedSessionFeature } from './features/focus/guided-session-view.j
 import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
+import { attachTilt } from './lib/tilt.js';
 
 function renderHome(profile, assignment) {
   applyCategoryAccent(assignment?.category, document.documentElement);
@@ -60,6 +61,15 @@ async function init() {
   initSleepFeature();
   initFocusFeature();
   initGuidedSessionFeature();
+
+  // Same spatial-tilt language as the Hub, Sleep's dashboard, and Focus —
+  // the Fitness Toolkit's own home list gets it too, scoped to just this
+  // screen the same way each of those is scoped to its own.
+  const fitnessToolkitScreen = document.getElementById('screen-home');
+  const fitnessToolkitTilt = attachTilt(fitnessToolkitScreen);
+  fitnessToolkitScreen.addEventListener('pointerdown', () => void fitnessToolkitTilt.requestMotionPermission(), {
+    once: true,
+  });
   seedExerciseLibrary(); // fire-and-forget — a mirror of the built-in library for future browsing/customization, not on the read path today
   initOnboardingWizard({
     onComplete: ({ profile, categoryResult }) => {

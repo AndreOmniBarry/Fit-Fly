@@ -59,7 +59,6 @@ const CATEGORY_LABEL = {
 };
 const RING_RADIUS = 86;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-const WEEK_DAY_LETTERS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 export function initSleepFeature() {
     let recentLogs = [];
     let viewedDate = todayDateString();
@@ -115,17 +114,22 @@ export function initSleepFeature() {
         const avgMinutes = Math.round(trend.reduce((sum, n) => sum + n.durationMinutes, 0) / trend.length);
         byId('sleep-week-avg').textContent = `avg ${formatDurationHM(avgMinutes)}`;
         const maxMinutes = Math.max(...trend.map((n) => n.durationMinutes), DEFAULT_SLEEP_GOAL_MINUTES);
+        // A compact sparkline, not a labeled chart — see mini-apps.css's own
+        // comment on .sleep-week-strip. The container carries one summary
+        // aria-label (role="img" in the markup) instead of a per-bar day
+        // letter; each bar keeps a real hover title for anyone using a mouse.
         for (const night of trend) {
             const col = document.createElement('div');
             col.className = `sleep-week-bar-col${night.isBest ? ' is-best' : ''}`;
             const bar = document.createElement('div');
             bar.className = `sleep-week-bar${night.isBest ? ' is-best' : ''}`;
             bar.style.height = `${Math.max(8, Math.round((night.durationMinutes / maxMinutes) * 100))}%`;
-            const label = document.createElement('span');
-            label.className = 'day-label';
-            const dayOfWeek = new Date(`${night.date}T00:00:00Z`).getUTCDay();
-            label.textContent = WEEK_DAY_LETTERS[dayOfWeek] ?? '';
-            col.append(bar, label);
+            const dayName = new Date(`${night.date}T00:00:00Z`).toLocaleDateString(undefined, {
+                weekday: 'short',
+                timeZone: 'UTC',
+            });
+            bar.title = `${dayName}: ${formatDurationHM(night.durationMinutes)}`;
+            col.append(bar);
             container.append(col);
         }
     }

@@ -57,6 +57,34 @@
 .card-button:hover{border-color:var(--accent);}
 .card-button p{margin-top:2px;}
 
+/* The Fitness Toolkit home list: same .tilt-card/.tilt-press/
+   data-tilt-depth spatial-tilt primitives the Hub/Sleep/Focus use
+   (defined once in mini-apps.css, loaded globally — not re-implemented
+   here), applied inside the app's own light/dark-adaptive theme instead
+   of a mini-app's fixed night surface. .fitness-row-face is the
+   .tilt-press layer — .card already carries the row's padding, so this
+   only needs to lay its own children out and carry the press-spring. */
+.fitness-home-list{ perspective:1000px; }
+.fitness-home-list .card-button:nth-child(1){ animation-delay:.02s; }
+.fitness-home-list .card-button:nth-child(2){ animation-delay:.05s; }
+.fitness-home-list .card-button:nth-child(3){ animation-delay:.08s; }
+.fitness-home-list .card-button:nth-child(4){ animation-delay:.11s; }
+.fitness-home-list .card-button:nth-child(5){ animation-delay:.14s; }
+.fitness-home-list .card-button:nth-child(6){ animation-delay:.17s; }
+.fitness-home-list .card-button:nth-child(7){ animation-delay:.2s; }
+.fitness-home-list .card-button:nth-child(8){ animation-delay:.23s; }
+.fitness-home-list .card-button:nth-child(9){ animation-delay:.26s; }
+.fitness-home-list .card-button:nth-child(10){ animation-delay:.29s; }
+.fitness-home-list .card-button:nth-child(11){ animation-delay:.32s; }
+.fitness-row-face{
+  display:flex; align-items:center; justify-content:space-between; width:100%;
+}
+.fitness-row-icon{
+  width:34px; height:34px; border-radius:10px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--accent-soft); color:var(--accent-strong);
+}
+
 /* ---------- "why this" transparency note ---------- */
 /* Every program/exercise recommendation carries one of these, per the
    plain-language-transparency feature — never a bare number with no

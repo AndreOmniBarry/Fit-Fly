@@ -1,6 +1,15 @@
 import { estimateHeartRateFromSamples } from './ppg-signal.js';
+import { assessSignalQuality } from './signal-quality.js';
 
 const SAMPLE_DURATION_MS = 15000;
+// How often to recompute/report live signal quality — every animation
+// frame would be needless DOM churn for text that only needs to feel
+// live, not literally 60fps.
+const QUALITY_UPDATE_MS = 300;
+// "Recent" window fed to assessSignalQuality — long enough to judge a
+// real pulse's periodicity, short enough to react quickly to a finger
+// that's just been repositioned.
+const QUALITY_WINDOW_MS = 3000;
 
 /**
  * Drives a getUserMedia camera stream through a tiny offscreen canvas,
@@ -11,10 +20,16 @@ const SAMPLE_DURATION_MS = 15000;
  *
  * @param {object} callbacks
  * @param {(progress: {elapsedMs: number, durationMs: number}) => void} [callbacks.onProgress]
+ * @param {(quality: ReturnType<typeof assessSignalQuality>) => void} [callbacks.onQuality] -
+ *   live feedback during capture, throttled to QUALITY_UPDATE_MS
+ * @param {(active: boolean) => void} [callbacks.onTorchStatus] - fired once,
+ *   right after the stream starts, saying whether the flash was actually
+ *   turned on (best-effort — most browsers besides Chrome/Android don't
+ *   expose torch control at all)
  * @param {(result: ReturnType<typeof estimateHeartRateFromSamples>) => void} callbacks.onComplete
  * @param {(error: Error) => void} [callbacks.onError]
  */
-export function createCameraPpgSession({ onProgress, onComplete, onError }) {
+export function createCameraPpgSession({ onProgress, onQuality, onTorchStatus, onComplete, onError }) {
   let stream = null;
   let video = null;
   let canvas = null;
@@ -23,6 +38,24 @@ export function createCameraPpgSession({ onProgress, onComplete, onError }) {
   let rafHandle = null;
   let startTMs = null;
   let stopped = false;
+  let lastQualityUpdateMs = -Infinity;
+
+  /** Best-effort — torch control is a non-standard MediaTrackConstraint
+   *  Chrome/Android exposes and nothing else does. A stronger, more even
+   *  light source through the fingertip is a real, meaningful signal-
+   *  quality improvement where it's available; everywhere else this is
+   *  silently a no-op, same honesty contract as the rest of the app's
+   *  feature-detected sensors. */
+  async function setTorch(active) {
+    const track = stream?.getVideoTracks()[0];
+    if (!track?.getCapabilities?.().torch) return false;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: active }] });
+      return active;
+    } catch {
+      return false;
+    }
+  }
 
   async function start() {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -40,11 +73,20 @@ export function createCameraPpgSession({ onProgress, onComplete, onError }) {
       return false;
     }
 
+    const torchActive = await setTorch(true);
+    onTorchStatus?.(torchActive);
+
     video = document.createElement('video');
     video.srcObject = stream;
     video.playsInline = true;
     video.muted = true;
     await video.play();
+    // The very first frame(s) after play() can render before the stream
+    // has real image data — wait for a frame to actually be available
+    // rather than risk seeding the sample buffer with a black frame.
+    if (video.readyState < 2) {
+      await new Promise((resolve) => video.addEventListener('loadeddata', resolve, { once: true }));
+    }
 
     canvas = document.createElement('canvas');
     canvas.width = 32;
@@ -53,6 +95,7 @@ export function createCameraPpgSession({ onProgress, onComplete, onError }) {
 
     samples = [];
     stopped = false;
+    lastQualityUpdateMs = -Infinity;
     startTMs = performance.now();
     tick();
     return true;
@@ -71,6 +114,12 @@ export function createCameraPpgSession({ onProgress, onComplete, onError }) {
 
     onProgress?.({ elapsedMs, durationMs: SAMPLE_DURATION_MS });
 
+    if (onQuality && elapsedMs - lastQualityUpdateMs >= QUALITY_UPDATE_MS) {
+      lastQualityUpdateMs = elapsedMs;
+      const recent = samples.filter((s) => elapsedMs - s.tMs <= QUALITY_WINDOW_MS);
+      onQuality(assessSignalQuality(recent));
+    }
+
     if (elapsedMs >= SAMPLE_DURATION_MS) {
       finish();
     } else {
@@ -87,6 +136,7 @@ export function createCameraPpgSession({ onProgress, onComplete, onError }) {
     stopped = true;
     if (rafHandle != null) cancelAnimationFrame(rafHandle);
     rafHandle = null;
+    void setTorch(false); // best-effort — never leave the flash on after a reading
     stream?.getTracks().forEach((track) => track.stop());
     stream = null;
   }

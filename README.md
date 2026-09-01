@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 458 Vitest unit tests and 264 Playwright end-to-end tests
+Hub" above). 472 Vitest unit tests and 270 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -842,6 +842,58 @@ Every reading gets exactly one badge: camera-PPG is always `ESTIMATED`
 with its confidence; manual entry and a BLE strap are both `MEASURED` —
 a typed-in number and a dedicated sensor are both real data, just not
 data this app derived through a model.
+
+**Camera-PPG's real gap wasn't the technique — a fingertip-over-camera
+pulse read is genuinely how commercial phone apps do this — it was
+giving someone nothing to react to during the 15 seconds it takes.**
+Four fixes:
+- **Live signal-quality feedback** (new `js/features/heart-rate/signal-
+  quality.js`) — a coefficient-of-variation read on the last few seconds
+  of raw samples, shown as real text ("Signal looks good — hold steady",
+  "No pulse detected yet — press your fingertip fully over the camera
+  and flash", "Signal is noisy — hold still") that updates live during
+  capture, instead of a silent wait followed by a single pass/fail.
+- **A settling window** (`ppg-signal.js`'s new `SETTLE_MS`) — the first
+  second of samples is dropped before estimation. A camera's auto-
+  exposure/white-balance visibly swings right after a stream starts;
+  left in, that transient was corrupting the detrend baseline for
+  everything estimated from it.
+- **Auto-torch where the browser exposes one** (Chrome/Android only —
+  torch control isn't a standard API, it's a Chrome-specific
+  `MediaTrackConstraint`) — a real, meaningful signal-quality
+  improvement wherever it's available, feature-detected and silently
+  inert everywhere else, turned back off the moment a reading ends.
+- **Waits for a real video frame** before sampling starts, rather than
+  risking the first sample(s) being a black frame from before the
+  stream actually had image data.
+
+**Readings were already being auto-saved on every capture** — the gap
+was that nothing was ever done with them. `js/features/heart-rate/
+trend.js`'s `summarizeHeartRateTrend` is real, pure insight computed
+from the samples already in the store: latest reading, average/min/max
+over the most recent readings, the delta from the one before it, and a
+sparkline — shown as a kinetic stat card at the top of the screen
+(`animateCountUp` on the latest bpm, real grow-in bars sized from real
+values, same technique as Sleep's own week-strip, generalized to this
+screen's app-wide theme tokens instead of Sleep's night surface).
+
+The whole screen also picked up the same spatial-tilt language as the
+rest of the Fitness Toolkit — `attachTilt()` on `#screen-heart-rate`,
+depth-separated icon badges on every reading in Recent Readings.
+
+**A seam for native health data, not a promise it works today.**
+`js/lib/native-runtime.js`'s `isNativeRuntime()` checks for the
+`window.Capacitor` global a Capacitor-wrapped native build injects at
+runtime — `undefined` in every browser context today, so it's provably
+`false` everywhere this app currently runs, the same "false in the
+browser, real once the platform supports it" contract as every other
+feature-detected API in this app. This is the seam future native-only
+features (HealthKit/Health Connect vitals and steps, a real background
+pedometer, BLE that isn't Chrome/Android-only) gate behind once this
+project is actually wrapped with Capacitor — deliberately not yet wired
+to a specific native plugin call, since guessing at one a plain web
+build has no way to install or exercise would risk shipping something
+wrong instead of just not-yet-built.
 
 Playwright's Chromium launches with `--use-fake-device-for-media-stream`
 (this sandbox has no real camera), which lets `heart-rate.spec.js` drive

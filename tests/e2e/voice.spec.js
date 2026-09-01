@@ -134,6 +134,56 @@ test.describe('voice control (fake SpeechRecognition)', () => {
     await page.evaluate(() => window.__voiceTestHooks.fireResult('hey log an activity please'));
     await expect(page.getByRole('heading', { name: 'Log Activity' })).toBeVisible();
   });
+
+  test('listening shows real example phrases, not a bare "Listening…" with no way to know what to say', async ({
+    page,
+  }) => {
+    await page.locator('#btn-voice-toggle').click();
+    await expect(page.locator('#voice-feedback-hint')).toBeVisible();
+    await expect(page.locator('#voice-feedback-hint')).toContainText('log activity');
+  });
+
+  test('the dismiss button closes the feedback bubble immediately, not just after it times out', async ({
+    page,
+  }) => {
+    await page.locator('#btn-voice-toggle').click();
+    await expect(page.locator('#voice-feedback-wrap')).toBeVisible();
+
+    await page.locator('#btn-voice-feedback-dismiss').click();
+    await expect(page.locator('#voice-feedback-wrap')).toBeHidden();
+  });
+
+  test('reaches every Fitness Toolkit screen this session added voice commands for, not just the original six', async ({
+    page,
+  }) => {
+    // A command works from wherever the app currently is — it fires the
+    // real button's own click handler wherever that button lives in the
+    // DOM, same as the existing "works from a screen other than home"
+    // coverage — so this doesn't need to navigate back to any particular
+    // screen between commands.
+    const cases = [
+      { phrase: 'open nutrition', heading: 'Nutrition' },
+      { phrase: 'check heart rate', heading: 'Heart Rate' },
+      { phrase: 'open cycle tracker', heading: 'Cycle Tracker' },
+      { phrase: 'open goals', heading: 'Goals' },
+      { phrase: 'run history', heading: 'Run History' },
+    ];
+    for (const { phrase, heading } of cases) {
+      await page.locator('#btn-voice-toggle').click();
+      await page.evaluate((t) => window.__voiceTestHooks.fireResult(t), phrase);
+      await expect(page.getByRole('heading', { name: heading })).toBeVisible();
+    }
+  });
+
+  test('reaches Sleep and Focus from the Hub by voice', async ({ page }) => {
+    await page.locator('#btn-voice-toggle').click();
+    await page.evaluate(() => window.__voiceTestHooks.fireResult('open sleep'));
+    await expect(page.locator('#screen-sleep-dashboard')).toBeVisible();
+
+    await page.locator('#btn-voice-toggle').click();
+    await page.evaluate(() => window.__voiceTestHooks.fireResult('open focus'));
+    await expect(page.locator('#screen-focus')).toBeVisible();
+  });
 });
 
 test.describe('voice control: unsupported browser', () => {

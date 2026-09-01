@@ -161,4 +161,105 @@ test.describe('run mode', () => {
     await page.getByRole('button', { name: 'View History' }).click();
     await expect(page.locator('#run-history-list .card').first().locator('.fitness-row-icon .icon')).toBeVisible();
   });
+
+  test('switching to miles updates the live screen, the summary, and history together', async ({ page, context }) => {
+    await page.locator('#btn-home-run').click();
+    await expect(page.locator('#run-distance')).toHaveText('0 m');
+
+    await page.getByRole('button', { name: 'mi', exact: true }).click();
+    await expect(page.locator('#run-distance')).toHaveText('0 mi');
+
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 8); // ~1.25km — enough to read a non-trivial mile figure
+    await expect.poll(async () => page.locator('#run-distance').textContent()).toMatch(/mi$/);
+    await expect(page.locator('#run-avg-pace-caption')).toContainText('/mi');
+
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await expect(page.locator('#run-summary-distance')).toContainText('mi');
+    await expect(page.locator('#run-summary-pace')).toContainText('/mi');
+
+    await page.getByRole('button', { name: 'View History' }).click();
+    await expect(page.locator('#run-history-list .card').first()).toContainText('mi');
+  });
+
+  test('crossing a full km/mile records a split, live and in the summary', async ({ page, context }) => {
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    // ~0.001deg diagonal step is ~157m — 8 steps covers just over 1km/1mi.
+    await moveGps(context, page, 8);
+
+    await expect(page.locator('#run-live-splits')).toContainText('Km 1');
+
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await expect(page.locator('#run-summary-splits-card')).toBeVisible();
+    await expect(page.locator('#run-summary-splits')).toContainText('Km 1');
+    await expect(page.locator('#run-summary-splits')).toContainText('/km');
+
+    // and the same split shows up under the saved run in history
+    await page.getByRole('button', { name: 'View History' }).click();
+    await page.locator('#run-history-list summary', { hasText: 'Splits' }).click();
+    await expect(page.locator('#run-history-list')).toContainText('Km 1');
+  });
+
+  test('the live personal-best badge appears once real distance accrues, not at a standing start', async ({
+    page,
+    context,
+  }) => {
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.locator('#run-live-pr-badge')).toBeHidden(); // 0m — nothing to claim yet
+
+    await moveGps(context, page, 3);
+    // a person's very first run is always a distance PR once they've
+    // actually moved, since there's nothing prior to compare against
+    await expect(page.locator('#run-live-pr-badge')).toBeVisible();
+    await expect(page.locator('#run-live-pr-badge')).toContainText('best');
+  });
+
+  test('a denied location permission shows a real error with a Try Again that recovers once granted', async ({
+    page,
+  }) => {
+    // Playwright's context permission APIs model "granted" vs. "not yet
+    // decided," not a real PERMISSION_DENIED from watchPosition — the
+    // one case worth regression-testing here. This stubs
+    // navigator.geolocation directly so the test drives the exact error
+    // path a real denial takes, deterministically: denied on the first
+    // watch, succeeds from the second (as if the person fixed it and hit
+    // Try Again).
+    await page.addInitScript(() => {
+      let attempt = 0;
+      window.navigator.geolocation.watchPosition = (success, error) => {
+        attempt += 1;
+        if (attempt === 1) {
+          setTimeout(() => error({ code: 1, PERMISSION_DENIED: 1, message: 'denied' }), 0);
+        } else {
+          setTimeout(
+            () => success({ coords: { latitude: 40.7128, longitude: -74.006, accuracy: 10 }, timestamp: Date.now() }),
+            0
+          );
+        }
+        return attempt;
+      };
+      window.navigator.geolocation.clearWatch = () => {};
+    });
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+
+    await expect(page.locator('#run-geo-error')).toBeVisible();
+    await expect(page.locator('#run-geo-error')).toContainText('own permission');
+    await expect(page.getByRole('button', { name: 'Try Again' })).toBeVisible();
+
+    // Retrying recovers without leaving the screen, and without leaving
+    // the stale banner up through the retry — real distance tracking
+    // from a genuinely live watch is already covered by the other tests
+    // above; this one is specifically about the denial/retry path.
+    await page.getByRole('button', { name: 'Try Again' }).click();
+    await expect(page.locator('#run-geo-error')).toBeHidden();
+    await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  });
 });

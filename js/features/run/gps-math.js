@@ -67,3 +67,23 @@ export function formatDistance(meters) {
   if (meters >= 1000) return `${(meters / 1000).toFixed(2)} km`;
   return `${Math.round(meters)} m`;
 }
+
+/** Pace over just the last `windowMs` of the route — "how fast am I going
+ *  right now", distinct from calculatePaceSecPerKm's average over the
+ *  whole run. This is what a real running watch's "current pace" reads,
+ *  and it's what makes a live number actually useful mid-run: an average
+ *  pace can't tell you you've sped up in the last minute, only the whole
+ *  run so far. Built entirely from real recorded points — no smoothing
+ *  beyond what filterAccuratePoints already did upstream, no fabricated
+ *  precision. null with fewer than 2 points in the window (nothing to
+ *  measure a pace across yet), same honesty contract as
+ *  calculatePaceSecPerKm. */
+export function recentPaceSecPerKm(points, windowMs = 30000) {
+  if (points.length < 2) return null;
+  const latestTMs = points[points.length - 1].tMs;
+  const windowPoints = points.filter((p) => latestTMs - p.tMs <= windowMs);
+  if (windowPoints.length < 2) return null;
+  const distanceMeters = totalRouteDistanceMeters(windowPoints);
+  const durationMs = windowPoints[windowPoints.length - 1].tMs - windowPoints[0].tMs;
+  return calculatePaceSecPerKm(distanceMeters, durationMs);
+}

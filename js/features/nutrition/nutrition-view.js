@@ -4,14 +4,20 @@ import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { calculateBmr, calculateTdee, calorieTargetForCategory, tdeeConfidenceBand } from './bmr-tdee.js';
 import { calculateMacroTargets } from './macro-targets.js';
+import { searchFoods } from './food-search.js';
+import { computeRecentFoods } from './recent-foods.js';
+import { lastNDaysRange, summarizeWeeklyNutrition } from './weekly-trend.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import {
   addNutritionEntry,
   deleteNutritionEntry,
   listNutritionEntriesForDate,
+  listNutritionEntriesInRange,
+  listRecentNutritionEntries,
   sumNutritionEntries,
 } from '../../db/repositories/nutrition.js';
+import { addFavoriteFood, deleteFavoriteFood, listFavoriteFoods } from '../../db/repositories/favorite-foods.js';
 
 function byId(id) {
   return document.getElementById(id);
@@ -22,9 +28,12 @@ function todayIsoDate() {
 }
 
 export function initNutritionFeature() {
+  // Search results are kept here (not re-parsed from the DOM) so a tap
+  // just looks the chosen one up by index.
+  let lastSearchResults = [];
+
   byId('btn-home-nutrition').addEventListener('click', async () => {
-    await renderTargets();
-    await renderToday();
+    await Promise.all([renderTargets(), renderToday(), renderWeeklyTrend(), renderRecent(), renderFavorites()]);
     showScreen('screen-nutrition');
   });
   byId('btn-nutrition-back').addEventListener('click', () => showScreen('screen-home'));
@@ -37,6 +46,134 @@ export function initNutritionFeature() {
     once: true,
   });
 
+  function fillForm({ name, calories, proteinG, carbsG, fatG }) {
+    byId('nutrition-name').value = name;
+    byId('nutrition-calories').value = String(calories);
+    byId('nutrition-protein').value = String(proteinG);
+    byId('nutrition-carbs').value = String(carbsG);
+    byId('nutrition-fat').value = String(fatG);
+  }
+
+  function clearForm() {
+    for (const id of ['nutrition-name', 'nutrition-calories', 'nutrition-protein', 'nutrition-carbs', 'nutrition-fat']) {
+      byId(id).value = '';
+    }
+    byId('nutrition-portion-hint').hidden = true;
+  }
+
+  // ---------- search (Open Food Facts) ----------
+  // Deliberately not live-as-you-type — see food-search.js's own comment
+  // on why. Fires on the button or Enter, not on keyup.
+  async function runSearch() {
+    const query = byId('nutrition-search-query').value.trim();
+    const statusEl = byId('nutrition-search-status');
+    const resultsEl = byId('nutrition-search-results');
+    if (!query) return;
+
+    resultsEl.innerHTML = '';
+    statusEl.hidden = false;
+    statusEl.textContent = 'Searching…';
+
+    try {
+      lastSearchResults = await searchFoods(query);
+      if (lastSearchResults.length === 0) {
+        statusEl.textContent = 'No matches — try a different search, or enter it manually below.';
+        return;
+      }
+      statusEl.hidden = true;
+      resultsEl.innerHTML = lastSearchResults
+        .map(
+          (food, i) => `
+            <button type="button" class="card row-between" data-search-result-index="${i}" style="text-align:left; padding:var(--space-2) var(--space-3);">
+              <span>${escapeHtml(food.name)}</span>
+              <span class="muted" style="font-size:var(--fs-xs); flex-shrink:0;">${food.caloriesPer100g} kcal /100g</span>
+            </button>
+          `
+        )
+        .join('');
+    } catch {
+      // Most likely offline, or Open Food Facts unreachable — an honest
+      // "couldn't reach it" beats a silent "no matches", which would
+      // read as this food genuinely not existing.
+      statusEl.textContent = "Couldn't reach the food database — check your connection, or enter it manually below.";
+    }
+  }
+
+  byId('btn-nutrition-search').addEventListener('click', runSearch);
+  byId('nutrition-search-query').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runSearch();
+    }
+  });
+
+  byId('nutrition-search-results').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-search-result-index]');
+    if (!button) return;
+    const food = lastSearchResults[Number(button.dataset.searchResultIndex)];
+    if (!food) return;
+
+    fillForm({
+      name: food.name,
+      calories: food.caloriesPer100g,
+      proteinG: food.proteinGPer100g,
+      carbsG: food.carbsGPer100g,
+      fatG: food.fatGPer100g,
+    });
+    // A search result is per 100g of the product, not "however much you
+    // actually ate" — this stays visible until Add or a clear, so it's
+    // never silently logged as-is.
+    byId('nutrition-portion-hint').hidden = false;
+    byId('nutrition-search-results').innerHTML = '';
+    byId('nutrition-name').focus();
+  });
+
+  // ---------- recent (one-tap — exact amounts already logged before) ----------
+  byId('nutrition-recent-chips').addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-recent-index]');
+    if (!button) return;
+    const food = currentRecentFoods[Number(button.dataset.recentIndex)];
+    if (!food) return;
+    await addNutritionEntry({ date: todayIsoDate(), ...pickFoodFields(food) });
+    await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
+  });
+
+  // ---------- favorites (one-tap log, or remove) ----------
+  byId('nutrition-favorite-chips').addEventListener('click', async (event) => {
+    const logButton = event.target.closest('[data-log-favorite-id]');
+    if (logButton) {
+      const favorite = currentFavorites.find((f) => f.id === logButton.dataset.logFavoriteId);
+      if (favorite) {
+        await addNutritionEntry({ date: todayIsoDate(), ...pickFoodFields(favorite) });
+        await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
+      }
+      return;
+    }
+    const removeButton = event.target.closest('[data-remove-favorite-id]');
+    if (removeButton) {
+      await deleteFavoriteFood(removeButton.dataset.removeFavoriteId);
+      await renderFavorites();
+    }
+  });
+
+  byId('btn-nutrition-save-favorite').addEventListener('click', async () => {
+    const name = byId('nutrition-name').value.trim();
+    const calories = Number(byId('nutrition-calories').value);
+    if (!name || !(calories > 0)) {
+      byId('err-nutrition-entry').hidden = false;
+      return;
+    }
+    await addFavoriteFood({
+      name,
+      calories,
+      proteinG: Number(byId('nutrition-protein').value) || 0,
+      carbsG: Number(byId('nutrition-carbs').value) || 0,
+      fatG: Number(byId('nutrition-fat').value) || 0,
+    });
+    await renderFavorites();
+  });
+
+  // ---------- manual add ----------
   byId('btn-nutrition-add').addEventListener('click', async () => {
     const name = byId('nutrition-name').value.trim();
     const calories = Number(byId('nutrition-calories').value);
@@ -53,12 +190,20 @@ export function initNutritionFeature() {
       fatG: Number(byId('nutrition-fat').value) || 0,
     });
 
-    for (const id of ['nutrition-name', 'nutrition-calories', 'nutrition-protein', 'nutrition-carbs', 'nutrition-fat']) {
-      byId(id).value = '';
-    }
-    await renderToday();
+    clearForm();
+    await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
   });
 }
+
+function pickFoodFields(food) {
+  return { name: food.name, calories: food.calories, proteinG: food.proteinG, carbsG: food.carbsG, fatG: food.fatG };
+}
+
+// Populated by renderRecent/renderFavorites, read by the click handlers
+// above — same "keep the source of truth in JS, not re-parsed from
+// rendered markup" pattern as lastSearchResults.
+let currentRecentFoods = [];
+let currentFavorites = [];
 
 async function renderTargets() {
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
@@ -126,7 +271,52 @@ async function renderToday() {
   list.querySelectorAll('[data-delete-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       await deleteNutritionEntry(btn.dataset.deleteId);
-      await renderToday();
+      await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
     });
   });
+}
+
+/** Real insight from a week of logging, not just today's total. Hidden
+ *  entirely with nothing logged in the window, rather than a zeroed
+ *  card. */
+async function renderWeeklyTrend() {
+  const { startDate, endDate, dayCount } = lastNDaysRange(7);
+  const entries = await listNutritionEntriesInRange(startDate, endDate);
+  const trend = summarizeWeeklyNutrition(entries, dayCount);
+
+  const card = byId('nutrition-weekly-card');
+  card.hidden = !trend;
+  if (!trend) return;
+
+  byId('nutrition-weekly-avg-calories').textContent = `${trend.avgCalories} kcal`;
+  byId('nutrition-weekly-days-logged').textContent = `${trend.daysLogged}/${trend.dayCount} days`;
+  byId('nutrition-weekly-avg-protein').textContent = `${trend.avgProteinG}g`;
+}
+
+async function renderRecent() {
+  const entries = await listRecentNutritionEntries();
+  currentRecentFoods = computeRecentFoods(entries);
+
+  const wrap = byId('nutrition-recent-wrap');
+  wrap.hidden = currentRecentFoods.length === 0;
+  byId('nutrition-recent-chips').innerHTML = currentRecentFoods
+    .map((food, i) => `<button type="button" class="chip" data-recent-index="${i}">${escapeHtml(food.name)}</button>`)
+    .join('');
+}
+
+async function renderFavorites() {
+  currentFavorites = await listFavoriteFoods();
+
+  const wrap = byId('nutrition-favorites-wrap');
+  wrap.hidden = currentFavorites.length === 0;
+  byId('nutrition-favorite-chips').innerHTML = currentFavorites
+    .map(
+      (food) => `
+        <button type="button" class="chip" data-log-favorite-id="${food.id}">${escapeHtml(food.name)}</button>
+        <button type="button" class="icon-btn" data-remove-favorite-id="${food.id}" aria-label="Remove ${escapeHtml(food.name)} from favorites" style="width:26px; height:26px;">
+          <svg class="icon" width="12" height="12" viewBox="0 0 24 24"><use href="#icon-x"></use></svg>
+        </button>
+      `
+    )
+    .join('');
 }

@@ -410,6 +410,8 @@ export function initSleepFeature() {
     });
     byId('btn-sleep-insights-back').addEventListener('click', () => showScreen('screen-sleep-dashboard'));
     byId('btn-sleep-dashboard-date').addEventListener('click', openHistory);
+    byId('btn-sleep-log-history-link').addEventListener('click', openHistory);
+    byId('btn-sleep-result-history-link').addEventListener('click', openHistory);
     byId('btn-sleep-history-back').addEventListener('click', () => showScreen('screen-sleep-dashboard'));
     byId('btn-sleep-history-prev-month').addEventListener('click', () => shiftHistoryMonth(-1));
     byId('btn-sleep-history-next-month').addEventListener('click', () => shiftHistoryMonth(1));

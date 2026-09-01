@@ -510,14 +510,13 @@
 .chip--rating .chip-rating-num{ font-family:var(--miniapp-font-display); font-size:16px; line-height:1; }
 .chip--rating .chip-rating-label{ font-size:9px; font-weight:600; letter-spacing:0.01em; text-align:center; }
 
-/* ---------- History: a real calendar, not just "today" ---------- */
-.sleep-date-btn{
-  display:flex; align-items:center; gap:5px;
-  color:var(--sleep-ink-muted);
-  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;
-}
-.sleep-date-btn .icon{ width:13px; height:13px; opacity:.7; }
-
+/* ---------- History: a real calendar, not just "today" ----------
+   Two real, visible entry points — not one clever-but-easy-to-miss
+   gesture: the calendar icon button in the header (same pattern as the
+   already-proven Insights button right next to it) and an explicitly
+   labeled ghost button in the flow itself, on both the form and the
+   result view, so it's reachable regardless of whether tonight is
+   already logged. */
 .sleep-calendar-weekdays{
   display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
   text-align:center; font-size:11px; font-weight:700; color:var(--sleep-ink-faint);

@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 444 Vitest unit tests and 232 Playwright end-to-end tests
+Hub" above). 444 Vitest unit tests and 236 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -432,14 +432,22 @@ not a disconnected copy.
 night is one row in `sleepLogs`, keyed by its own date (`date` is the
 primary key — logging a new night has never overwritten an older one;
 what was actually missing was a way to *see* them again after the day
-passed). Tapping the dashboard's date opens `#screen-sleep-history`
-(`sleep-calendar.ts` for the pure month-grid math, tested in isolation):
-every day is color-coded by that night's category, and every non-future
-day — logged or not — is tappable. Logged opens that night's real result;
-unlogged opens a genuinely blank form for that specific date, so a
-missed night can be logged retroactively instead of being unreachable
-forever. Scoring a night from History uses only the logs on or before
-its own date (`scoreLogInContext` — the same "no hindsight" windowing
+passed). `#screen-sleep-history` (`sleep-calendar.ts` for the pure
+month-grid math, tested in isolation) opens from **two real, visible
+entry points, not one clever-but-easy-to-miss gesture**: a calendar icon
+button in the header (the same pattern as the already-proven Insights
+button right next to it) and an explicitly-labeled ghost button in the
+flow itself — *"Missed a night? Log any past day"* on the blank form,
+*"View full history"* on a logged result — so it's reachable regardless
+of whether tonight is already logged, and unmistakable as a tappable
+control rather than a plain date label that happened to also be a
+button. Every day in the calendar is color-coded by that night's
+category, and every non-future day — logged or not — is tappable.
+Logged opens that night's real result; unlogged opens a genuinely
+blank form for that specific date, so a missed night can be logged
+retroactively instead of being unreachable forever. Scoring a night
+from History uses only the logs on or before its own date
+(`scoreLogInContext` — the same "no hindsight" windowing
 `renderInsightChart` already used per point), so reviewing an old night
 scores it the way it actually looked at the time.
 

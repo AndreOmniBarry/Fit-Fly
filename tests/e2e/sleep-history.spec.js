@@ -41,6 +41,22 @@ test.describe('sleep history', () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  test('the explicitly-labeled link on the blank form also opens History — a real button, not a hidden gesture', async ({ page }) => {
+    await expect(page.locator('#sleep-log-form')).toBeVisible();
+    await page.locator('#btn-sleep-log-history-link').click();
+    await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
+  });
+
+  test('the explicitly-labeled link on a logged result also opens History', async ({ page }) => {
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.getByRole('button', { name: 'Save last night' }).click();
+    await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
+
+    await page.locator('#btn-sleep-result-history-link').click();
+    await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
+  });
+
   test('back from History returns to the dashboard', async ({ page }) => {
     await page.locator('#btn-sleep-dashboard-date').click();
     await page.locator('#btn-sleep-history-back').click();
@@ -96,8 +112,14 @@ test.describe('sleep history', () => {
     await page.locator('#btn-sleep-history-prev-month').click();
     await page.locator('.sleep-calendar-day:not(.sleep-calendar-day--out-of-month):not(.sleep-calendar-day--logged)').first().click();
 
-    await page.locator('#sleep-log-bedtime').fill('22:00');
-    await page.locator('#sleep-log-waketime').fill('06:00');
+    // Same bedtime as today's own log, deliberately — this test isolates
+    // "does a retroactive save touch today's stored data", not bedtime
+    // consistency's effect on the score (that's sleep-score.test.js's
+    // job); a different bedtime here would legitimately pull today's
+    // score down once a second data point makes consistency computable,
+    // which would make this assertion about the wrong thing.
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
     await page.getByRole('button', { name: /^Log / }).click();
     await expect(page.locator('#sleep-score-value')).toBeVisible(); // the *other* night's own result
 

@@ -119,4 +119,103 @@ test.describe('nutrition', () => {
     expect(parseFloat(tilt.rx)).not.toBe(0);
     expect(parseFloat(tilt.ry)).not.toBe(0);
   });
+
+  test('searching a food fills the form with real per-100g data and a portion hint, never logs it silently', async ({
+    page,
+  }) => {
+    await page.route('https://world.openfoodfacts.org/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          products: [
+            { product_name: 'Rolled Oats', nutriments: { 'energy-kcal_100g': 389, proteins_100g: 17, carbohydrates_100g: 66, fat_100g: 7 } },
+          ],
+        }),
+      })
+    );
+
+    await page.locator('#nutrition-search-query').fill('oats');
+    await page.locator('#btn-nutrition-search').click();
+    await expect(page.locator('#nutrition-search-results')).toContainText('Rolled Oats');
+
+    await page.locator('#nutrition-search-results button').first().click();
+    await expect(page.locator('#nutrition-name')).toHaveValue('Rolled Oats');
+    await expect(page.locator('#nutrition-calories')).toHaveValue('389');
+    await expect(page.locator('#nutrition-portion-hint')).toBeVisible();
+    // nothing was logged just by selecting a search result
+    await expect(page.locator('#nutrition-entry-list')).toContainText('Nothing logged yet today');
+
+    await page.locator('#btn-nutrition-add').click();
+    await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Rolled Oats');
+  });
+
+  test('a failed or offline search shows an honest error, never a silent "no matches"', async ({ page }) => {
+    await page.route('https://world.openfoodfacts.org/**', (route) => route.abort('internetdisconnected'));
+
+    await page.locator('#nutrition-search-query').fill('anything');
+    await page.locator('#btn-nutrition-search').click();
+    await expect(page.locator('#nutrition-search-status')).toContainText("Couldn't reach the food database");
+  });
+
+  test('a genuinely empty search result says so, distinctly from a network failure', async ({ page }) => {
+    await page.route('https://world.openfoodfacts.org/**', (route) =>
+      route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ products: [] }) })
+    );
+
+    await page.locator('#nutrition-search-query').fill('zzznonexistentfood');
+    await page.locator('#btn-nutrition-search').click();
+    await expect(page.locator('#nutrition-search-status')).toContainText('No matches');
+  });
+
+  test('a logged food shows up under Recent and re-logs in one tap with the exact same amounts', async ({ page }) => {
+    await page.locator('#nutrition-name').fill('Protein Shake');
+    await page.locator('#nutrition-calories').fill('220');
+    await page.locator('#nutrition-protein').fill('30');
+    await page.locator('#btn-nutrition-add').click();
+
+    // Recent only appears on a fresh render of the screen (built from
+    // the DB, not live-patched into the in-memory list) — leave and
+    // come back, the same way a real re-visit would work.
+    await page.locator('#btn-nutrition-back').click();
+    await page.locator('#btn-home-nutrition').click();
+
+    await expect(page.locator('#nutrition-recent-wrap')).toBeVisible();
+    await page.locator('#nutrition-recent-chips .chip', { hasText: 'Protein Shake' }).click();
+
+    await expect(page.locator('#nutrition-entry-list .card')).toHaveCount(2);
+    await expect(page.locator('#nutrition-total-calories')).toHaveText('440'); // 220 + 220, logged twice
+  });
+
+  test('saving a favorite and logging it in one tap, then removing it', async ({ page }) => {
+    await page.locator('#nutrition-name').fill('Greek Yogurt');
+    await page.locator('#nutrition-calories').fill('150');
+    await page.locator('#nutrition-protein').fill('15');
+    await page.locator('#btn-nutrition-save-favorite').click();
+
+    await expect(page.locator('#nutrition-favorites-wrap')).toBeVisible();
+    await expect(page.locator('#nutrition-favorite-chips')).toContainText('Greek Yogurt');
+
+    // logging clears whatever was left in the form from saving it, and
+    // logs the favorite's own saved amounts
+    await page.locator('#nutrition-name').fill('');
+    await page.locator('#nutrition-favorite-chips [data-log-favorite-id]', { hasText: 'Greek Yogurt' }).click();
+    await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Greek Yogurt');
+    await expect(page.locator('#nutrition-total-calories')).toHaveText('150');
+
+    await page.locator('#nutrition-favorite-chips [data-remove-favorite-id]').click();
+    await expect(page.locator('#nutrition-favorites-wrap')).toBeHidden();
+  });
+
+  test('logging on multiple days surfaces a real weekly average, not just today', async ({ page }) => {
+    await expect(page.locator('#nutrition-weekly-card')).toBeHidden(); // nothing logged yet
+
+    await page.locator('#nutrition-name').fill('Lunch');
+    await page.locator('#nutrition-calories').fill('600');
+    await page.locator('#btn-nutrition-add').click();
+
+    await expect(page.locator('#nutrition-weekly-card')).toBeVisible();
+    await expect(page.locator('#nutrition-weekly-avg-calories')).toHaveText('600 kcal');
+    await expect(page.locator('#nutrition-weekly-days-logged')).toContainText('1/7 days');
+  });
 });

@@ -11,6 +11,7 @@ describe('schema', () => {
         'categoryAssignments',
         'cycleLogs',
         'exercises',
+        'favoriteFoods',
         'goals',
         'injuryScreens',
         'profile',

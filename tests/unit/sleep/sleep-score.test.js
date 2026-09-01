@@ -44,7 +44,12 @@ describe('calculateSleepScore: basic scoring', () => {
 describe('calculateSleepScore: reasoning reflects what pulled the score down', () => {
   it('flags short duration specifically', () => {
     const result = calculateSleepScore({ durationMinutes: 240, quality: 5 }, []);
-    expect(result.reasoning.some((r) => r.toLowerCase().includes('short of your'))).toBe(true);
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('short of the'))).toBe(true);
+  });
+
+  it('flags long duration specifically too — not just short', () => {
+    const result = calculateSleepScore({ durationMinutes: 13 * 60, quality: 5 }, []);
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('runs longer than'))).toBe(true);
   });
 
   it('flags low quality specifically', () => {
@@ -69,10 +74,21 @@ describe('calculateSleepScore: reasoning reflects what pulled the score down', (
 });
 
 describe('calculateSleepScore: monotonic sanity checks', () => {
-  it('more sleep never scores lower, all else equal', () => {
+  it('more sleep scores higher while short of the recommended range', () => {
     const less = calculateSleepScore({ durationMinutes: 300, quality: 3 }, []);
-    const more = calculateSleepScore({ durationMinutes: 480, quality: 3 }, []);
+    const more = calculateSleepScore({ durationMinutes: 420, quality: 3 }, []);
     expect(more.score).toBeGreaterThanOrEqual(less.score);
+  });
+
+  it('is NOT simply "more sleep is always better" — a genuinely long night scores below a solid one', () => {
+    // The whole point of the NSF-band model over the old flat-goal one:
+    // sleep research is clear that habitually long sleep has its own
+    // associated downsides, not just short sleep. See
+    // sleep-duration-guideline.ts's own tests for the isolated curve —
+    // this just confirms it actually reaches the composite score.
+    const solid = calculateSleepScore({ durationMinutes: 480, quality: 3 }, []); // 8h
+    const wayLong = calculateSleepScore({ durationMinutes: 13 * 60, quality: 3 }, []); // 13h
+    expect(wayLong.score).toBeLessThan(solid.score);
   });
 
   it('a higher quality rating never scores lower, all else equal', () => {
@@ -81,9 +97,13 @@ describe('calculateSleepScore: monotonic sanity checks', () => {
     expect(high.score).toBeGreaterThanOrEqual(low.score);
   });
 
-  it('respects a custom goal — the same duration scores lower against a bigger goal', () => {
-    const smallGoal = calculateSleepScore({ durationMinutes: 420, quality: null }, [], 420);
-    const bigGoal = calculateSleepScore({ durationMinutes: 420, quality: null }, [], 540);
-    expect(smallGoal.score).toBeGreaterThan(bigGoal.score);
+  it('respects age — the same duration scores differently across NSF age bands', () => {
+    // 9.5h: within an 18-25-year-old's wider "may be appropriate" range,
+    // but past a 65+-year-old's tighter one — see
+    // sleep-duration-guideline.ts's own age-band tests for the isolated
+    // curve; this confirms it reaches the composite score too.
+    const youngAdult = calculateSleepScore({ durationMinutes: 9.5 * 60, quality: null }, [], 20);
+    const olderAdult = calculateSleepScore({ durationMinutes: 9.5 * 60, quality: null }, [], 70);
+    expect(youngAdult.score).toBeGreaterThan(olderAdult.score);
   });
 });

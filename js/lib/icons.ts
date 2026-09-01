@@ -27,6 +27,7 @@ export type IconName =
   | 'cloud-lightning'
   | 'trophy'
   | 'chart-line'
+  | 'calendar'
   | 'stop'
   | 'play'
   | 'chevron-right'

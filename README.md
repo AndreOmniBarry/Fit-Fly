@@ -144,7 +144,7 @@ js/
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
-    sleep/                       # Sleep mini-app: score/consistency/debt, dashboard, Wind Down, Insights (TypeScript)
+    sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
     focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (TypeScript)
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
@@ -166,7 +166,7 @@ tests/
   unit/                       # Vitest — pure-logic math (BMI/BMR/TDEE, GPS,
                                 # cycle prediction, program generation, 1RM,
                                 # PPG signal processing, voice-grammar matching,
-                                # sleep scoring/consistency/debt/trends/insights,
+                                # sleep scoring/consistency/debt/trends/insights/duration-guideline/calendar-math,
                                 # focus noise synthesis/spatial motion/impulse
                                 # response/thunderclaps/guided-session content)
   e2e/                          # Playwright — real UI flows, zero console errors
@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 425 Vitest unit tests and 214 Playwright end-to-end tests
+Hub" above). 444 Vitest unit tests and 232 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -243,8 +243,11 @@ coach/doctor access and cross-device history is planned, deliberately not
 built opportunistically alongside this round of work); no export/import
 for on-device data either yet; no offline service worker/asset caching
 yet; voice commands cover a small closed set of navigation phrases (not
-yet extended to Sleep/Focus); and Sleep currently uses a fixed 8-hour
-goal rather than a per-person configurable one.
+yet extended to Sleep/Focus); and there's no true passive overnight
+sensing — a phone's mic/motion sensors stop the moment the screen locks
+(see Sleep's own honesty note) — a real "phone stays active on the
+nightstand" mode is a legitimate, buildable next step, not attempted
+opportunistically alongside this round of work.
 
 ## Data layer
 
@@ -382,16 +385,32 @@ dashboard, never hidden behind a settings screen.
 
 `js/features/sleep/sleep-score.ts` blends three components into one 0-100
 score, each with its own reasoning string, the same "why this, not just a
-number" contract as `readiness.js`:
-- **Duration** — logged hours against an 8-hour goal.
+number" contract as `readiness.js` — standardized against real, named
+sleep-science instruments throughout, not an invented formula wearing a
+scientific-looking number:
+- **Duration** — scored against the National Sleep Foundation's own
+  age-banded recommendations (Hirshkowitz et al., *Sleep Health*, 2015;
+  see `sleep-duration-guideline.ts`), not a flat "8 hours" goal. Full
+  marks within the recommended range for the person's age (or the
+  general-adult band — 7-9h — with no profile), tapering down on *both*
+  sides past it: sleep research is clear that habitually long sleep has
+  its own associated downsides, not just short sleep, so "more hours is
+  always better" is deliberately not how this works.
 - **Consistency** — `sleep-consistency.ts` computes the standard deviation
   of recent bedtimes (shifted so "noon" is the zero-point, so a bedtime
   that crosses midnight doesn't register a fake ~24-hour jump) — tight
   bedtimes score high, erratic ones score low. Needs at least two logged
   nights; returns `null` rather than guessing with less.
-- **Quality** — the person's own 1-5 rating of how it felt. Optional —
+- **Quality** — the person's own 1-5 rating of how it felt, worded with
+  the Consensus Sleep Diary's own published anchors (Carney et al.,
+  2012: Very poor / Poor / Fair / Good / Very good — see
+  `#sleep-log-quality`'s chips), not bare unlabeled numbers. Optional —
   omitting it doesn't block a score, the other components just carry more
   weight.
+
+Sleep debt (`sleep-debt.ts`) is measured against 7 hours — the NSF
+recommended-range *minimum* every adult age band agrees on — not the old
+flat 8-hour figure.
 
 `sleep-debt.ts` sums only the *shortfall* against the goal across recent
 nights — a great night deliberately doesn't cancel out debt from a rough
@@ -408,6 +427,21 @@ Sleep's Wind Down screen — a pulsating breathing pacer (CSS animation,
 three concentric rings) plus three quick ambient-sound picks — drives the
 exact same shared audio engine Focus's own screen does (see below),
 not a disconnected copy.
+
+**History — a real month calendar, not just "today."** Every logged
+night is one row in `sleepLogs`, keyed by its own date (`date` is the
+primary key — logging a new night has never overwritten an older one;
+what was actually missing was a way to *see* them again after the day
+passed). Tapping the dashboard's date opens `#screen-sleep-history`
+(`sleep-calendar.ts` for the pure month-grid math, tested in isolation):
+every day is color-coded by that night's category, and every non-future
+day — logged or not — is tappable. Logged opens that night's real result;
+unlogged opens a genuinely blank form for that specific date, so a
+missed night can be logged retroactively instead of being unreachable
+forever. Scoring a night from History uses only the logs on or before
+its own date (`scoreLogInContext` — the same "no hindsight" windowing
+`renderInsightChart` already used per point), so reviewing an old night
+scores it the way it actually looked at the time.
 
 **The dashboard carries the same spatial-tilt/kinetic-data language as
 the Hub** (`js/lib/tilt.ts`, `js/lib/count-up.ts`) — deliberately scoped

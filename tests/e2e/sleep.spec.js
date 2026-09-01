@@ -113,7 +113,7 @@ test.describe('sleep', () => {
   test('Insights shows a real streak and debt for a logged night, with an honest empty chart state', async ({ page }) => {
     await page.getByRole('button', { name: 'Sleep' }).click();
     await page.locator('#sleep-log-bedtime').fill('23:00');
-    await page.locator('#sleep-log-waketime').fill('06:00'); // 7h short of the 8h goal by 1h
+    await page.locator('#sleep-log-waketime').fill('05:00'); // 6h — 1h short of the NSF-recommended 7h floor
     await page.locator('#sleep-log-quality button[data-value="3"]').click();
     await page.getByRole('button', { name: 'Save last night' }).click();
 

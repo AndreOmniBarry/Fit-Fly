@@ -19,22 +19,22 @@ describe('calculateSleepDebt', () => {
   });
 
   it('sums shortfalls across nights', () => {
-    const logs = [log('2024-01-01', 420), log('2024-01-02', 450)]; // 60 + 30 short of 480
+    const logs = [log('2024-01-01', 360), log('2024-01-02', 390)]; // 60 + 30 short of the 420 (7h) goal
     const debt = calculateSleepDebt(logs);
     expect(debt.debtMinutes).toBe(90);
   });
 
   it('a great night does not cancel out debt from a rough one', () => {
-    const logs = [log('2024-01-01', 300), log('2024-01-02', 600)]; // 180 short, then 120 over
+    const logs = [log('2024-01-01', 240), log('2024-01-02', 600)]; // 180 short, then well over
     const debt = calculateSleepDebt(logs);
-    expect(debt.debtMinutes).toBe(180); // not 60 — surplus never offsets
+    expect(debt.debtMinutes).toBe(180); // not 0 — surplus never offsets
   });
 
   it('respects a custom goal', () => {
     const logs = [log('2024-01-01', 400)];
-    const debt = calculateSleepDebt(logs, 420);
-    expect(debt.debtMinutes).toBe(20);
-    expect(debt.goalMinutes).toBe(420);
+    const debt = calculateSleepDebt(logs, 500);
+    expect(debt.debtMinutes).toBe(100);
+    expect(debt.goalMinutes).toBe(500);
   });
 
   it('reports the average duration across the window', () => {
@@ -55,7 +55,7 @@ describe('describeSleepDebt', () => {
   });
 
   it('states the shortfall in hours', () => {
-    const debt = calculateSleepDebt([log('2024-01-01', 360)]); // 2h short
+    const debt = calculateSleepDebt([log('2024-01-01', 300)]); // 2h short of the 420 (7h) goal
     expect(describeSleepDebt(debt)).toMatch(/2h behind/i);
   });
 });

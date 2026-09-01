@@ -65,7 +65,10 @@ test.describe('meditate', () => {
 
   test('a breathwork technique follows the real pacer, timed to its own beats', async ({ page }) => {
     await page.locator('#btn-meditate-four-seven-eight').click();
-    await expect(page.locator('#guided-session-caption')).toHaveText('Breathe in', { timeout: 15_000 });
+    // Two real, word-count-paced intro beats (~18-19s combined) precede the
+    // first breath cycle here — longer than Focus's own equivalent intro,
+    // so this needs a longer timeout than that suite's, not a shorter wait.
+    await expect(page.locator('#guided-session-caption')).toHaveText('Breathe in', { timeout: 25_000 });
     // 4-7-8 breathing: the pacer's transition duration must match the real
     // 4-second inhale, not a guessed constant.
     const pacerVar = await page.evaluate(() =>

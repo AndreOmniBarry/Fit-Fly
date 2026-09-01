@@ -242,24 +242,31 @@ layer, onboarding/category engine, activity tracking, timers, tailored
 programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
-Hub/mini-apps model described above, with **Sleep** and **Focus**
-built out as the first two real mini-apps — Focus including four guided
-sessions with free, on-device voice guidance — and the Hub itself rebuilt
-as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 488 Vitest unit tests and 282 Playwright end-to-end tests
-(desktop + mobile-viewport, zero console errors) are green.
+Hub/mini-apps model described above, with **Sleep**, **Focus**, and
+**Meditate** built out as real mini-apps — Focus and Meditate together
+sharing one guided-session engine, with free, on-device voice guidance —
+and the Hub itself rebuilt as a real spatial-tilt, kinetic-data scene
+(`js/lib/tilt.ts`, see "The Hub" above). 524 Vitest unit tests and 304
+Playwright end-to-end tests (desktop + mobile-viewport, zero console
+errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
 still entirely on-device, no server, by design (a real backend for
 coach/doctor access and cross-device history is planned, deliberately not
 built opportunistically alongside this round of work); no export/import
 for on-device data either yet; no offline service worker/asset caching
-yet; voice commands cover a small closed set of navigation phrases (not
-yet extended to Sleep/Focus); and there's no true passive overnight
-sensing — a phone's mic/motion sensors stop the moment the screen locks
-(see Sleep's own honesty note) — a real "phone stays active on the
-nightstand" mode is a legitimate, buildable next step, not attempted
-opportunistically alongside this round of work.
+yet; there's no true passive overnight sensing — a phone's mic/motion
+sensors stop the moment the screen locks (see Sleep's own honesty note) —
+a real "phone stays active on the nightstand" mode is a legitimate,
+buildable next step, not attempted opportunistically alongside this round
+of work; and there's still no way to log a real blood-pressure or
+blood-oxygen reading — the "Vitals & Steps" Hub tile stays a "coming
+soon" placeholder rather than faking either from a phone's camera (a
+phone cannot measure blood pressure at all, and blood oxygen needs real
+red/infrared wavelengths a phone camera doesn't have) — real support for
+both is a legitimate next round, via manual entry and Bluetooth devices
+implementing the standard Blood Pressure and Pulse Oximeter GATT
+profiles, the same pattern as the existing BLE heart-rate strap.
 
 ## Data layer
 

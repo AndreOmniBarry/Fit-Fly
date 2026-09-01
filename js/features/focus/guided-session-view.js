@@ -51,6 +51,9 @@ export function initGuidedSessionFeature() {
     let countdown = null;
     let pollHandle = null;
     let voiceOn = isVoiceGuideSupported();
+    let returnScreenId = 'screen-focus';
+    let onComplete = null;
+    let currentThemeClass = 'theme-focus';
     function stopPolling() {
         if (pollHandle != null)
             clearInterval(pollHandle);
@@ -126,7 +129,7 @@ export function initGuidedSessionFeature() {
             return;
         const beat = session.beats[index];
         if (!beat) {
-            endSession();
+            endSession(true);
             return;
         }
         beatIndex = index;
@@ -140,13 +143,19 @@ export function initGuidedSessionFeature() {
         pollHandle = setInterval(tick, POLL_MS);
         tick();
     }
-    function startSession(id) {
-        const found = getGuidedSession(id);
-        if (!found)
-            return;
+    function playGuidedSession(found, returnTo, options) {
         session = found;
         beatIndex = 0;
         elapsedBeforeCurrentBeatMs = 0;
+        returnScreenId = returnTo;
+        onComplete = options?.onComplete ?? null;
+        // The shared player screen is styled by whichever mini-app launched it
+        // — a Meditate session should read as Meditate's own dusk palette, not
+        // borrow Focus's teal/mint just because they share one screen.
+        const playerScreen = byId('screen-guided-session');
+        playerScreen.classList.remove(currentThemeClass);
+        currentThemeClass = options?.themeClass ?? 'theme-focus';
+        playerScreen.classList.add(currentThemeClass);
         byId('guided-session-title').textContent = found.name;
         byId('btn-guided-session-pause').textContent = 'Pause';
         byId('guided-session-progress').style.width = '0%';
@@ -154,13 +163,24 @@ export function initGuidedSessionFeature() {
         showScreen('screen-guided-session');
         launchBeat(0);
     }
-    function endSession() {
+    function startSession(id) {
+        const found = getGuidedSession(id);
+        if (!found)
+            return;
+        playGuidedSession(found, 'screen-focus');
+    }
+    function endSession(completedNaturally) {
         stopPolling();
         stopSpeaking();
         countdown = null;
+        const finishedSession = session;
+        const completeCb = onComplete;
         session = null;
+        onComplete = null;
         applyPacerPhase(undefined);
-        showScreen('screen-focus');
+        if (completedNaturally && finishedSession && completeCb)
+            completeCb(finishedSession);
+        showScreen(returnScreenId);
     }
     const grid = byId('guided-session-grid');
     GUIDED_SESSIONS.forEach((guidedSession, index) => {
@@ -195,7 +215,8 @@ export function initGuidedSessionFeature() {
             byId('btn-guided-session-pause').textContent = 'Pause';
         }
     });
-    byId('btn-guided-session-end').addEventListener('click', endSession);
-    byId('btn-guided-session-back').addEventListener('click', endSession);
+    byId('btn-guided-session-end').addEventListener('click', () => endSession(false));
+    byId('btn-guided-session-back').addEventListener('click', () => endSession(false));
+    return { playGuidedSession };
 }
 //# sourceMappingURL=guided-session-view.js.map

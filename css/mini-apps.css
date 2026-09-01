@@ -39,6 +39,18 @@
   --focus-accent:#8ce0c9;
   --focus-accent-soft:rgba(140,224,201,0.16);
 
+  /* ---------- Meditate: a warm terracotta/rose palette, its own identity again ---------- */
+  --meditate-bg-start:#3d2440;
+  --meditate-bg-mid:#241521;
+  --meditate-bg-end:#140b13;
+  --meditate-ink:#f7f0eb;
+  --meditate-ink-muted:rgba(247,240,235,0.55);
+  --meditate-card-bg:rgba(247,240,235,0.06);
+  --meditate-card-border:rgba(247,240,235,0.1);
+  --meditate-accent:#e8a87c;
+  --meditate-accent-2:#d4787a;
+  --meditate-accent-soft:rgba(232,168,124,0.16);
+
   /* The breathing pacer (Sleep's Wind Down, and every guided session) is
      shared markup across both night surfaces — this is what lets its
      glow/ring color follow whichever theme it's actually drawn on
@@ -68,6 +80,7 @@
 }
 .theme-sleep .muted, .theme-sleep .field label, .theme-sleep .field-hint{ color:var(--sleep-ink-muted); }
 .theme-focus .muted, .theme-focus .field label, .theme-focus .field-hint{ color:var(--focus-ink-muted); }
+.theme-meditate .muted, .theme-meditate .field label, .theme-meditate .field-hint{ color:var(--meditate-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -81,11 +94,18 @@
 .theme-focus .chip[aria-pressed="true"]{
   background:var(--focus-accent-soft); border-color:rgba(140,224,201,0.4); color:var(--focus-accent); font-weight:700;
 }
+.theme-meditate .chip{
+  background:rgba(247,240,235,0.06); border:1px solid rgba(247,240,235,0.12); color:var(--meditate-ink-muted);
+}
+.theme-meditate .chip[aria-pressed="true"]{
+  background:var(--meditate-accent-soft); border-color:rgba(232,168,124,0.4); color:var(--meditate-accent); font-weight:700;
+}
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
 .theme-sleep .btn-ghost{ color:var(--sleep-ink); border-color:var(--sleep-card-border); }
 .theme-focus .btn-ghost{ color:var(--focus-ink); border-color:var(--focus-card-border); }
+.theme-meditate .btn-ghost{ color:var(--meditate-ink); border-color:var(--meditate-card-border); }
 
 /* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
    readable enough on the app's light/dark surfaces, but noticeably lower
@@ -95,6 +115,7 @@
    on the screen already gets. */
 .theme-sleep :focus-visible{ outline-color:var(--sleep-accent); }
 .theme-focus :focus-visible{ outline-color:var(--focus-accent); }
+.theme-meditate :focus-visible{ outline-color:var(--meditate-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
@@ -104,6 +125,11 @@
   background:radial-gradient(120% 70% at 25% -10%, var(--focus-bg-start) 0%, var(--focus-bg-mid) 45%, var(--focus-bg-end) 100%);
   color:var(--focus-ink);
   --pacer-accent-rgb:140,224,201;
+}
+.theme-meditate{
+  background:radial-gradient(120% 70% at 25% -10%, var(--meditate-bg-start) 0%, var(--meditate-bg-mid) 45%, var(--meditate-bg-end) 100%);
+  color:var(--meditate-ink);
+  --pacer-accent-rgb:232,168,124;
 }
 
 /* drifting stars, shared between the two night surfaces — tone follows
@@ -237,6 +263,7 @@
 .hub-grid .hub-tile:nth-child(2){ animation-delay:.08s; }
 .hub-grid .hub-tile:nth-child(3){ animation-delay:.14s; }
 .hub-grid .hub-tile:nth-child(4){ animation-delay:.2s; }
+.hub-grid .hub-tile:nth-child(5){ animation-delay:.26s; }
 
 /* ---------- kinetic data: real numbers, drawn as motion ---------- */
 .hub-tile-kinetic{ position:relative; z-index:1; }
@@ -305,6 +332,14 @@
 .hub-tile--focus .hub-tile-icon{ background:var(--focus-accent-soft); }
 .hub-tile--focus .hub-tile-sub{ color:var(--focus-accent); }
 
+.hub-tile--meditate{
+  background:linear-gradient(150deg, var(--meditate-bg-mid) 0%, var(--meditate-bg-start) 55%, #3d2440 100%);
+  box-shadow:0 14px 30px -16px rgba(36,21,33,0.5);
+  color:var(--meditate-ink);
+}
+.hub-tile--meditate .hub-tile-icon{ background:var(--meditate-accent-soft); }
+.hub-tile--meditate .hub-tile-sub{ color:var(--meditate-accent); }
+
 .hub-tile--neutral{
   background:var(--surface);
   border:1px solid var(--border);
@@ -361,6 +396,21 @@
 }
 .sleep-stat-tile .value{ font-size:15px; font-weight:700; }
 .sleep-stat-tile .label{ font-size:11px; color:var(--sleep-ink-muted); }
+
+/* Meditate's own streak/minutes-practiced stat row — same shape as Sleep's,
+   its own palette, two tiles instead of three (no "wake" equivalent here). */
+.meditate-stat-row{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;
+}
+.meditate-stat-row .meditate-stat-tile:nth-child(1){ animation-delay:.04s; }
+.meditate-stat-row .meditate-stat-tile:nth-child(2){ animation-delay:.1s; }
+.meditate-stat-tile{
+  background:var(--meditate-card-bg); border:1px solid var(--meditate-card-border);
+  border-radius:16px; padding:14px 10px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.meditate-stat-tile .value{ font-family:var(--miniapp-font-display); font-size:22px; font-weight:400; color:var(--meditate-accent); }
+.meditate-stat-tile .label{ font-size:11px; color:var(--meditate-ink-muted); }
 
 /* A compact single row — label+stat beside a tight sparkline, not two
    stacked rows with a full-height bar chart underneath. Real analytics
@@ -607,6 +657,27 @@
 }
 .focus-sound-tile .name{ font-size:14px; font-weight:700; }
 .focus-sound-tile[aria-pressed="true"] .name{ color:var(--focus-accent); }
+
+/* Meditate's own session tiles — same shape as .focus-sound-tile, its own
+   palette. Meditate reuses .focus-sound-grid itself for layout, since that
+   class carries no color, only the grid/perspective. */
+.meditate-session-tile{
+  border-radius:20px;
+  background:var(--meditate-card-bg); border:1px solid var(--meditate-card-border);
+  text-align:left; color:inherit;
+  overflow:hidden;
+}
+.meditate-session-tile-face{
+  display:flex; flex-direction:column; gap:12px;
+  padding:16px;
+}
+.meditate-session-tile .name{ font-size:14px; font-weight:700; }
+.meditate-session-tile .duration{ font-size:11.5px; font-weight:600; color:var(--meditate-ink-muted); }
+.meditate-session-tile-icon{
+  width:34px; height:34px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--meditate-accent-soft); color:var(--meditate-accent);
+}
 
 .focus-timer-row{ display:flex; gap:8px; }
 .focus-timer-pill{

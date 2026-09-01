@@ -91,10 +91,11 @@ anything passively overnight — see "Sleep" below for why.
   `aria-hidden` SVG next to a real text label, never the only description
   of what a control does.
 - **`:focus-visible` keyboard-focus rings use each mini-app's own bright
-  accent color** on Sleep/Focus's night surfaces (`.theme-sleep
-  :focus-visible` / `.theme-focus :focus-visible` in `mini-apps.css`),
-  not just the app-wide neutral accent — noticeably higher contrast
-  against a dark gradient than a mid-tone blue would be.
+  accent color** on Sleep/Focus/Meditate's night surfaces (`.theme-sleep
+  :focus-visible` / `.theme-focus :focus-visible` / `.theme-meditate
+  :focus-visible` in `mini-apps.css`), not just the app-wide neutral
+  accent — noticeably higher contrast against a dark gradient than a
+  mid-tone blue would be.
 - **`prefers-reduced-motion` is honored everywhere something loops or
   pulses** — the Sleep/Focus starfield twinkle, the breathing pacer's
   ring animation, the Focus now-playing ripple, and the guided-session
@@ -146,15 +147,16 @@ css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
   components.css           # shared buttons/cards/forms/chips/nav
-  mini-apps.css              # Hub + Sleep + Focus's own night-surface visual identity
+  mini-apps.css              # Hub + Sleep + Focus + Meditate's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
     sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
-    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (TypeScript)
+    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance + the shared guided-session player (TypeScript)
+    meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
@@ -177,7 +179,8 @@ tests/
                                 # PPG signal processing, voice-grammar matching,
                                 # sleep scoring/consistency/debt/trends/insights/duration-guideline/calendar-math,
                                 # focus noise synthesis/spatial motion/impulse
-                                # response/thunderclaps/guided-session content)
+                                # response/thunderclaps/guided-session content,
+                                # meditate session catalog/streak trends)
   e2e/                          # Playwright — real UI flows, zero console errors
 scripts/
   serve.mjs                   # zero-dependency static server (dev + e2e)
@@ -239,24 +242,31 @@ layer, onboarding/category engine, activity tracking, timers, tailored
 programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
-Hub/mini-apps model described above, with **Sleep** and **Focus**
-built out as the first two real mini-apps — Focus including four guided
-sessions with free, on-device voice guidance — and the Hub itself rebuilt
-as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 488 Vitest unit tests and 282 Playwright end-to-end tests
-(desktop + mobile-viewport, zero console errors) are green.
+Hub/mini-apps model described above, with **Sleep**, **Focus**, and
+**Meditate** built out as real mini-apps — Focus and Meditate together
+sharing one guided-session engine, with free, on-device voice guidance —
+and the Hub itself rebuilt as a real spatial-tilt, kinetic-data scene
+(`js/lib/tilt.ts`, see "The Hub" above). 524 Vitest unit tests and 304
+Playwright end-to-end tests (desktop + mobile-viewport, zero console
+errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
 still entirely on-device, no server, by design (a real backend for
 coach/doctor access and cross-device history is planned, deliberately not
 built opportunistically alongside this round of work); no export/import
 for on-device data either yet; no offline service worker/asset caching
-yet; voice commands cover a small closed set of navigation phrases (not
-yet extended to Sleep/Focus); and there's no true passive overnight
-sensing — a phone's mic/motion sensors stop the moment the screen locks
-(see Sleep's own honesty note) — a real "phone stays active on the
-nightstand" mode is a legitimate, buildable next step, not attempted
-opportunistically alongside this round of work.
+yet; there's no true passive overnight sensing — a phone's mic/motion
+sensors stop the moment the screen locks (see Sleep's own honesty note) —
+a real "phone stays active on the nightstand" mode is a legitimate,
+buildable next step, not attempted opportunistically alongside this round
+of work; and there's still no way to log a real blood-pressure or
+blood-oxygen reading — the "Vitals & Steps" Hub tile stays a "coming
+soon" placeholder rather than faking either from a phone's camera (a
+phone cannot measure blood pressure at all, and blood oxygen needs real
+red/infrared wavelengths a phone camera doesn't have) — real support for
+both is a legitimate next round, via manual entry and Bluetooth devices
+implementing the standard Blood Pressure and Pulse Oximeter GATT
+profiles, the same pattern as the existing BLE heart-rate strap.
 
 ## Data layer
 
@@ -269,7 +279,7 @@ vendored locally at `js/vendor/dexie.min.mjs` (fetched via `npm pack`, not
 a live CDN — see `js/vendor/THIRD_PARTY_NOTICES.md`).
 
 Later phases (run mode, heart rate, women's health, nutrition, recovery,
-goals) each add their own store via a new `db.version(N).stores({...})`
+goals, Meditate) each add their own store via a new `db.version(N).stores({...})`
 bump rather than speculatively defined now — see the comments in
 `schema.js` for the ground rules that keep IndexedDB indexing correct
 (most importantly: never index a boolean field, it silently fails).
@@ -319,10 +329,10 @@ It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
 pattern every future mini-app (vitals, step counting, and beyond) has to
 slot into without the grid needing a rework or something ending up buried
-under "more tools." Sleep and Focus get their own gradient identity
-per tile; Fitness Toolkit and the "Vitals & Steps — coming soon" tile use
-the app's existing neutral surface, since they aren't mini-apps with their
-own visual identity (yet, in the coming-soon case).
+under "more tools." Sleep, Focus, and Meditate each get their own gradient
+identity per tile; Fitness Toolkit and the "Vitals & Steps — coming soon"
+tile use the app's existing neutral surface, since they aren't mini-apps
+with their own visual identity (yet, in the coming-soon case).
 
 **No emoji anywhere in the app** — `js/lib/icons.ts` plus a sprite of real
 inline SVG `<symbol>` definitions at the top of `index.html` (search it for
@@ -336,8 +346,8 @@ problems. A static HTML spot (`<use href="#icon-name">`) and a JS-built one
 always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
-straight in the Hub — Sleep and Focus need zero profile data, so nothing
-about them requires registering first. Skipping is remembered
+straight in the Hub — Sleep, Focus, and Meditate need zero profile data,
+so nothing about them requires registering first. Skipping is remembered
 (`localStorage`, the same lightweight preference store the theme setting
 already uses) so it only has to happen once. The Fitness Toolkit still
 benefits from a real profile (personalized programs, calorie targets,
@@ -636,6 +646,108 @@ an actual in/out transition (never on a hold — stillness deserves
 silence there too) — best-effort, and a silent no-op on the many devices
 that don't support it (all of iOS Safari included), same contract as
 `audio-cue.js`'s existing `vibrateDevice`.
+
+## Meditate
+
+A third sibling mini-app, not a Focus sub-feature — an expert-led library
+of guided meditations and breathwork, built for real emotional moments
+(sadness, anger, grief, adapting to change) as well as calmer everyday
+practice, rather than one generic "relax" track. Deliberately not
+"hundreds" of interchangeable sessions padded out for a big number: 12
+sessions, each built on one specific, named, cited technique — the same
+discipline Focus's own guided sessions hold, just applied at real scope.
+
+**Shares the exact same engine Focus's guided sessions run on, not a
+second copy of it.** The session/beat types and the word-count-based
+pacing math that used to live only in `guided-sessions.ts` were pulled out
+into `js/lib/guided-session.ts` so both libraries build on identical
+primitives; the player itself
+(`js/features/focus/guided-session-view.ts`) was generalized rather than
+forked — `initGuidedSessionFeature()` now returns a `playGuidedSession(session,
+returnScreenId, { onComplete, themeClass })` handle, so Meditate hands it
+a session from its own catalog, where "End"/"Back" should land, its own
+`theme-meditate` class (so the shared player screen reads as Meditate's
+own warm palette, not Focus's teal, depending on who launched it), and a
+completion callback — fired only when every beat plays through, never on
+an early exit, so an abandoned session is never logged as a real one.
+
+### The library
+
+- **A Quiet Mind** — basic mindfulness of breath (anapanasati), the
+  foundational technique nearly every other practice here builds on.
+- **Sitting with Sadness** — RAIN (Recognize, Allow, Investigate,
+  Nurture), Tara Brach's widely-taught approach to a difficult emotion.
+- **Working with Anger** — body-awareness plus extended-exhale breathing,
+  a standard combination for down-regulating arousal before responding.
+- **A Meditation for Grief** — grounding through breath, sound, or touch,
+  the common technique across mindfulness-based bereavement support.
+- **Adapting to Change** — separating what's actually controllable from
+  what isn't, a core CBT/ACT technique.
+- **Easing Anxiety** — breath-focused attention plus a brief body scan, to
+  interrupt a racing-thoughts spiral.
+- **A Self-Compassion Break** — Kristin Neff's three-part structure
+  (mindfulness, common humanity, self-kindness), one of the most
+  widely-studied self-compassion practices.
+- **A Gratitude Practice** — specific, not generic, reflection; research
+  on gratitude consistently finds specificity matters more than quantity.
+- **Building Resilience** — strengths-recall, recalling real evidence of
+  having gotten through something hard, distinct from generic positive
+  thinking.
+- **A Quick Reset** — one real, fully-noticed breath, genuinely under 30
+  seconds — for a moment with no time to spare, not a shortened version of
+  something longer.
+- **4-7-8 Breathing** — inhale 4, hold 7, exhale 8. Controlled studies
+  show measured heart-rate-variability and blood-pressure improvements
+  from the extended-exhale vagal activation this produces.
+- **Physiological Sigh** — cyclic sighing (a double inhale, then one long
+  exhale). A 2023 Stanford study (Balban et al.) found this pattern beat
+  mindfulness meditation itself for mood improvement over a month of daily
+  practice, and reduced breathing rate more than the other techniques
+  tested — a genuinely differentiated, evidence-backed addition, not just
+  another breathing pattern for its own sake.
+
+Every session's `basis` field in `meditations.ts` cites its real technique
+— documentation for maintainers, never shown in the product UI — and
+`tests/unit/meditate/meditations.test.js` enforces it stays real: a
+banned-clinical-vocabulary check (disorder, therapy, patient, diagnosis,
+treatment, overthink, depress — deliberately *not* plain emotion words
+like "sadness" or "anxiety," which these sessions name openly, matched
+against every beat's actual text and each `description`), a citation-length
+sanity check, and structural checks on the two breathwork techniques'
+exact cycle timing (4-7-8's real 4/7/8-second beats; cyclic sighing's
+two-inhale-then-one-longer-exhale shape).
+
+### A real streak, not just a session log
+
+`js/db/repositories/meditation.js` logs one row per **completed** session
+(`meditationSessions`, `db.version(10)`) — never a started-but-abandoned
+one, since only the player's natural-completion path calls
+`recordMeditationSession`. `meditate-trends.ts`'s `calculateMeditationStreak`
+is the same consecutive-day-ending-today math as Sleep's own logging
+streak (`sleep-trends.ts`), because logging a session and logging a night
+are the same kind of "did this happen today" streak. The Meditate screen
+shows this streak plus real minutes practiced in the last 7 days — both
+recomputed fresh every time the screen is reached, the same "reload on
+entry" discipline as Sleep's dashboard — and the Hub's own Meditate tile
+subtitle updates to match (`setMeditateTileSubtitle`, the same
+Hub-doesn't-need-to-know-how-a-mini-app-computes-its-data handoff as
+Sleep's and Focus's own tiles).
+
+### Honest about what this is and isn't
+
+The Meditate screen carries its own crisis-resources note alongside the
+app's existing "Not medical advice" framing, extended for mental-health
+content specifically — a real, named resource (the 988 Suicide & Crisis
+Lifeline, for anyone in the US), not a vague "seek help if needed." These
+are real techniques with real evidence behind them, not a substitute for
+a therapist, and the app never pretends otherwise.
+
+**Deliberately out of scope for this round**, sequenced rather than
+crammed in: a written "Self-Care Tools & Resources" guide/article section,
+and deeper cross-linking into Focus's own productivity framing (a shared
+"quick reset before you start working" entry point, for example). Both are
+real, buildable next steps — not attempted opportunistically alongside
+this round, the same discipline every other mini-app here has held.
 
 ## The Fitness Toolkit
 
@@ -1113,7 +1225,7 @@ end to end without ever touching an actual microphone.
 
 The vocabulary originally only covered six of the app's screens; it now
 reaches Nutrition, Heart Rate, the Cycle Tracker, Goals, Run History,
-Sleep, and Focus too. The feedback bubble also picked up two real fixes:
+Sleep, Focus, and Meditate too. The feedback bubble also picked up two real fixes:
 it shows a few example phrases while listening (`EXAMPLE_PHRASES` in
 `voice-control.js`) instead of a bare "Listening…" with no indication of
 what it understands, and it now carries a real dismiss button rather

@@ -11,18 +11,12 @@
 // breathing exercise has to be metronomic regardless of voice/engine
 // speed, and a caption needs a real duration to display even when speech
 // synthesis isn't available at all (see voice-guide.ts).
-const WORDS_PER_MINUTE = 145; // a measured, unhurried guided-session speaking pace — slower than conversational
-const MIN_PROSE_BEAT_SECONDS = 3.5;
-/** Sizes a prose beat's duration from its word count, with a floor so
- *  even a short line holds long enough to read and settle into. */
-function proseBeat(text, extraPauseSeconds = 1) {
-    const words = text.trim().split(/\s+/).length;
-    const speakingSeconds = (words / WORDS_PER_MINUTE) * 60;
-    return { text, durationSeconds: Math.max(MIN_PROSE_BEAT_SECONDS, speakingSeconds + extraPauseSeconds) };
-}
-function breathBeat(text, phase, durationSeconds) {
-    return { text, durationSeconds, breathPhase: phase };
-}
+//
+// The types and beat-builders live in js/lib/guided-session.ts — shared
+// with Meditate's own session library (js/features/meditate/
+// meditations.ts) so both reuse the same word-count-based pacing math
+// instead of a second copy of it.
+import { breathBeat, proseBeat } from '../../lib/guided-session.js';
 /** Box breathing (4-4-4-4) — equal-count inhale/hold/exhale/hold, the
  *  technique taught to Navy combat controllers for fast, reliable
  *  physiological calming before a high-stakes task. Six full cycles,
@@ -129,7 +123,5 @@ export const GUIDED_SESSIONS = Object.freeze([
 export function getGuidedSession(id) {
     return GUIDED_SESSIONS.find((s) => s.id === id);
 }
-export function totalDurationSeconds(session) {
-    return session.beats.reduce((sum, beat) => sum + beat.durationSeconds, 0);
-}
+export { totalDurationSeconds } from '../../lib/guided-session.js';
 //# sourceMappingURL=guided-sessions.js.map

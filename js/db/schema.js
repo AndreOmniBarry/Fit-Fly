@@ -218,4 +218,29 @@ export function defineSchema(db) {
 
     favoriteFoods: 'id, createdAt',
   });
+
+  // v10 — Meditate: one row per completed guided meditation or breathwork
+  // session, keyed by when it happened (not by which session — the same
+  // meditation can be played any number of times) so streak/trend math
+  // can query a real date range, the same shape as heartRateSamples.
+  db.version(10).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+
+    meditationSessions: '++id, date, completedAt, sessionId',
+  });
 }

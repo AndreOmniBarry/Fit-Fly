@@ -125,6 +125,17 @@ test.describe('goals', () => {
     await page.locator('#btn-home-goals').click();
     await expect(page.locator('#goals-list .card').first()).toContainText('Run a 5K');
   });
+
+  test('reacts to tilt, same spatial language as the rest of the Fitness Toolkit', async ({ page }) => {
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-goals'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
 });
 
 test.describe('goals: notifications enabled', () => {
@@ -167,5 +178,63 @@ test.describe('goals: notifications enabled', () => {
     await expect
       .poll(() => page.evaluate(() => window.__notificationTitle))
       .toContain('Goal achieved');
+  });
+
+  test('crossing a progress milestone shows a real celebration and fires a notification', async ({ page }) => {
+    await page.locator('#goal-name').fill('Save $1000');
+    await page.locator('#goal-target').fill('100');
+    await page.locator('#goal-unit').fill('%');
+    await page.locator('#goal-start').fill('0');
+    await page.locator('#btn-goal-create').click();
+
+    await page.evaluate(() => {
+      window.__notificationTitle = null;
+      window.__notificationBody = null;
+      const OriginalNotification = window.Notification;
+      window.Notification = new Proxy(OriginalNotification, {
+        construct(target, args) {
+          window.__notificationTitle = args[0];
+          window.__notificationBody = args[1]?.body ?? null;
+          return new target(...args);
+        },
+      });
+    });
+
+    await page.locator('[data-progress-input]').fill('30'); // crosses the 25% threshold
+    await page.locator('[data-log-progress-id]').click();
+
+    await expect(page.locator('#goals-list')).toContainText('quarter of the way');
+    await expect.poll(() => page.evaluate(() => window.__notificationTitle)).toContain('Nice progress');
+    await expect.poll(() => page.evaluate(() => window.__notificationBody)).toContain('quarter of the way');
+  });
+
+  test('a real "time to smash your goals today" reminder fires on load once a goal needs attention', async ({
+    page,
+  }) => {
+    await page.locator('#goal-name').fill('Run a 5K');
+    await page.locator('#goal-target').fill('5');
+    await page.locator('#goal-unit').fill('km');
+    await page.locator('#goal-start').fill('0');
+    await page.locator('#btn-goal-create').click();
+
+    // The very first load (just now) already ran this check before the
+    // goal existed, so nothing fired yet — reloading re-runs it with the
+    // goal now in place and un-logged today, which is what should
+    // trigger it. The proxy has to go in via addInitScript, before any
+    // page script runs on the reload, same reason the voice-control and
+    // camera-fake-device tests do the same.
+    await page.addInitScript(() => {
+      window.__notificationTitle = null;
+      const OriginalNotification = window.Notification;
+      window.Notification = new Proxy(OriginalNotification, {
+        construct(target, args) {
+          window.__notificationTitle = args[0];
+          return new target(...args);
+        },
+      });
+    });
+    await page.reload();
+
+    await expect.poll(() => page.evaluate(() => window.__notificationTitle)).toContain('smash your goals');
   });
 });

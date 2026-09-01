@@ -1043,10 +1043,43 @@ fully closed, which would need a backend and VAPID keys, exactly the
 kind of dependency this on-device, no-account app deliberately doesn't
 have. What it does honestly: ask permission once, then show a real
 system notification (`new Notification(...)`) the moment something
-notification-worthy happens while the app is open — right now, that's
-reaching a goal's target. Feature-detected and silently no-op wherever
-Notifications aren't available or permitted, never throwing into the
-caller.
+notification-worthy happens while the app is open. Feature-detected and
+silently no-op wherever Notifications aren't available or permitted,
+never throwing into the caller.
+
+**Progress now has a real history, not just a number that forgets
+everything before it.** `logGoalProgress` (schema: an embedded `history`
+array on the goal's own record, same pattern as a run's saved route)
+keeps every update instead of overwriting `currentValue` in place — the
+foundation for anything that needs to look back, not just at "now."
+
+**Real celebrations, not silence until the very end.**
+`js/features/goals/milestones.js`'s `newlyCrossedMilestones` detects
+crossing 25/50/75% (100% stays the existing achieved/notification path,
+unchanged) between a goal's previous and current progress — a real,
+one-time-per-threshold celebration card and notification, not a repeat
+every time progress is logged after already passing it.
+
+**A real "time to smash your goals today" nudge** — `js/features/goals/
+reminders.js`'s `goalsNeedingTodaysNudge` flags any active goal that
+hasn't had progress logged yet today, checked once per calendar day on
+app load (`checkGoalReminders()` in `goals-view.js`, gated behind a
+persisted `lastGoalsReminderDate` pref so a reload doesn't re-fire it).
+Worth being precise about what this is and isn't: it only ever fires
+while the app is actually open — there's still no push server, so this
+is the honest on-open version of a reminder, not a true background
+alarm, and it never prompts for notification permission on its own, only
+acting once it's already granted. A genuine scheduled notification that
+fires with the app fully closed becomes possible once this project is
+wrapped with Capacitor (see "Heart rate" above on `js/lib/native-
+runtime.js`) via its Local Notifications plugin — a real capability
+difference the web platform alone doesn't have, not something to fake
+here.
+
+The whole screen also picked up the same spatial-tilt language as the
+rest of the Fitness Toolkit, plus a real grow-in progress bar
+(`transform:scaleX`, same technique as the app's other kinetic bars) and
+an `animateCountUp`'d percentage.
 
 ## Voice commands
 

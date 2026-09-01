@@ -1340,41 +1340,43 @@
       <button class="btn btn-secondary" id="btn-goals-enable-notify">Enable Notifications</button>
     </div>
 
-    <div class="stack" id="goals-list"></div>
+    <div class="stack tilt-stagger" id="goals-list"></div>
 
-    <div class="card stack">
-      <h3>New Goal</h3>
-      <div class="field">
-        <label for="goal-name">What are you working toward?</label>
-        <input class="input" type="text" id="goal-name" placeholder="e.g. Run a 5K">
-      </div>
-      <div class="row">
+    <div class="card stack tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <h3>New Goal</h3>
         <div class="field">
-          <label for="goal-target">Target</label>
-          <input class="input" type="number" id="goal-target" step="any">
+          <label for="goal-name">What are you working toward?</label>
+          <input class="input" type="text" id="goal-name" placeholder="e.g. Run a 5K">
+        </div>
+        <div class="row">
+          <div class="field">
+            <label for="goal-target">Target</label>
+            <input class="input" type="number" id="goal-target" step="any">
+          </div>
+          <div class="field">
+            <label for="goal-unit">Unit</label>
+            <input class="input" type="text" id="goal-unit" placeholder="e.g. km, kg, days">
+          </div>
         </div>
         <div class="field">
-          <label for="goal-unit">Unit</label>
-          <input class="input" type="text" id="goal-unit" placeholder="e.g. km, kg, days">
+          <label id="lbl-goal-direction">Direction</label>
+          <div class="chip-group" id="goal-direction" role="group" aria-labelledby="lbl-goal-direction">
+            <button type="button" class="chip" data-value="increase" aria-pressed="true">Increase to target</button>
+            <button type="button" class="chip" data-value="decrease" aria-pressed="false">Decrease to target</button>
+          </div>
         </div>
-      </div>
-      <div class="field">
-        <label id="lbl-goal-direction">Direction</label>
-        <div class="chip-group" id="goal-direction" role="group" aria-labelledby="lbl-goal-direction">
-          <button type="button" class="chip" data-value="increase" aria-pressed="true">Increase to target</button>
-          <button type="button" class="chip" data-value="decrease" aria-pressed="false">Decrease to target</button>
+        <div class="field">
+          <label for="goal-start">Where are you starting from?</label>
+          <input class="input" type="number" id="goal-start" step="any" placeholder="current value">
         </div>
-      </div>
-      <div class="field">
-        <label for="goal-start">Where are you starting from?</label>
-        <input class="input" type="number" id="goal-start" step="any" placeholder="current value">
-      </div>
-      <div class="field">
-        <label for="goal-deadline">Deadline (optional)</label>
-        <input class="input" type="date" id="goal-deadline">
-      </div>
-      <span class="field-error" id="err-goal" hidden>Enter a name, target, and starting value.</span>
-      <button class="btn btn-primary btn-block" id="btn-goal-create">Add Goal</button>
+        <div class="field">
+          <label for="goal-deadline">Deadline (optional)</label>
+          <input class="input" type="date" id="goal-deadline">
+        </div>
+        <span class="field-error" id="err-goal" hidden>Enter a name, target, and starting value.</span>
+        <button class="btn btn-primary btn-block" id="btn-goal-create">Add Goal</button>
+      </span>
     </div>
   </section>
 

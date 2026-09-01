@@ -476,11 +476,11 @@
     <div class="miniapp-stars" aria-hidden="true"></div>
     <div class="row-between">
       <button class="miniapp-icon-btn" id="btn-sleep-dashboard-back" aria-label="Back to your apps">←</button>
-      <button class="sleep-date-btn" id="btn-sleep-dashboard-date" aria-label="Open sleep history">
-        <span id="sleep-dashboard-date">—</span>
-        <svg class="icon" width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-calendar"></use></svg>
-      </button>
-      <button class="miniapp-icon-btn" id="btn-sleep-insights" aria-label="Insights"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></button>
+      <span class="muted" id="sleep-dashboard-date" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">—</span>
+      <span class="row" style="gap:6px;">
+        <button class="miniapp-icon-btn" id="btn-sleep-dashboard-date" aria-label="History — log or view any day"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-calendar"></use></svg></button>
+        <button class="miniapp-icon-btn" id="btn-sleep-insights" aria-label="Insights"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></button>
+      </span>
     </div>
 
     <h2 class="display" style="font-size:26px; margin-top:var(--space-4);" id="sleep-dashboard-greeting">Good evening</h2>
@@ -519,6 +519,9 @@
       </div>
       <span class="field-error" id="err-sleep-log" hidden>Enter a bedtime and wake time that make sense together.</span>
       <button type="submit" class="miniapp-cta" id="btn-sleep-log-save">Save last night</button>
+      <button type="button" class="btn btn-ghost btn-block" id="btn-sleep-log-history-link" style="margin-top:var(--space-2);">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-calendar"></use></svg> Missed a night? Log any past day
+      </button>
     </form>
 
     <!-- Shown once tonight's log exists. -->
@@ -566,6 +569,9 @@
       </div>
 
       <button class="btn btn-ghost btn-block" id="btn-sleep-edit-log" style="margin-top:var(--space-3);">Edit tonight's log</button>
+      <button class="btn btn-ghost btn-block" id="btn-sleep-result-history-link" style="margin-top:var(--space-2);">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-calendar"></use></svg> View full history
+      </button>
       <button class="miniapp-cta" id="btn-sleep-start-wind-down" style="margin-top:var(--space-2);"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon"></use></svg> Start Wind-Down</button>
     </div>
   </section>

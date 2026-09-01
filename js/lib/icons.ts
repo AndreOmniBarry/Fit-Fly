@@ -40,7 +40,8 @@ export type IconName =
   | 'party'
   | 'volume'
   | 'dumbbell'
-  | 'star';
+  | 'star'
+  | 'meditate';
 
 /** Inline SVG markup for one icon — safe to drop straight into innerHTML.
  *  `size` sets both width/height (default 20). Always carries class="icon"

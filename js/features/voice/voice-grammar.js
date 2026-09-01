@@ -19,6 +19,7 @@ export const VOICE_COMMANDS = Object.freeze([
   { id: 'open-goals', phrases: ['open goals', 'show goals', 'my goals', 'goals'] },
   { id: 'open-sleep', phrases: ['open sleep', 'log sleep', 'log my sleep', 'sleep'] },
   { id: 'open-focus', phrases: ['open focus', 'start focus', 'focus'] },
+  { id: 'open-meditate', phrases: ['open meditate', 'start meditate', 'start meditation', 'meditate', 'meditation'] },
 ]);
 
 function normalize(text) {

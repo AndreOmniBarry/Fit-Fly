@@ -11,42 +11,15 @@
 // breathing exercise has to be metronomic regardless of voice/engine
 // speed, and a caption needs a real duration to display even when speech
 // synthesis isn't available at all (see voice-guide.ts).
+//
+// The types and beat-builders live in js/lib/guided-session.ts — shared
+// with Meditate's own session library (js/features/meditate/
+// meditations.ts) so both reuse the same word-count-based pacing math
+// instead of a second copy of it.
+import { breathBeat, proseBeat } from '../../lib/guided-session.js';
+import type { GuidedSession, SessionBeat } from '../../lib/guided-session.js';
 
-export interface SessionBeat {
-  /** Shown as the caption, and spoken aloud when voice guidance is on. */
-  text: string;
-  /** Exactly how long this beat holds before advancing. */
-  durationSeconds: number;
-  /** A breathing phase, for the pacer visual to key its animation off of
-   *  — undefined for beats that aren't part of a breathing cycle. */
-  breathPhase?: 'in' | 'hold' | 'out' | 'holdEmpty';
-}
-
-export interface GuidedSession {
-  id: string;
-  name: string;
-  /** One line, shown on the picker — states the technique plainly. */
-  description: string;
-  /** The technique this is built on, and why it's here — never shown in
-   *  the product UI, just documentation for anyone maintaining this. */
-  basis: string;
-  beats: SessionBeat[];
-}
-
-const WORDS_PER_MINUTE = 145; // a measured, unhurried guided-session speaking pace — slower than conversational
-const MIN_PROSE_BEAT_SECONDS = 3.5;
-
-/** Sizes a prose beat's duration from its word count, with a floor so
- *  even a short line holds long enough to read and settle into. */
-function proseBeat(text: string, extraPauseSeconds = 1): SessionBeat {
-  const words = text.trim().split(/\s+/).length;
-  const speakingSeconds = (words / WORDS_PER_MINUTE) * 60;
-  return { text, durationSeconds: Math.max(MIN_PROSE_BEAT_SECONDS, speakingSeconds + extraPauseSeconds) };
-}
-
-function breathBeat(text: string, phase: SessionBeat['breathPhase'], durationSeconds: number): SessionBeat {
-  return { text, durationSeconds, breathPhase: phase };
-}
+export type { GuidedSession, SessionBeat };
 
 /** Box breathing (4-4-4-4) — equal-count inhale/hold/exhale/hold, the
  *  technique taught to Navy combat controllers for fast, reliable
@@ -159,6 +132,4 @@ export function getGuidedSession(id: string): GuidedSession | undefined {
   return GUIDED_SESSIONS.find((s) => s.id === id);
 }
 
-export function totalDurationSeconds(session: GuidedSession): number {
-  return session.beats.reduce((sum, beat) => sum + beat.durationSeconds, 0);
-}
+export { totalDurationSeconds } from '../../lib/guided-session.js';

@@ -52,13 +52,32 @@ function ringTransform(baseScale: number, amplitude: number): string {
   return `scale(${(1 + delta).toFixed(3)})`;
 }
 
-export function initGuidedSessionFeature(): void {
+/** Returned by initGuidedSessionFeature() so another mini-app (Meditate)
+ *  can play a session from its own library through this same shared
+ *  screen — pacer, voice guidance, countdown and all — rather than
+ *  building a second copy of any of it. `returnScreenId` is where "End"/
+ *  "Back" lands; `onComplete`, when given, fires only when the session
+ *  finishes on its own (every beat played through), never on an early
+ *  exit, so a caller can log a real completed session without double-
+ *  counting an abandoned one. */
+export interface GuidedSessionPlayerHandle {
+  playGuidedSession(
+    session: GuidedSession,
+    returnScreenId: string,
+    options?: { onComplete?: (session: GuidedSession) => void; themeClass?: string }
+  ): void;
+}
+
+export function initGuidedSessionFeature(): GuidedSessionPlayerHandle {
   let session: GuidedSession | null = null;
   let beatIndex = 0;
   let elapsedBeforeCurrentBeatMs = 0;
   let countdown: ReturnType<typeof createCountdown> | null = null;
   let pollHandle: ReturnType<typeof setInterval> | null = null;
   let voiceOn = isVoiceGuideSupported();
+  let returnScreenId = 'screen-focus';
+  let onComplete: ((session: GuidedSession) => void) | null = null;
+  let currentThemeClass = 'theme-focus';
 
   function stopPolling(): void {
     if (pollHandle != null) clearInterval(pollHandle);
@@ -137,7 +156,7 @@ export function initGuidedSessionFeature(): void {
     if (!session) return;
     const beat = session.beats[index];
     if (!beat) {
-      endSession();
+      endSession(true);
       return;
     }
     beatIndex = index;
@@ -152,12 +171,24 @@ export function initGuidedSessionFeature(): void {
     tick();
   }
 
-  function startSession(id: string): void {
-    const found = getGuidedSession(id);
-    if (!found) return;
+  function playGuidedSession(
+    found: GuidedSession,
+    returnTo: string,
+    options?: { onComplete?: (session: GuidedSession) => void; themeClass?: string }
+  ): void {
     session = found;
     beatIndex = 0;
     elapsedBeforeCurrentBeatMs = 0;
+    returnScreenId = returnTo;
+    onComplete = options?.onComplete ?? null;
+
+    // The shared player screen is styled by whichever mini-app launched it
+    // — a Meditate session should read as Meditate's own dusk palette, not
+    // borrow Focus's teal/mint just because they share one screen.
+    const playerScreen = byId('screen-guided-session');
+    playerScreen.classList.remove(currentThemeClass);
+    currentThemeClass = options?.themeClass ?? 'theme-focus';
+    playerScreen.classList.add(currentThemeClass);
 
     byId('guided-session-title').textContent = found.name;
     byId('btn-guided-session-pause').textContent = 'Pause';
@@ -167,13 +198,23 @@ export function initGuidedSessionFeature(): void {
     launchBeat(0);
   }
 
-  function endSession(): void {
+  function startSession(id: string): void {
+    const found = getGuidedSession(id);
+    if (!found) return;
+    playGuidedSession(found, 'screen-focus');
+  }
+
+  function endSession(completedNaturally: boolean): void {
     stopPolling();
     stopSpeaking();
     countdown = null;
+    const finishedSession = session;
+    const completeCb = onComplete;
     session = null;
+    onComplete = null;
     applyPacerPhase(undefined);
-    showScreen('screen-focus');
+    if (completedNaturally && finishedSession && completeCb) completeCb(finishedSession);
+    showScreen(returnScreenId);
   }
 
   const grid = byId('guided-session-grid');
@@ -209,6 +250,8 @@ export function initGuidedSessionFeature(): void {
     }
   });
 
-  byId('btn-guided-session-end').addEventListener('click', endSession);
-  byId('btn-guided-session-back').addEventListener('click', endSession);
+  byId('btn-guided-session-end').addEventListener('click', () => endSession(false));
+  byId('btn-guided-session-back').addEventListener('click', () => endSession(false));
+
+  return { playGuidedSession };
 }

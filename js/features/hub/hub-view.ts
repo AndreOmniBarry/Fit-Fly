@@ -34,6 +34,9 @@ export function initHubFeature(): void {
   byId('btn-home-focus').addEventListener('click', () => showScreen('screen-focus'));
   byId('btn-focus-back').addEventListener('click', () => showScreen('screen-hub'));
 
+  byId('btn-home-meditate').addEventListener('click', () => showScreen('screen-meditate'));
+  byId('btn-meditate-back').addEventListener('click', () => showScreen('screen-hub'));
+
   // Spatial tilt: one shared reading (pointer, or real device tilt once
   // granted) drives every tile's depth-layered parallax at once. iOS 13+
   // gates device-tilt behind a user gesture — asking on the Hub's own
@@ -58,6 +61,13 @@ export function initHubFeature(): void {
  * that text. */
 export function setSleepTileSubtitle(text: string): void {
   byId('hub-sleep-sub').textContent = text;
+}
+
+/** Same handoff as setSleepTileSubtitle, for Meditate's own streak text —
+ *  e.g. "4-day streak" once one exists, left at its default description
+ *  until a first session is actually logged. */
+export function setMeditateTileSubtitle(text: string): void {
+  byId('hub-meditate-sub').textContent = text;
 }
 
 /** Draws the Sleep tile's mini ring in to a real score (0-100), or back to

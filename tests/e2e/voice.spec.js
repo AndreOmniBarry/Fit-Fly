@@ -175,7 +175,7 @@ test.describe('voice control (fake SpeechRecognition)', () => {
     }
   });
 
-  test('reaches Sleep and Focus from the Hub by voice', async ({ page }) => {
+  test('reaches Sleep, Focus, and Meditate from the Hub by voice', async ({ page }) => {
     await page.locator('#btn-voice-toggle').click();
     await page.evaluate(() => window.__voiceTestHooks.fireResult('open sleep'));
     await expect(page.locator('#screen-sleep-dashboard')).toBeVisible();
@@ -183,6 +183,10 @@ test.describe('voice control (fake SpeechRecognition)', () => {
     await page.locator('#btn-voice-toggle').click();
     await page.evaluate(() => window.__voiceTestHooks.fireResult('open focus'));
     await expect(page.locator('#screen-focus')).toBeVisible();
+
+    await page.locator('#btn-voice-toggle').click();
+    await page.evaluate(() => window.__voiceTestHooks.fireResult('open meditate'));
+    await expect(page.locator('#screen-meditate')).toBeVisible();
   });
 });
 

@@ -171,3 +171,28 @@ textarea.input{
   border-radius:var(--radius-sm);
 }
 .tab-item[aria-current="page"]{color:var(--accent);}
+
+/* ---------- heart rate trend sparkline ---------- */
+/* Real data drawn as motion, same as the Sleep week strip's own bars —
+   generalized off that same technique (plain divs, height set from real
+   values, a grow-in animation) rather than reimplemented, just using this
+   screen's own app-wide light/dark tokens instead of Sleep's fixed night
+   surface. */
+.hr-trend-bars{ display:flex; align-items:flex-end; gap:4px; height:36px; }
+.hr-trend-bar-col{ flex:1; height:100%; display:flex; align-items:flex-end; }
+.hr-trend-bar{
+  /* Sits on the card's own card-accent (--accent-soft) background, so a
+     non-latest bar uses --surface for real contrast against it rather
+     than --accent-soft again, which would just paint it the same color
+     as the card and make it disappear. */
+  width:100%; border-radius:3px; background:var(--surface);
+  transform-origin:bottom; animation:hr-trend-bar-grow .6s cubic-bezier(.16,1,.3,1) both;
+}
+.hr-trend-bar.is-latest{ background:var(--accent); }
+@keyframes hr-trend-bar-grow{
+  from{ transform:scaleY(0); }
+  to{ transform:scaleY(1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .hr-trend-bar{ animation:none; }
+}

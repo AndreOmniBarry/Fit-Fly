@@ -11,6 +11,12 @@ const MIN_SAMPLES = 30;
 const MIN_PEAKS_FOR_ESTIMATE = 5;
 const MIN_BPM = 40;
 const MAX_BPM = 200;
+// A camera's auto-exposure/auto-white-balance takes a moment to settle
+// after the stream starts — that adjustment shows up as a brightness
+// swing with nothing to do with a pulse, and left in would corrupt the
+// detrend baseline. Simplest honest fix: don't use it at all, rather
+// than trying to model or filter out a transient that varies by device.
+const SETTLE_MS = 1000;
 
 function movingAverage(values, windowSize) {
   const half = Math.floor(windowSize / 2);
@@ -75,7 +81,8 @@ function median(numbers) {
  *   the caller should ask the person to hold still and try again, not
  *   show a number with no basis.
  */
-export function estimateHeartRateFromSamples(samples) {
+export function estimateHeartRateFromSamples(rawSamples) {
+  const samples = rawSamples.filter((s) => s.tMs >= SETTLE_MS);
   if (samples.length < MIN_SAMPLES) return null;
 
   const durationMs = samples[samples.length - 1].tMs - samples[0].tMs;

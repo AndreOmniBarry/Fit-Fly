@@ -54,8 +54,41 @@ test.describe('heart rate', () => {
     await expect(entry).toContainText('68 bpm');
     await expect(entry).toContainText('Manual');
     await expect(entry.locator('.data-badge.measured')).toHaveText('measured');
+    await expect(entry.locator('.fitness-row-icon .icon')).toBeVisible();
 
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('logging readings surfaces a real trend — latest, average, range, and a delta from the one before it', async ({
+    page,
+  }) => {
+    await expect(page.locator('#hr-trend-card')).toBeHidden(); // nothing logged yet
+
+    await page.locator('#hr-manual-bpm').fill('60');
+    await page.locator('#btn-hr-manual-save').click();
+    await expect(page.locator('#hr-trend-card')).toBeVisible();
+    await expect(page.locator('#hr-trend-latest')).toHaveText('60 bpm');
+    await expect(page.locator('#hr-trend-avg')).toHaveText('60 bpm');
+    await expect(page.locator('#hr-trend-delta')).toHaveText(''); // nothing prior to compare against
+
+    await page.locator('#hr-manual-bpm').fill('80');
+    await page.locator('#btn-hr-manual-save').click();
+    await expect(page.locator('#hr-trend-latest')).toHaveText('80 bpm');
+    await expect(page.locator('#hr-trend-avg')).toHaveText('70 bpm');
+    await expect(page.locator('#hr-trend-range')).toHaveText('60–80 bpm');
+    await expect(page.locator('#hr-trend-delta')).toHaveText('+20 bpm since last');
+    await expect(page.locator('#hr-trend-bars .hr-trend-bar')).toHaveCount(2);
+  });
+
+  test('reacts to tilt, same spatial language as the rest of the Fitness Toolkit', async ({ page }) => {
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-heart-rate'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
   });
 
   test('manual entry rejects an out-of-range value', async ({ page }) => {
@@ -76,6 +109,22 @@ test.describe('heart rate', () => {
       await expect(page.locator('#hr-ble-status')).toContainText('use the camera or a manual entry instead');
       await expect(page.locator('#btn-hr-ble-connect')).toBeDisabled();
     }
+  });
+
+  test('shows live signal-quality feedback during capture, not just a pass/fail after 15 seconds', async ({ page }) => {
+    test.setTimeout(30000);
+    await page.locator('#btn-hr-camera-start').click();
+    await expect(page.locator('#hr-camera-progress')).toBeVisible();
+    await expect(page.locator('#hr-camera-quality-text')).toHaveText('Getting a baseline reading…');
+
+    // The fake video device's synthetic pattern is enough real per-frame
+    // variation for the live quality assessor to move off its initial
+    // placeholder well before the 15s capture finishes.
+    await expect(page.locator('#hr-camera-quality-text')).not.toHaveText('Getting a baseline reading…', {
+      timeout: 10000,
+    });
+
+    await expect(page.locator('#btn-hr-camera-start')).toBeEnabled({ timeout: 20000 });
   });
 
   test('a camera reading runs the full capture pipeline against the fake device', async ({ page }) => {

@@ -46,6 +46,15 @@ optional PIN lock. Uninstalling the app or clearing site data deletes it
 permanently — there is no cloud copy to restore from, and no export/import
 tooling yet is a known gap, not an oversight.
 
+**One narrow, explicit exception**: Nutrition's food search sends the
+text you type to [Open Food Facts](https://openfoodfacts.org), a free,
+open food database, to look up nutrition facts — that's the only network
+request this app makes anywhere, on to a third party, ever. It only
+happens when you tap Search (never live-as-you-type), only carries the
+search text, and never touches what you've actually logged, which stays
+local exactly like everything else. Recent and Favorites don't need it
+at all — both are built entirely from data already on this device.
+
 ## Honesty about measured vs. estimated data
 
 Anything Fit Fly cannot directly measure — calories burned, camera-based
@@ -234,7 +243,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 472 Vitest unit tests and 270 Playwright end-to-end tests
+Hub" above). 488 Vitest unit tests and 282 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -951,15 +960,51 @@ muscle), fixes fat at ~30% of calories, and lets carbs fill whatever's
 left — never negative, even against a very low calorie target with a
 high protein/fat floor.
 
-Food logging is manual entry only — no packaged food database to search,
-which would mean either fabricating nutrition data or another live
-external dependency this offline-first app doesn't otherwise have. Daily
-totals (`nutritionEntries`, one row per entry, aggregated by date) are
-summed and compared against the estimated targets. This is also the
+Daily totals (`nutritionEntries`, one row per entry, aggregated by date)
+are summed and compared against the estimated targets. This is also the
 first screen where a person's own free-text input (a food name) gets
 rendered back into the page, so it's the first place `js/lib/html.js`'s
 `escapeHtml()` matters — every list in the app before this one only ever
 rendered static labels or numbers.
+
+**Quick Add stopped being "type everything from memory, every time."**
+The research on why food logging apps get abandoned is consistent: past
+roughly 30 seconds per entry, adherence collapses within weeks, and a
+small fraction of foods account for most of what anyone actually logs.
+Three real shortcuts, in order of how exact their numbers are:
+- **Search** (new `js/features/nutrition/food-search.js`) — real food
+  lookups against [Open Food Facts](https://openfoodfacts.org), a free,
+  open (ODbL-licensed) database with no API key and no account. This is
+  the one place in this app that talks to a server at all: the search
+  text is sent to Open Food Facts to look up nutrition facts; nothing
+  about what's actually logged is (see "Your data stays on this device"
+  above for the exact boundary). Deliberately *not* wired to fire on
+  every keystroke — Open Food Facts asks that `/search` not be used for
+  search-as-you-type — only an explicit Search tap or Enter. Results
+  carry Open Food Facts' own **per-100g** figures, not a guessed serving
+  size, and selecting one fills the form with a visible "adjust to match
+  your actual portion" hint that stays up until Add — a search result
+  never gets logged as-is.
+- **Recent** (new `js/features/nutrition/recent-foods.js`) — built
+  entirely from what's already been logged (deduplicated by name,
+  most-recently-logged amounts win), no separate list to maintain. These
+  *are* exact amounts someone already ate, not a per-100g figure, so a
+  tap here logs immediately — no review step.
+- **Favorites** (new `favoriteFoods` store, schema v9) — a small, person-
+  curated list, saved once from the Quick Add form, then one tap from
+  then on. Distinct from Recent: intentional, not automatic, and doesn't
+  rotate out.
+
+**A real weekly insight**, not just today's total —
+`js/features/nutrition/weekly-trend.js`'s `summarizeWeeklyNutrition`
+averages calories/protein across the last 7 days *of days actually
+logged* (not diluted by unlogged days, which would understate what a
+tracked day really looks like) plus how many of the 7 days got logged at
+all — shown as its own kinetic stat card, hidden entirely with nothing
+logged yet rather than a zeroed one.
+
+The whole screen also carries the same spatial-tilt language as the rest
+of the Fitness Toolkit.
 
 ## Recovery / readiness
 

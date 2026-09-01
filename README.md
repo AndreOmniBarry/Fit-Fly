@@ -234,7 +234,7 @@ Hub/mini-apps model described above, with **Sleep** and **Focus**
 built out as the first two real mini-apps — Focus including four guided
 sessions with free, on-device voice guidance — and the Hub itself rebuilt
 as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The
-Hub" above). 444 Vitest unit tests and 242 Playwright end-to-end tests
+Hub" above). 444 Vitest unit tests and 248 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -648,6 +648,33 @@ Each of the 11 rows also gained a real icon for the first time — the
 same icon-sprite system as everywhere else, chosen for what the row
 actually does (a heart for Heart Rate, a flame for Nutrition, a target
 for Goals, ...), not decoration.
+
+**Programs, Nutrition, and Run carry the same language one screen
+deeper**, each `attachTilt()`'d to its own screen exactly as the home
+list is. My Program's week/block indicator is a real kinetic stat — the
+week number counts up (`animateCountUp`) each time the screen renders —
+and every day card carries a depth-separated icon badge picked for what
+kind of day it actually is (a dumbbell for a lift day, wind for cardio, a
+leaf for mobility — a new `icon-dumbbell` was added to the sprite for
+this, there wasn't one before). Nutrition's three cards and every logged
+entry are `.tilt-card`/`.tilt-press` pairs, and today's running totals
+count up live as entries are added or removed — the one set of numbers
+on that screen that actually changes as you use it, which is also why the
+static calorie/macro *targets* deliberately don't animate. Run's live
+screen gives its distance/duration/pace trio and the route canvas real
+depth-separated layers so they visually sit at different distances while
+you're mid-run; its summary screen is where the count-up treatment does
+the most work — `animateCountUp` interpolates the raw meters/ms/pace and
+re-formats *every frame* with the exact same `formatDistance`/
+`formatDuration`/`formatPace` functions the rest of the app uses, so a
+distance or pace arriving on screen is never a fake or rounded-off number
+mid-flight, just the real one animating in; run history rows and PR
+badges get the same tilt/icon treatment as everywhere else. All of it
+reuses the same generic `.tilt-card`/`.tilt-press`/`data-tilt-depth`
+primitives and a new shared `.tilt-stagger` entrance-stagger utility
+(`css/components.css`, generalized off the home list's own per-row
+stagger so these dynamically-rendered lists don't reimplement it) — no
+new mechanism, just the existing one applied further in.
 
 ## Activity tracking
 

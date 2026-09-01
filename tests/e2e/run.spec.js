@@ -132,4 +132,33 @@ test.describe('run mode', () => {
     // dismissing the confirm keeps us on the run screen
     await expect(page.getByRole('heading', { name: 'Run' })).toBeVisible();
   });
+
+  test('reacts to tilt on the live screen, and the summary numbers arrive as real formatted values', async ({
+    page,
+    context,
+  }) => {
+    await page.locator('#btn-home-run').click();
+
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-run'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5);
+    await page.getByRole('button', { name: 'Finish' }).click();
+
+    // animateCountUp settles well inside Playwright's default assertion
+    // timeout — these read the real formatted value once it arrives, not
+    // a mid-animation frame.
+    await expect(page.locator('#run-summary-distance')).toContainText('m');
+    await expect(page.locator('#run-summary-pace')).toContainText('/km');
+
+    await page.getByRole('button', { name: 'View History' }).click();
+    await expect(page.locator('#run-history-list .card').first().locator('.fitness-row-icon .icon')).toBeVisible();
+  });
 });

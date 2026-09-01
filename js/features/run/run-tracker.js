@@ -1,5 +1,7 @@
 import { showScreen } from '../../lib/router.js';
 import { iconMarkup } from '../../lib/icons.js';
+import { attachTilt } from '../../lib/tilt.js';
+import { animateCountUp } from '../../lib/count-up.js';
 import { createStopwatch, formatDuration } from '../../lib/timer.js';
 import { requestWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
 import {
@@ -88,6 +90,14 @@ export function initRunFeature() {
   function stopWatching() {
     if (watchId != null) navigator.geolocation.clearWatch(watchId);
     watchId = null;
+  }
+
+  // Same spatial-tilt language as the Fitness Toolkit home list — each of
+  // Run's three screens gets its own instance, scoped to itself.
+  for (const screenId of ['screen-run', 'screen-run-summary', 'screen-run-history']) {
+    const screen = byId(screenId);
+    const tilt = attachTilt(screen);
+    screen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
   }
 
   byId('btn-home-run').addEventListener('click', () => {
@@ -184,15 +194,25 @@ export function initRunFeature() {
 }
 
 function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm }, prs) {
-  byId('run-summary-distance').textContent = formatDistance(distanceMeters);
-  byId('run-summary-duration').textContent = formatDuration(durationMs);
-  byId('run-summary-pace').textContent = formatPace(avgPaceSecPerKm);
+  // The final numbers arriving, same kinetic-data language as the rest of
+  // the app — animateCountUp interpolates the raw meters/ms/pace and
+  // re-formats each frame with the same real formatters used everywhere
+  // else, so what's mid-animation is never a fake or rounded-off number.
+  animateCountUp(byId('run-summary-distance'), distanceMeters, { formatter: formatDistance });
+  animateCountUp(byId('run-summary-duration'), durationMs, { formatter: formatDuration });
+  // A run with no measurable distance/time has no pace at all (see
+  // calculatePaceSecPerKm) — null, never a fake number to animate toward.
+  if (avgPaceSecPerKm == null) {
+    byId('run-summary-pace').textContent = formatPace(avgPaceSecPerKm);
+  } else {
+    animateCountUp(byId('run-summary-pace'), avgPaceSecPerKm, { formatter: formatPace });
+  }
 
   const badges = [];
   if (prs.isDistancePR) badges.push('New longest run');
   if (prs.isPacePR) badges.push('New fastest pace');
   byId('run-summary-prs').innerHTML = badges
-    .map((text) => `<div class="card card-accent row" style="align-items:center; gap:var(--space-2);">${iconMarkup('trophy', { size: 18 })}<span>${text}</span></div>`)
+    .map((text) => `<div class="card card-accent row tilt-card tilt-enter" style="align-items:center; gap:var(--space-2);">${iconMarkup('trophy', { size: 18 })}<span>${text}</span></div>`)
     .join('');
 }
 
@@ -210,10 +230,13 @@ async function renderHistory() {
     .map((run) => {
       const dateLabel = new Date(run.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       return `
-        <div class="card row-between">
-          <span>
-            <strong>${formatDistance(run.distanceMeters)}</strong>
-            <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${dateLabel} · ${formatDuration(run.durationMs)}</p>
+        <div class="card row-between tilt-card tilt-enter">
+          <span class="row" style="gap:10px; align-items:center;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-wind"></use></svg></span>
+            <span>
+              <strong>${formatDistance(run.distanceMeters)}</strong>
+              <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${dateLabel} · ${formatDuration(run.durationMs)}</p>
+            </span>
           </span>
           <span class="data-badge measured">${formatPace(run.avgPaceSecPerKm)}</span>
         </div>

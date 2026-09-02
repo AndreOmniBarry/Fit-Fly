@@ -33,6 +33,8 @@ export function initHubFeature() {
     byId('btn-meditate-back').addEventListener('click', () => showScreen('screen-hub'));
     byId('btn-home-vitals').addEventListener('click', () => showScreen('screen-vitals'));
     byId('btn-vitals-back').addEventListener('click', () => showScreen('screen-hub'));
+    byId('btn-home-steps').addEventListener('click', () => showScreen('screen-steps'));
+    byId('btn-steps-back').addEventListener('click', () => showScreen('screen-hub'));
     // Spatial tilt: one shared reading (pointer, or real device tilt once
     // granted) drives every tile's depth-layered parallax at once. iOS 13+
     // gates device-tilt behind a user gesture — asking on the Hub's own
@@ -65,6 +67,10 @@ export function setMeditateTileSubtitle(text) {
 /** Same handoff again, for Vitals' own logging-streak text. */
 export function setVitalsTileSubtitle(text) {
     byId('hub-vitals-sub').textContent = text;
+}
+/** Same handoff again, for Steps' own logging-streak text. */
+export function setStepsTileSubtitle(text) {
+    byId('hub-steps-sub').textContent = text;
 }
 /** Draws the Sleep tile's mini ring in to a real score (0-100), or back to
  * its empty "waiting for data" state for `null` — the same honesty rule as

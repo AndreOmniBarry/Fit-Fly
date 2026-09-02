@@ -275,4 +275,35 @@ export function defineSchema(db) {
     // js/db/repositories/spo2.js).
     spo2Samples: '++id, recordedAt, source',
   });
+
+  // v12 — Steps: one row per date, like sleepLogs/readinessCheckins —
+  // a running daily total, not a point-in-time sample, since a live-
+  // counted walk adds to whatever's already logged for today rather
+  // than being its own separate reading.
+  db.version(12).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+
+    // source: 'manual' | 'sensor' — records which kind of entry most
+    // recently set/added-to this date, not a full history of how it got
+    // there (see js/db/repositories/steps.js).
+    stepEntries: 'date, updatedAt',
+  });
 }

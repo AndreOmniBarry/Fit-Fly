@@ -42,7 +42,8 @@ export type IconName =
   | 'dumbbell'
   | 'star'
   | 'meditate'
-  | 'gauge';
+  | 'gauge'
+  | 'footprints';
 
 /** Inline SVG markup for one icon — safe to drop straight into innerHTML.
  *  `size` sets both width/height (default 20). Always carries class="icon"

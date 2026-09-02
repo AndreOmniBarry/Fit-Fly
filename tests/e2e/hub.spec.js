@@ -65,7 +65,7 @@ test.describe('hub', () => {
     await expect(wave).not.toHaveClass(/is-live/);
   });
 
-  test('the Vitals tile is real and reachable; Steps is still an honest placeholder', async ({ page }) => {
+  test('the Vitals tile is real and reachable', async ({ page }) => {
     await expect(page.getByRole('button', { name: 'Vitals' })).toBeVisible();
     await expect(page.locator('#hub-vitals-sub')).toHaveText('Blood pressure & oxygen');
 
@@ -76,14 +76,18 @@ test.describe('hub', () => {
     await page.locator('#btn-vitals-back').click();
 
     await expect(page.locator('#hub-vitals-sub')).toHaveText('1-day streak', { timeout: 3000 });
+  });
 
-    // Steps genuinely isn't built yet (no real background pedometer) —
-    // still a disabled, dashed-border "coming soon" tile, not silently
-    // dropped or faked into looking real.
-    const stepsTile = page.locator('.hub-tile--soon');
-    await expect(stepsTile).toContainText('Steps');
-    await expect(stepsTile).toContainText('Coming soon');
-    await expect(stepsTile).toHaveAttribute('aria-disabled', 'true');
+  test('the Steps tile is real and reachable', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Steps' })).toBeVisible();
+    await expect(page.locator('#hub-steps-sub')).toHaveText('Count a real walk');
+
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('4000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+
+    await expect(page.locator('#hub-steps-sub')).toHaveText('1-day streak', { timeout: 3000 });
   });
 
   test('tilt reacts to pointer input and eases toward it', async ({ page }) => {

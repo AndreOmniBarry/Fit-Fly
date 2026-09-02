@@ -21,6 +21,7 @@ export const VOICE_COMMANDS = Object.freeze([
   { id: 'open-focus', phrases: ['open focus', 'start focus', 'focus'] },
   { id: 'open-meditate', phrases: ['open meditate', 'start meditate', 'start meditation', 'meditate', 'meditation'] },
   { id: 'open-vitals', phrases: ['open vitals', 'show vitals', 'check my vitals', 'vitals'] },
+  { id: 'open-steps', phrases: ['open steps', 'show steps', 'my steps', 'start a walk'] },
 ]);
 
 function normalize(text) {

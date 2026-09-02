@@ -63,6 +63,18 @@
   --vitals-accent-2:#4a90d9;
   --vitals-accent-soft:rgba(94,200,232,0.16);
 
+  /* ---------- Steps: an energetic lime/leaf-green palette, its own identity again ---------- */
+  --steps-bg-start:#1f3d1a;
+  --steps-bg-mid:#152b12;
+  --steps-bg-end:#0c1a0a;
+  --steps-ink:#f1f7ed;
+  --steps-ink-muted:rgba(241,247,237,0.55);
+  --steps-card-bg:rgba(241,247,237,0.06);
+  --steps-card-border:rgba(241,247,237,0.1);
+  --steps-accent:#a3e635;
+  --steps-accent-2:#65c46a;
+  --steps-accent-soft:rgba(163,230,53,0.16);
+
   /* The breathing pacer (Sleep's Wind Down, and every guided session) is
      shared markup across both night surfaces — this is what lets its
      glow/ring color follow whichever theme it's actually drawn on
@@ -103,6 +115,7 @@
 .theme-focus .muted, .theme-focus .field label, .theme-focus .field-hint{ color:var(--focus-ink-muted); }
 .theme-meditate .muted, .theme-meditate .field label, .theme-meditate .field-hint{ color:var(--meditate-ink-muted); }
 .theme-vitals .muted, .theme-vitals .field label, .theme-vitals .field-hint{ color:var(--vitals-ink-muted); }
+.theme-steps .muted, .theme-steps .field label, .theme-steps .field-hint{ color:var(--steps-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -128,6 +141,12 @@
 .theme-vitals .chip[aria-pressed="true"]{
   background:var(--vitals-accent-soft); border-color:rgba(94,200,232,0.4); color:var(--vitals-accent); font-weight:700;
 }
+.theme-steps .chip{
+  background:rgba(241,247,237,0.06); border:1px solid rgba(241,247,237,0.12); color:var(--steps-ink-muted);
+}
+.theme-steps .chip[aria-pressed="true"]{
+  background:var(--steps-accent-soft); border-color:rgba(163,230,53,0.4); color:var(--steps-accent); font-weight:700;
+}
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
@@ -135,6 +154,7 @@
 .theme-focus .btn-ghost{ color:var(--focus-ink); border-color:var(--focus-card-border); }
 .theme-meditate .btn-ghost{ color:var(--meditate-ink); border-color:var(--meditate-card-border); }
 .theme-vitals .btn-ghost{ color:var(--vitals-ink); border-color:var(--vitals-card-border); }
+.theme-steps .btn-ghost{ color:var(--steps-ink); border-color:var(--steps-card-border); }
 
 /* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
    readable enough on the app's light/dark surfaces, but noticeably lower
@@ -146,6 +166,7 @@
 .theme-focus :focus-visible{ outline-color:var(--focus-accent); }
 .theme-meditate :focus-visible{ outline-color:var(--meditate-accent); }
 .theme-vitals :focus-visible{ outline-color:var(--vitals-accent); }
+.theme-steps :focus-visible{ outline-color:var(--steps-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
@@ -165,6 +186,11 @@
   background:radial-gradient(120% 70% at 25% -10%, var(--vitals-bg-start) 0%, var(--vitals-bg-mid) 45%, var(--vitals-bg-end) 100%);
   color:var(--vitals-ink);
   --pacer-accent-rgb:94,200,232;
+}
+.theme-steps{
+  background:radial-gradient(120% 70% at 25% -10%, var(--steps-bg-start) 0%, var(--steps-bg-mid) 45%, var(--steps-bg-end) 100%);
+  color:var(--steps-ink);
+  --pacer-accent-rgb:163,230,53;
 }
 
 /* drifting stars, shared between the two night surfaces — tone follows
@@ -384,6 +410,14 @@
 .hub-tile--vitals .hub-tile-icon{ background:var(--vitals-accent-soft); }
 .hub-tile--vitals .hub-tile-sub{ color:var(--vitals-accent); }
 
+.hub-tile--steps{
+  background:linear-gradient(150deg, var(--steps-bg-mid) 0%, var(--steps-bg-start) 55%, #1f3d1a 100%);
+  box-shadow:0 14px 30px -16px rgba(21,43,18,0.5);
+  color:var(--steps-ink);
+}
+.hub-tile--steps .hub-tile-icon{ background:var(--steps-accent-soft); }
+.hub-tile--steps .hub-tile-sub{ color:var(--steps-accent); }
+
 .hub-tile--neutral{
   background:var(--surface);
   border:1px solid var(--border);
@@ -502,6 +536,61 @@
   background:var(--vitals-accent-soft); color:var(--vitals-accent);
 }
 .vitals-category-badge.is-concerning{ background:rgba(232,124,124,0.18); color:#f0a3a3; }
+
+/* ============================================================================
+   STEPS — same .vitals-card-shaped content-block pattern, and the same
+   circular draw-in ring as Sleep's score (js/features/steps/steps-view.ts
+   sets #steps-goal-ring-fill's real stroke-dashoffset attribute, never a
+   competing CSS value — see the Hub ring's own comment for why).
+   ========================================================================== */
+.steps-card{
+  background:var(--steps-card-bg); border:1px solid var(--steps-card-border);
+  border-radius:var(--radius-lg); padding:var(--space-4);
+}
+.steps-card h3{ margin:0; }
+
+.steps-goal-ring{
+  position:relative; width:200px; height:200px; margin:0 auto;
+}
+.steps-goal-ring svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+.steps-goal-ring-value{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+}
+.steps-goal-ring-value .count{
+  font-family:var(--miniapp-font-display); font-size:44px; line-height:1;
+}
+.steps-goal-ring-value .label{
+  font-size:12.5px; font-weight:700; color:var(--steps-accent); letter-spacing:0.02em;
+}
+
+.steps-stat-row{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;
+}
+.steps-stat-row .steps-stat-tile:nth-child(1){ animation-delay:.04s; }
+.steps-stat-row .steps-stat-tile:nth-child(2){ animation-delay:.1s; }
+.steps-stat-tile{
+  background:var(--steps-card-bg); border:1px solid var(--steps-card-border);
+  border-radius:16px; padding:14px 10px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.steps-stat-tile .value{ font-family:var(--miniapp-font-display); font-size:22px; font-weight:400; color:var(--steps-accent); }
+.steps-stat-tile .label{ font-size:11px; color:var(--steps-ink-muted); }
+
+/* A live counting session's pulsing "listening" indicator — a slow,
+   honest breathe, not a spinner implying real-time precision the sensor
+   sampling loop doesn't actually promise beat-for-beat. */
+.steps-live-dot{
+  width:10px; height:10px; border-radius:50%; background:var(--steps-accent);
+  display:inline-block; animation:steps-live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes steps-live-pulse{
+  0%, 100%{ opacity:.4; transform:scale(.85); }
+  50%{ opacity:1; transform:scale(1.1); }
+}
+@media (prefers-reduced-motion: reduce){
+  .steps-live-dot{ animation:none; opacity:.9; }
+}
 
 /* A compact single row — label+stat beside a tight sparkline, not two
    stacked rows with a full-height bar chart underneath. Real analytics

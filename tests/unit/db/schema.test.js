@@ -8,6 +8,7 @@ describe('schema', () => {
     await db.open();
     expect(db.tables.map((t) => t.name).sort()).toEqual(
       [
+        'bloodPressureSamples',
         'categoryAssignments',
         'cycleLogs',
         'exercises',
@@ -25,6 +26,7 @@ describe('schema', () => {
         'sets',
         'settings',
         'sleepLogs',
+        'spo2Samples',
       ].sort()
     );
     db.close();

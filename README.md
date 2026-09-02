@@ -91,11 +91,20 @@ anything passively overnight — see "Sleep" below for why.
   `aria-hidden` SVG next to a real text label, never the only description
   of what a control does.
 - **`:focus-visible` keyboard-focus rings use each mini-app's own bright
-  accent color** on Sleep/Focus/Meditate's night surfaces (`.theme-sleep
-  :focus-visible` / `.theme-focus :focus-visible` / `.theme-meditate
-  :focus-visible` in `mini-apps.css`), not just the app-wide neutral
-  accent — noticeably higher contrast against a dark gradient than a
-  mid-tone blue would be.
+  accent color** on Sleep/Focus/Meditate/Vitals' night surfaces
+  (`.theme-sleep :focus-visible` / `.theme-focus :focus-visible` /
+  `.theme-meditate :focus-visible` / `.theme-vitals :focus-visible` in
+  `mini-apps.css`), not just the app-wide neutral accent — noticeably
+  higher contrast against a dark gradient than a mid-tone blue would be.
+- **A real dark-mode contrast bug, found and fixed this round**: every
+  category accent's `-strong` token (the text color `.btn-secondary` and
+  similar pairs read against a `-soft` background) had no dark-mode value
+  at all, so it stayed a color tuned for a *pale* background even once
+  dark mode flipped that background dark — dark text on a dark
+  background, app-wide, for anyone with a category assigned. All seven
+  `-strong` tokens now have real dark-mode values in `tokens.css`. See
+  "Vitals" below for the full story, including a second specificity bug
+  the same pass caught in `.safety-flag`'s warning-red text.
 - **`prefers-reduced-motion` is honored everywhere something loops or
   pulses** — the Sleep/Focus starfield twinkle, the breathing pacer's
   ring animation, the Focus now-playing ripple, and the guided-session
@@ -147,16 +156,17 @@ css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
   components.css           # shared buttons/cards/forms/chips/nav
-  mini-apps.css              # Hub + Sleep + Focus + Meditate's own night-surface visual identity
+  mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals' own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
     sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
     focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
+    vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
@@ -180,7 +190,10 @@ tests/
                                 # sleep scoring/consistency/debt/trends/insights/duration-guideline/calendar-math,
                                 # focus noise synthesis/spatial motion/impulse
                                 # response/thunderclaps/guided-session content,
-                                # meditate session catalog/streak trends)
+                                # meditate session catalog/streak trends,
+                                # IEEE 11073 SFLOAT decoding/BLE payload
+                                # parsing/AHA+pulse-ox categorization/vitals
+                                # trends+streak)
   e2e/                          # Playwright — real UI flows, zero console errors
 scripts/
   serve.mjs                   # zero-dependency static server (dev + e2e)
@@ -242,12 +255,13 @@ layer, onboarding/category engine, activity tracking, timers, tailored
 programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
-Hub/mini-apps model described above, with **Sleep**, **Focus**, and
-**Meditate** built out as real mini-apps — Focus and Meditate together
-sharing one guided-session engine, with free, on-device voice guidance —
-and the Hub itself rebuilt as a real spatial-tilt, kinetic-data scene
-(`js/lib/tilt.ts`, see "The Hub" above). 524 Vitest unit tests and 304
-Playwright end-to-end tests (desktop + mobile-viewport, zero console
+Hub/mini-apps model described above, with **Sleep**, **Focus**,
+**Meditate**, and **Vitals** built out as real mini-apps — Focus and
+Meditate together sharing one guided-session engine with free, on-device
+voice guidance, and Vitals sharing its Bluetooth feature-detect with
+Heart Rate — and the Hub itself rebuilt as a real spatial-tilt,
+kinetic-data scene (`js/lib/tilt.ts`, see "The Hub" above). 571 Vitest unit tests and
+328 Playwright end-to-end tests (desktop + mobile-viewport, zero console
 errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -259,14 +273,12 @@ yet; there's no true passive overnight sensing — a phone's mic/motion
 sensors stop the moment the screen locks (see Sleep's own honesty note) —
 a real "phone stays active on the nightstand" mode is a legitimate,
 buildable next step, not attempted opportunistically alongside this round
-of work; and there's still no way to log a real blood-pressure or
-blood-oxygen reading — the "Vitals & Steps" Hub tile stays a "coming
-soon" placeholder rather than faking either from a phone's camera (a
-phone cannot measure blood pressure at all, and blood oxygen needs real
-red/infrared wavelengths a phone camera doesn't have) — real support for
-both is a legitimate next round, via manual entry and Bluetooth devices
-implementing the standard Blood Pressure and Pulse Oximeter GATT
-profiles, the same pattern as the existing BLE heart-rate strap.
+of work; and there's still no real step count — the Hub's own "Steps"
+tile stays an honest "coming soon" placeholder rather than faking one,
+since a real background pedometer needs either a native Capacitor plugin
+or a from-scratch accelerometer-based step algorithm (see "Vitals" and
+"Heart rate" above), a legitimate next step of its own once this project
+is actually wrapped as a native build.
 
 ## Data layer
 
@@ -327,10 +339,10 @@ Onboarding hands off to the Hub (`#screen-hub` in `index.html`,
 `js/features/hub/hub-view.ts`) instead of straight into a feature list.
 It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
-pattern every future mini-app (vitals, step counting, and beyond) has to
-slot into without the grid needing a rework or something ending up buried
-under "more tools." Sleep, Focus, and Meditate each get their own gradient
-identity per tile; Fitness Toolkit and the "Vitals & Steps — coming soon"
+pattern every future mini-app (step counting and beyond) has to slot into
+without the grid needing a rework or something ending up buried under
+"more tools." Sleep, Focus, Meditate, and Vitals each get their own
+gradient identity per tile; Fitness Toolkit and the "Steps — coming soon"
 tile use the app's existing neutral surface, since they aren't mini-apps
 with their own visual identity (yet, in the coming-soon case).
 
@@ -346,8 +358,9 @@ problems. A static HTML spot (`<use href="#icon-name">`) and a JS-built one
 always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
-straight in the Hub — Sleep, Focus, and Meditate need zero profile data,
-so nothing about them requires registering first. Skipping is remembered
+straight in the Hub — Sleep, Focus, Meditate, and Vitals need zero
+profile data, so nothing about them requires registering first. Skipping
+is remembered
 (`localStorage`, the same lightweight preference store the theme setting
 already uses) so it only has to happen once. The Fitness Toolkit still
 benefits from a real profile (personalized programs, calorie targets,
@@ -749,6 +762,109 @@ and deeper cross-linking into Focus's own productivity framing (a shared
 real, buildable next steps — not attempted opportunistically alongside
 this round, the same discipline every other mini-app here has held.
 
+## Vitals
+
+A fourth sibling mini-app — blood pressure and blood oxygen (SpO2),
+manual entry or a real Bluetooth cuff/pulse oximeter. Converts the Hub's
+former "Vitals & Steps — coming soon" placeholder into a real tile;
+**Steps stays its own honest "coming soon" placeholder**, split out into
+its own tile rather than silently dropped, since it's a genuinely
+separate technical project (a real background pedometer needs either a
+native Capacitor plugin or a from-scratch accelerometer-based step
+algorithm — see the native-runtime seam in "Heart rate" above — not
+something to bolt on opportunistically alongside blood pressure/SpO2).
+
+**No camera-estimated path for either metric, and the app says so
+plainly** — unlike heart rate, which has a real camera-PPG technique
+behind it, there is no honest way to estimate blood pressure or SpO2 from
+a phone: a phone has no sensor that measures pressure at all, and real
+pulse oximetry needs calibrated red + infrared light absorption ratios, not
+just brightness — a phone camera only sees RGB. So every reading here is
+**measured**, never estimated: `js/db/repositories/blood-pressure.js` and
+`spo2.js` each define only `'manual' | 'ble'` as valid sources, with no
+third, camera-based one to even tempt reusing heart rate's `confidence`
+field for.
+
+**Real Bluetooth, not just heart rate's.** `js/lib/bluetooth.js` pulls
+the shared `isBluetoothAvailable()` feature-detect out of
+`ble-heart-rate.js` so all three BLE integrations (heart rate, blood
+pressure, pulse oximeter) share one implementation instead of three
+copies of the same check. `ble-blood-pressure.js` and
+`ble-pulse-oximeter.js` connect to the standard Bluetooth SIG Blood
+Pressure and Pulse Oximeter GATT services (`blood_pressure`/
+`blood_pressure_measurement`, `pulse_oximeter`/
+`plx_continuous_measurement`) the same feature-detected,
+degrade-gracefully way `ble-heart-rate.js` already does.
+
+**A real IEEE 11073-20601 float decoder, not heart rate's simple
+8/16-bit split.** Both GATT services encode their measurement values
+(systolic/diastolic/mean arterial pressure, SpO2%, pulse rate) as
+16-bit SFLOATs — a 4-bit signed exponent plus a 12-bit signed mantissa,
+`mantissa × 10^exponent` — rather than a plain integer. `js/lib/
+ieee11073.js`'s `parseSFloat` is a pure, independently-tested decoder for
+it, shared by both BLE integrations, that also recognizes the format's
+five reserved bit patterns (NaN, "not at this resolution", ±Infinity, one
+reserved value) and returns `null` for every one of them rather than
+guessing a number — the same "refuse to fabricate a value" contract as
+`parseHeartRateMeasurement`.
+
+**Real published categorization, never a diagnosis.** `blood-pressure-
+category.js` implements the American Heart Association's five-tier table
+(Normal / Elevated / Hypertension Stage 1 / Stage 2 / Hypertensive
+Crisis) exactly — checked most-severe-first so whichever number (systolic
+or diastolic) is worse determines the category, not systolic alone.
+`spo2-category.js` uses the commonly published pulse-oximetry reference
+ranges (95%+ Normal, 91-94% Low, ≤90% flagged to seek care promptly). Both
+are purely informational — a category badge next to a reading, nothing
+framed as a diagnosis — and Stage 2/Crisis/Low/Seek-care readings get a
+visually distinct `.is-concerning` badge treatment so something that
+genuinely warrants attention doesn't look identical to a routine reading.
+
+**A real trend and a real streak, the same discipline as every other
+mini-app here.** `blood-pressure-trend.js`/`spo2-trend.js` mirror heart
+rate's own `summarizeHeartRateTrend` — latest, average, min/max, a delta
+from the previous reading, a sparkline — computed fresh from whatever's
+actually logged. `vitals-streak.js` is the same consecutive-day streak
+math as Sleep's and Meditate's, counting a day once whether it has a
+blood-pressure reading, an SpO2 reading, or both — one combined streak on
+the Hub tile, not two competing numbers.
+
+**Its own visual identity, a clinical-trust blue** — `--vitals-*` tokens
+and `.theme-vitals` in `mini-apps.css`, distinct from Sleep's
+indigo/amber, Focus's teal/mint, and Meditate's terracotta/rose, same
+fixed night-surface mechanics as all three.
+
+**A real bug this screen's own dark-mode pass surfaced and fixed, not
+specific to Vitals.** Every mini-app night surface's own warning box
+(`.safety-flag`) — Meditate's crisis note included — was silently losing
+its red warning-text color: `.miniapp-night p{ color:inherit }`, a
+generic override for headings/paragraphs, outranks `.safety-flag{
+color:var(--danger) }` on CSS specificity alone whenever `.safety-flag`
+is itself a `<p>`, since a class+element selector beats a lone class one
+regardless of source order. The background and border stayed correctly
+red; only the text quietly became the surrounding ink color. Fixed with
+one higher-specificity rule (`.miniapp-night .safety-flag{
+color:var(--danger) }`), verified with real computed-style checks in a
+headless browser, not just a glance at a screenshot.
+
+**A second, wider dark-mode bug, same discipline.** Checking
+`.btn-secondary`'s contrast in dark mode on this new screen (nothing in
+this app used `.btn-secondary` inside a night-surface mini-app before)
+surfaced that `--accent-strong` — and every category's own `-strong`
+variant (`--accent-sedentary-start-strong` and five others) — was never
+given a dark-mode value anywhere in `tokens.css`, even though every
+matching `-soft` background variant was. In light mode `-strong` is a
+*darker* shade than `-soft`, meant to read as text on that pale
+background; once dark mode flips `-soft` to a dark background without
+`-strong` also flipping to something lighter, the result is dark text on
+a dark background, app-wide, for anyone with a category assigned — not a
+Vitals-specific bug, just one this screen's own verification pass was the
+first to actually check for. Fixed by giving all seven `-strong` tokens
+(the neutral default plus all six category accents) real dark-mode
+values, brightened the same way `--danger`/`--warning`/`--success`/
+`--info` already were, verified with real computed-style checks against
+both the pre-onboarding neutral accent and a real assigned category.
+
 ## The Fitness Toolkit
 
 Everything from the original 14-phase build — activity logging, tailored
@@ -1009,12 +1125,15 @@ runtime — `undefined` in every browser context today, so it's provably
 `false` everywhere this app currently runs, the same "false in the
 browser, real once the platform supports it" contract as every other
 feature-detected API in this app. This is the seam future native-only
-features (HealthKit/Health Connect vitals and steps, a real background
+features (HealthKit/Health Connect step counts, a real background
 pedometer, BLE that isn't Chrome/Android-only) gate behind once this
 project is actually wrapped with Capacitor — deliberately not yet wired
 to a specific native plugin call, since guessing at one a plain web
 build has no way to install or exercise would risk shipping something
-wrong instead of just not-yet-built.
+wrong instead of just not-yet-built. Blood pressure and SpO2 no longer
+wait on this seam at all — see "Vitals" below, which ships a real
+Bluetooth GATT path today, the same Web Bluetooth API this section's own
+BLE strap already uses.
 
 Playwright's Chromium launches with `--use-fake-device-for-media-stream`
 (this sandbox has no real camera), which lets `heart-rate.spec.js` drive
@@ -1225,7 +1344,7 @@ end to end without ever touching an actual microphone.
 
 The vocabulary originally only covered six of the app's screens; it now
 reaches Nutrition, Heart Rate, the Cycle Tracker, Goals, Run History,
-Sleep, Focus, and Meditate too. The feedback bubble also picked up two real fixes:
+Sleep, Focus, Meditate, and Vitals too. The feedback bubble also picked up two real fixes:
 it shows a few example phrases while listening (`EXAMPLE_PHRASES` in
 `voice-control.js`) instead of a bare "Listening…" with no indication of
 what it understands, and it now carries a real dismiss button rather

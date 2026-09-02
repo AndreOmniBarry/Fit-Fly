@@ -90,6 +90,17 @@ test.describe('hub', () => {
     await expect(page.locator('#hub-steps-sub')).toHaveText('1-day streak', { timeout: 3000 });
   });
 
+  test('the Hydration tile is real and reachable', async ({ page }) => {
+    await expect(page.getByRole('button', { name: 'Hydration' })).toBeVisible();
+    await expect(page.locator('#hub-hydration-sub')).toHaveText('Log a drink');
+
+    await page.getByRole('button', { name: 'Hydration' }).click();
+    await page.locator('.hydration-quick-log-btn').first().click();
+    await page.locator('#btn-hydration-back').click();
+
+    await expect(page.locator('#hub-hydration-sub')).toHaveText('1-day streak', { timeout: 3000 });
+  });
+
   test('tilt reacts to pointer input and eases toward it', async ({ page }) => {
     await page.mouse.move(400, 50);
     await page.waitForTimeout(500);

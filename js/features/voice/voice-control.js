@@ -32,6 +32,7 @@ const COMMAND_ACTIONS = Object.freeze({
   'open-meditate': () => byId('btn-home-meditate')?.click(),
   'open-vitals': () => byId('btn-home-vitals')?.click(),
   'open-steps': () => byId('btn-home-steps')?.click(),
+  'open-hydration': () => byId('btn-home-hydration')?.click(),
 });
 
 const COMMAND_FEEDBACK = Object.freeze({
@@ -51,6 +52,7 @@ const COMMAND_FEEDBACK = Object.freeze({
   'open-meditate': 'Opening Meditate',
   'open-vitals': 'Opening Vitals',
   'open-steps': 'Opening Steps',
+  'open-hydration': 'Opening Hydration',
 });
 
 // Shown while listening so a first-time (or forgetful) user has somewhere

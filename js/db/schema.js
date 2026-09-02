@@ -306,4 +306,33 @@ export function defineSchema(db) {
     // there (see js/db/repositories/steps.js).
     stepEntries: 'date, updatedAt',
   });
+
+  // v13 — Hydration: one row per logged drink, like nutritionEntries —
+  // several logs a day add up to a real daily total, not a single
+  // running counter, so the history can show what was actually logged
+  // and when.
+  db.version(13).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+
+    hydrationEntries: '++id, date, loggedAt',
+  });
 }

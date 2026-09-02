@@ -75,6 +75,18 @@
   --steps-accent-2:#65c46a;
   --steps-accent-soft:rgba(163,230,53,0.16);
 
+  /* ---------- Hydration: a deep teal/aqua palette, its own identity again ---------- */
+  --hydration-bg-start:#0f3d42;
+  --hydration-bg-mid:#0a2b30;
+  --hydration-bg-end:#061a1d;
+  --hydration-ink:#eafbfa;
+  --hydration-ink-muted:rgba(234,251,250,0.55);
+  --hydration-card-bg:rgba(234,251,250,0.06);
+  --hydration-card-border:rgba(234,251,250,0.1);
+  --hydration-accent:#2dd4bf;
+  --hydration-accent-2:#38bdf8;
+  --hydration-accent-soft:rgba(45,212,191,0.16);
+
   /* The breathing pacer (Sleep's Wind Down, and every guided session) is
      shared markup across both night surfaces — this is what lets its
      glow/ring color follow whichever theme it's actually drawn on
@@ -116,6 +128,7 @@
 .theme-meditate .muted, .theme-meditate .field label, .theme-meditate .field-hint{ color:var(--meditate-ink-muted); }
 .theme-vitals .muted, .theme-vitals .field label, .theme-vitals .field-hint{ color:var(--vitals-ink-muted); }
 .theme-steps .muted, .theme-steps .field label, .theme-steps .field-hint{ color:var(--steps-ink-muted); }
+.theme-hydration .muted, .theme-hydration .field label, .theme-hydration .field-hint{ color:var(--hydration-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -147,6 +160,12 @@
 .theme-steps .chip[aria-pressed="true"]{
   background:var(--steps-accent-soft); border-color:rgba(163,230,53,0.4); color:var(--steps-accent); font-weight:700;
 }
+.theme-hydration .chip{
+  background:rgba(234,251,250,0.06); border:1px solid rgba(234,251,250,0.12); color:var(--hydration-ink-muted);
+}
+.theme-hydration .chip[aria-pressed="true"]{
+  background:var(--hydration-accent-soft); border-color:rgba(45,212,191,0.4); color:var(--hydration-accent); font-weight:700;
+}
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
@@ -155,6 +174,7 @@
 .theme-meditate .btn-ghost{ color:var(--meditate-ink); border-color:var(--meditate-card-border); }
 .theme-vitals .btn-ghost{ color:var(--vitals-ink); border-color:var(--vitals-card-border); }
 .theme-steps .btn-ghost{ color:var(--steps-ink); border-color:var(--steps-card-border); }
+.theme-hydration .btn-ghost{ color:var(--hydration-ink); border-color:var(--hydration-card-border); }
 
 /* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
    readable enough on the app's light/dark surfaces, but noticeably lower
@@ -167,6 +187,7 @@
 .theme-meditate :focus-visible{ outline-color:var(--meditate-accent); }
 .theme-vitals :focus-visible{ outline-color:var(--vitals-accent); }
 .theme-steps :focus-visible{ outline-color:var(--steps-accent); }
+.theme-hydration :focus-visible{ outline-color:var(--hydration-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
@@ -191,6 +212,11 @@
   background:radial-gradient(120% 70% at 25% -10%, var(--steps-bg-start) 0%, var(--steps-bg-mid) 45%, var(--steps-bg-end) 100%);
   color:var(--steps-ink);
   --pacer-accent-rgb:163,230,53;
+}
+.theme-hydration{
+  background:radial-gradient(120% 70% at 25% -10%, var(--hydration-bg-start) 0%, var(--hydration-bg-mid) 45%, var(--hydration-bg-end) 100%);
+  color:var(--hydration-ink);
+  --pacer-accent-rgb:45,212,191;
 }
 
 /* drifting stars, shared between the two night surfaces — tone follows
@@ -326,6 +352,7 @@
 .hub-grid .hub-tile:nth-child(4){ animation-delay:.2s; }
 .hub-grid .hub-tile:nth-child(5){ animation-delay:.26s; }
 .hub-grid .hub-tile:nth-child(6){ animation-delay:.32s; }
+.hub-grid .hub-tile:nth-child(7){ animation-delay:.38s; }
 
 /* ---------- kinetic data: real numbers, drawn as motion ---------- */
 .hub-tile-kinetic{ position:relative; z-index:1; }
@@ -417,6 +444,14 @@
 }
 .hub-tile--steps .hub-tile-icon{ background:var(--steps-accent-soft); }
 .hub-tile--steps .hub-tile-sub{ color:var(--steps-accent); }
+
+.hub-tile--hydration{
+  background:linear-gradient(150deg, var(--hydration-bg-mid) 0%, var(--hydration-bg-start) 55%, #0f3d42 100%);
+  box-shadow:0 14px 30px -16px rgba(10,43,48,0.5);
+  color:var(--hydration-ink);
+}
+.hub-tile--hydration .hub-tile-icon{ background:var(--hydration-accent-soft); }
+.hub-tile--hydration .hub-tile-sub{ color:var(--hydration-accent); }
 
 .hub-tile--neutral{
   background:var(--surface);
@@ -591,6 +626,88 @@
 @media (prefers-reduced-motion: reduce){
   .steps-live-dot{ animation:none; opacity:.9; }
 }
+
+/* ============================================================================
+   HYDRATION — a human silhouette that fills with real water as the day's
+   intake rises toward its goal. The fill's own y/height are real
+   attributes JS sets from the actual fraction (js/features/hydration/
+   hydration-view.ts), not a CSS value competing with it — same
+   "real data on an attribute, decoration in CSS" split as every other
+   kinetic-data element in this app (Sleep's score ring, Steps' goal ring).
+   The wave riding on top of that real fill line is pure decoration: a
+   looping horizontal scroll plus the fill's own eased vertical rise is
+   what reads as genuinely liquid, not a static bar chart shaped like a
+   person.
+   ========================================================================== */
+.hydration-card{
+  background:var(--hydration-card-bg); border:1px solid var(--hydration-card-border);
+  border-radius:var(--radius-lg); padding:var(--space-4);
+}
+.hydration-card h3{ margin:0; }
+
+.hydration-figure{
+  position:relative; width:160px; margin:0 auto; text-align:center;
+}
+.hydration-figure-outline{
+  fill:var(--hydration-card-bg); stroke:var(--hydration-card-border); stroke-width:2;
+}
+.hydration-water-fill{
+  transition:y 1.1s cubic-bezier(.16,1,.3,1), height 1.1s cubic-bezier(.16,1,.3,1);
+}
+.hydration-wave-position{
+  transition:transform 1.1s cubic-bezier(.16,1,.3,1);
+}
+.hydration-wave-scroll{
+  animation:hydration-wave-scroll 3.2s linear infinite;
+}
+.hydration-wave-scroll path{ fill:var(--hydration-accent); opacity:.55; }
+@keyframes hydration-wave-scroll{
+  from{ transform:translateX(0); }
+  to{ transform:translateX(-100px); }
+}
+@media (prefers-reduced-motion: reduce){
+  .hydration-wave-scroll{ animation:none; }
+  .hydration-water-fill, .hydration-wave-position{ transition:none; }
+}
+.hydration-figure-value{
+  margin-top:10px;
+}
+.hydration-figure-value .amount{
+  font-family:var(--miniapp-font-display); font-size:28px; line-height:1;
+}
+.hydration-figure-value .amount .unit{ font-size:15px; margin-left:2px; opacity:.7; }
+.hydration-figure-value .label{
+  display:block; font-size:12.5px; font-weight:700; color:var(--hydration-accent);
+  letter-spacing:0.02em; margin-top:3px;
+}
+
+.hydration-stat-row{
+  display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:10px;
+}
+.hydration-stat-row .hydration-stat-tile:nth-child(1){ animation-delay:.04s; }
+.hydration-stat-row .hydration-stat-tile:nth-child(2){ animation-delay:.1s; }
+.hydration-stat-tile{
+  background:var(--hydration-card-bg); border:1px solid var(--hydration-card-border);
+  border-radius:16px; padding:14px 10px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
+}
+.hydration-stat-tile .value{ font-family:var(--miniapp-font-display); font-size:22px; font-weight:400; color:var(--hydration-accent); }
+.hydration-stat-tile .label{ font-size:11px; color:var(--hydration-ink-muted); }
+
+/* Quick-log serving-size chips — a real, tactile one-tap log, not a form
+   for the common case. */
+.hydration-quick-log{
+  display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;
+}
+.hydration-quick-log-btn{
+  background:var(--hydration-card-bg); border:1px solid var(--hydration-card-border);
+  border-radius:14px; padding:10px 6px;
+  display:flex; flex-direction:column; align-items:center; gap:2px;
+  color:inherit;
+}
+.hydration-quick-log-btn .amount{ font-size:14px; font-weight:700; }
+.hydration-quick-log-btn .name{ font-size:11px; color:var(--hydration-ink-muted); }
+.hydration-quick-log-btn:active{ background:var(--hydration-accent-soft); }
 
 /* A compact single row — label+stat beside a tight sparkline, not two
    stacked rows with a full-height bar chart underneath. Real analytics

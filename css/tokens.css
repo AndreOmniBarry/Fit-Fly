@@ -139,6 +139,22 @@
     --accent-hypertrophy-soft:#3a1e22;
     --accent-endurance-soft:#182a40;
 
+    /* Every -strong variant above (the text color .btn-secondary and
+       similar pair against a -soft background) was only ever defined
+       once, in the light block — fine while -soft stayed pale, but once
+       -soft flips to a dark background here, that same light-tuned
+       -strong text (a medium-dark shade, meant to read against a PALE
+       background) sits dark-on-dark and is nearly illegible. Each one
+       gets its own dark-mode value here, brightened the same way
+       --danger/--warning/--success/--info already are above. */
+    --accent-strong:#8fb0d1;
+    --accent-sedentary-start-strong:#7ecfcf;
+    --accent-cut-fat-loss-strong:#e8935e;
+    --accent-recomposition-strong:#b39ce8;
+    --accent-rehab-recuperation-strong:#7ecf95;
+    --accent-hypertrophy-strong:#e87684;
+    --accent-endurance-strong:#7eaee8;
+
     --shadow-sm:0 1px 3px rgba(0,0,0,.35);
     --shadow-md:0 4px 16px rgba(0,0,0,.4);
     --shadow-lg:0 12px 32px rgba(0,0,0,.5);
@@ -177,6 +193,16 @@
   --accent-rehab-recuperation-soft:#183a24;
   --accent-hypertrophy-soft:#3a1e22;
   --accent-endurance-soft:#182a40;
+
+  /* Same dark-mode -strong fix as the prefers-color-scheme block above —
+     kept in sync with it, same discipline as every other token here. */
+  --accent-strong:#8fb0d1;
+  --accent-sedentary-start-strong:#7ecfcf;
+  --accent-cut-fat-loss-strong:#e8935e;
+  --accent-recomposition-strong:#b39ce8;
+  --accent-rehab-recuperation-strong:#7ecf95;
+  --accent-hypertrophy-strong:#e87684;
+  --accent-endurance-strong:#7eaee8;
 
   --shadow-sm:0 1px 3px rgba(0,0,0,.35);
   --shadow-md:0 4px 16px rgba(0,0,0,.4);

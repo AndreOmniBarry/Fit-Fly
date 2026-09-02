@@ -243,4 +243,36 @@ export function defineSchema(db) {
 
     meditationSessions: '++id, date, completedAt, sessionId',
   });
+
+  // v11 — Vitals: blood pressure and blood oxygen (SpO2), each its own
+  // store since their fields genuinely differ (systolic/diastolic vs a
+  // single percentage) — same "one row per reading, keyed by when it
+  // happened" shape as heartRateSamples, since a person may log either
+  // more than once a day.
+  db.version(11).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+
+    // source: 'manual' | 'ble' — both MEASURED, never estimated (see
+    // js/db/repositories/blood-pressure.js).
+    bloodPressureSamples: '++id, recordedAt, source',
+    // source: 'manual' | 'ble' — same MEASURED-only contract (see
+    // js/db/repositories/spo2.js).
+    spo2Samples: '++id, recordedAt, source',
+  });
 }

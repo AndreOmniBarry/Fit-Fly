@@ -1,14 +1,16 @@
 // Web Bluetooth heart-rate-strap support, feature-detected — it's a
 // Chrome/Android-family API with no Safari/iOS implementation at all
 // (see the README's platform notes), so this always has to degrade
-// gracefully rather than assume it's there.
+// gracefully rather than assume it's there. The feature-detect itself
+// (isBluetoothAvailable) now lives in js/lib/bluetooth.js, shared with
+// Vitals' own blood-pressure/pulse-oximeter BLE integrations — re-exported
+// here so nothing importing it from this file has to change.
+import { isBluetoothAvailable } from '../../lib/bluetooth.js';
+
+export { isBluetoothAvailable };
 
 const HEART_RATE_SERVICE = 'heart_rate';
 const HEART_RATE_MEASUREMENT_CHARACTERISTIC = 'heart_rate_measurement';
-
-export function isBluetoothAvailable() {
-  return 'bluetooth' in navigator;
-}
 
 /** Parses the standard Bluetooth SIG Heart Rate Measurement
  *  characteristic format: byte 0 is a flags field whose low bit says

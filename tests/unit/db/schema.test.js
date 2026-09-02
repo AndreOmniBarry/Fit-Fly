@@ -27,6 +27,7 @@ describe('schema', () => {
         'settings',
         'sleepLogs',
         'spo2Samples',
+        'stepEntries',
       ].sort()
     );
     db.close();

@@ -91,11 +91,12 @@ anything passively overnight — see "Sleep" below for why.
   `aria-hidden` SVG next to a real text label, never the only description
   of what a control does.
 - **`:focus-visible` keyboard-focus rings use each mini-app's own bright
-  accent color** on Sleep/Focus/Meditate/Vitals' night surfaces
+  accent color** on Sleep/Focus/Meditate/Vitals/Steps' night surfaces
   (`.theme-sleep :focus-visible` / `.theme-focus :focus-visible` /
-  `.theme-meditate :focus-visible` / `.theme-vitals :focus-visible` in
-  `mini-apps.css`), not just the app-wide neutral accent — noticeably
-  higher contrast against a dark gradient than a mid-tone blue would be.
+  `.theme-meditate :focus-visible` / `.theme-vitals :focus-visible` /
+  `.theme-steps :focus-visible` in `mini-apps.css`), not just the
+  app-wide neutral accent — noticeably higher contrast against a dark
+  gradient than a mid-tone blue would be.
 - **A real dark-mode contrast bug, found and fixed this round**: every
   category accent's `-strong` token (the text color `.btn-secondary` and
   similar pairs read against a `-soft` background) had no dark-mode value
@@ -156,10 +157,10 @@ css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
   components.css           # shared buttons/cards/forms/chips/nav
-  mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals' own night-surface visual identity
+  mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals + Steps' own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -167,6 +168,7 @@ js/
     focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
+    steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak (TypeScript)
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
@@ -237,6 +239,23 @@ A couple of things worth knowing once it's live:
   over HTTPS by default, so this just works without extra config.
 - To test on an iPhone: open the Vercel URL in Safari, then **Share →
   Add to Home Screen** to install it as a standalone PWA.
+- To test on Android as an installed app: open the Vercel URL in Chrome,
+  then the **⋮ menu → Install app** (or the install prompt Chrome shows
+  on its own) — same standalone-PWA install as iOS, using the real
+  192×192/512×512 icons `manifest.json` now declares.
+- **To get a real, installable `.apk`** (not just a browser install) —
+  useful for sideloading onto a device, or testing outside Chrome
+  entirely: [PWABuilder](https://www.pwabuilder.com) packages any live
+  PWA URL into a real Android app (a Trusted Web Activity) in a couple of
+  minutes, entirely in your own browser — no Android Studio, no
+  emulator, no Capacitor setup required on your end. Point it at the
+  deployed Vercel URL once `manifest.json`'s icons (already in place)
+  are live, and it hands back a signed `.apk`/`.aab` ready to install on
+  a real device via `adb install` or just opening the file. (This
+  environment's own outbound network policy blocks `dl.google.com`, the
+  actual Android SDK's download host, so building an APK from inside a
+  sandboxed dev session directly isn't possible here — PWABuilder runs
+  entirely on its own infrastructure and sidesteps that completely.)
 
 ## Testing
 
@@ -256,29 +275,29 @@ programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
 Hub/mini-apps model described above, with **Sleep**, **Focus**,
-**Meditate**, and **Vitals** built out as real mini-apps — Focus and
-Meditate together sharing one guided-session engine with free, on-device
-voice guidance, and Vitals sharing its Bluetooth feature-detect with
-Heart Rate — and the Hub itself rebuilt as a real spatial-tilt,
-kinetic-data scene (`js/lib/tilt.ts`, see "The Hub" above). 571 Vitest unit tests and
-328 Playwright end-to-end tests (desktop + mobile-viewport, zero console
-errors) are green.
+**Meditate**, **Vitals**, and **Steps** built out as real mini-apps —
+Focus and Meditate together sharing one guided-session engine with free,
+on-device voice guidance, Vitals and Steps together sharing a Bluetooth
+feature-detect with Heart Rate, and Steps' own real motion-sensed step
+detector — and the Hub itself rebuilt as a real spatial-tilt,
+kinetic-data scene (`js/lib/tilt.ts`, see "The Hub" above). **Every Hub
+tile is real now** — Steps was the last "coming soon" placeholder.
+586 Vitest unit tests and 350 Playwright end-to-end tests
+(desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
 still entirely on-device, no server, by design (a real backend for
 coach/doctor access and cross-device history is planned, deliberately not
 built opportunistically alongside this round of work); no export/import
 for on-device data either yet; no offline service worker/asset caching
-yet; there's no true passive overnight sensing — a phone's mic/motion
-sensors stop the moment the screen locks (see Sleep's own honesty note) —
-a real "phone stays active on the nightstand" mode is a legitimate,
-buildable next step, not attempted opportunistically alongside this round
-of work; and there's still no real step count — the Hub's own "Steps"
-tile stays an honest "coming soon" placeholder rather than faking one,
-since a real background pedometer needs either a native Capacitor plugin
-or a from-scratch accelerometer-based step algorithm (see "Vitals" and
-"Heart rate" above), a legitimate next step of its own once this project
-is actually wrapped as a native build.
+yet; there's no true passive background sensing anywhere in this app — a
+phone's mic/motion sensors stop the moment the screen locks or the tab
+isn't active (see Sleep's own overnight honesty note, and Steps' own
+"a live walk only counts while this screen stays open" note) — a real
+"keeps working once you switch apps or lock your phone" mode for either
+is a legitimate, buildable next step, needing either a native Capacitor
+wrapper or (for Sleep specifically) a phone genuinely staying awake on a
+nightstand, not attempted opportunistically alongside this round of work.
 
 ## Data layer
 
@@ -339,12 +358,12 @@ Onboarding hands off to the Hub (`#screen-hub` in `index.html`,
 `js/features/hub/hub-view.ts`) instead of straight into a feature list.
 It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
-pattern every future mini-app (step counting and beyond) has to slot into
-without the grid needing a rework or something ending up buried under
-"more tools." Sleep, Focus, Meditate, and Vitals each get their own
-gradient identity per tile; Fitness Toolkit and the "Steps — coming soon"
-tile use the app's existing neutral surface, since they aren't mini-apps
-with their own visual identity (yet, in the coming-soon case).
+pattern every future mini-app has to slot into without the grid needing a
+rework or something ending up buried under "more tools." Sleep, Focus,
+Meditate, Vitals, and Steps each get their own gradient identity per
+tile; Fitness Toolkit uses the app's existing neutral surface, since it
+isn't a mini-app with its own visual identity. **Every tile on the grid
+is real now** — Steps (see below) was the last "coming soon" placeholder.
 
 **No emoji anywhere in the app** — `js/lib/icons.ts` plus a sprite of real
 inline SVG `<symbol>` definitions at the top of `index.html` (search it for
@@ -358,7 +377,7 @@ problems. A static HTML spot (`<use href="#icon-name">`) and a JS-built one
 always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
-straight in the Hub — Sleep, Focus, Meditate, and Vitals need zero
+straight in the Hub — Sleep, Focus, Meditate, Vitals, and Steps need zero
 profile data, so nothing about them requires registering first. Skipping
 is remembered
 (`localStorage`, the same lightweight preference store the theme setting
@@ -865,6 +884,73 @@ values, brightened the same way `--danger`/`--warning`/`--success`/
 `--info` already were, verified with real computed-style checks against
 both the pre-onboarding neutral accent and a real assigned category.
 
+## Steps
+
+A fifth sibling mini-app, and the last real "Vitals & Steps" placeholder
+becomes an actual feature: a live-counted walk via real motion sensing, or
+manual entry for a full day's total. **Every Hub tile is now real** — no
+tile on the Hub grid is a "coming soon" placeholder any longer, the first
+time that's been true this whole project.
+
+**A real step-detection algorithm, not a fabricated counter.**
+`js/lib/step-detector.js`'s `createStepDetector` is a genuine
+threshold-crossing peak detector — the same basic technique behind most
+simple pedometer implementations: a light moving-average low-pass filter
+smooths raw accelerometer noise, then a step is counted every time the
+smoothed magnitude rises above a real threshold (1.2 m/s², a typical
+footfall spike once gravity is already removed) and falls back below it,
+with a 250ms refractory period so one footfall's rise-then-fall can't be
+double-counted as two steps. Pure, stateful-but-synchronous, and
+independently unit-tested against synthetic rise-peak-fall sample
+sequences — the same synthetic-signal testing discipline as the
+camera-PPG heart-rate estimator, deterministic and requiring no real
+sensor to verify.
+
+**Real motion sensing, honestly scoped.** `js/features/steps/motion-
+steps.js` uses the Generic Sensor API's `LinearAccelerationSensor` —
+gravity already removed by the sensor itself, which is what makes a fixed
+threshold in the detector meaningful (the raw `Accelerometer` would need
+to subtract ~9.8 m/s² of gravity itself first). Feature-detected
+(`isMotionSensingAvailable()`) since, like Web Bluetooth, this is a
+Chrome/Android(+desktop-with-a-real-sensor) API with no Safari/iOS
+implementation at all — "Start a Walk" is disabled with an honest status
+message rather than a dead button wherever it's missing.
+
+**No passive background pedometer, and the screen says so plainly.** This
+is a plain web app with no service worker or background execution — a
+live walk only counts steps while this screen stays open and active,
+the same "no true passive sensing" honesty as Sleep's own overnight
+note. For a full day's real total, "Log Today's Total" sets the day's
+count outright from whatever a phone's own health app or a fitness band
+already reports — deliberately a *set*, not an *add*, since it's meant to
+be the authoritative number for the day. A live-counted walk's steps, in
+contrast, always add to whatever's already logged for today, since a
+walk is always genuinely new activity happening right now — several
+walks in one day add up rather than overwriting each other
+(`js/db/repositories/steps.js`'s `addStepsToDate` vs `setStepsForDate`).
+
+**A real, cited daily goal, not the popularized "10,000."** The default
+suggested goal (7,500 steps/day, user-editable) cites Lee et al., 2019,
+*JAMA Internal Medicine* — a study of step volume and all-cause mortality
+in older women that found the mortality benefit leveling off around this
+range, a real, specific citation rather than parroting the far more
+widely known but less rigorously sourced 10,000-step figure (which
+traces back to 1960s Japanese pedometer marketing, not a health study).
+Progress draws in as a real circular ring, the same honest
+`stroke-dashoffset`-as-attribute technique as Sleep's own score ring —
+never a competing CSS value fighting the JS-driven fill.
+
+**A real streak, and the app's own new PWA installability groundwork.**
+`js/features/steps/steps-trend.js` mirrors every other mini-app's own
+streak math (Sleep, Meditate, Vitals). Alongside this round, `manifest.json`
+picked up real 192×192/512×512 PNG icons (both `any` and `maskable`
+purpose, generated from the app's existing brand mark) — previously the
+manifest only declared one inline SVG icon, workable in a browser install
+prompt but not what a proper Android adaptive-icon mask wants; this is
+what a tool like [PWABuilder](https://www.pwabuilder.com) needs to
+package a real, installable Android app from this site's own live URL,
+without wrapping the codebase in a native Capacitor build at all.
+
 ## The Fitness Toolkit
 
 Everything from the original 14-phase build — activity logging, tailored
@@ -1125,10 +1211,12 @@ runtime — `undefined` in every browser context today, so it's provably
 `false` everywhere this app currently runs, the same "false in the
 browser, real once the platform supports it" contract as every other
 feature-detected API in this app. This is the seam future native-only
-features (HealthKit/Health Connect step counts, a real background
-pedometer, BLE that isn't Chrome/Android-only) gate behind once this
-project is actually wrapped with Capacitor — deliberately not yet wired
-to a specific native plugin call, since guessing at one a plain web
+features (HealthKit/Health Connect step counts, a real *background*
+pedometer that keeps counting once the app isn't the foregrounded,
+active tab — Steps' own live-counted walk, covered below, already works
+today without it — and BLE that isn't Chrome/Android-only) gate behind
+once this project is actually wrapped with Capacitor — deliberately not
+yet wired to a specific native plugin call, since guessing at one a plain web
 build has no way to install or exercise would risk shipping something
 wrong instead of just not-yet-built. Blood pressure and SpO2 no longer
 wait on this seam at all — see "Vitals" below, which ships a real
@@ -1344,7 +1432,7 @@ end to end without ever touching an actual microphone.
 
 The vocabulary originally only covered six of the app's screens; it now
 reaches Nutrition, Heart Rate, the Cycle Tracker, Goals, Run History,
-Sleep, Focus, Meditate, and Vitals too. The feedback bubble also picked up two real fixes:
+Sleep, Focus, Meditate, Vitals, and Steps too. The feedback bubble also picked up two real fixes:
 it shows a few example phrases while listening (`EXAMPLE_PHRASES` in
 `voice-control.js`) instead of a bare "Listening…" with no indication of
 what it understands, and it now carries a real dismiss button rather

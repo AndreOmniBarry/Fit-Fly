@@ -91,12 +91,12 @@ anything passively overnight — see "Sleep" below for why.
   `aria-hidden` SVG next to a real text label, never the only description
   of what a control does.
 - **`:focus-visible` keyboard-focus rings use each mini-app's own bright
-  accent color** on Sleep/Focus/Meditate/Vitals/Steps' night surfaces
-  (`.theme-sleep :focus-visible` / `.theme-focus :focus-visible` /
+  accent color** on Sleep/Focus/Meditate/Vitals/Steps/Hydration's night
+  surfaces (`.theme-sleep :focus-visible` / `.theme-focus :focus-visible` /
   `.theme-meditate :focus-visible` / `.theme-vitals :focus-visible` /
-  `.theme-steps :focus-visible` in `mini-apps.css`), not just the
-  app-wide neutral accent — noticeably higher contrast against a dark
-  gradient than a mid-tone blue would be.
+  `.theme-steps :focus-visible` / `.theme-hydration :focus-visible` in
+  `mini-apps.css`), not just the app-wide neutral accent — noticeably
+  higher contrast against a dark gradient than a mid-tone blue would be.
 - **A real dark-mode contrast bug, found and fixed this round**: every
   category accent's `-strong` token (the text color `.btn-secondary` and
   similar pairs read against a `-soft` background) had no dark-mode value
@@ -157,10 +157,10 @@ css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
   components.css           # shared buttons/cards/forms/chips/nav
-  mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals + Steps' own night-surface visual identity
+  mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals + Steps + Hydration's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration)
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -169,6 +169,7 @@ js/
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
     steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak (TypeScript)
+    hydration/                  # Hydration mini-app: real running daily total, water-fill figure, cited goal, interval-based reminder (TypeScript)
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
@@ -195,7 +196,9 @@ tests/
                                 # meditate session catalog/streak trends,
                                 # IEEE 11073 SFLOAT decoding/BLE payload
                                 # parsing/AHA+pulse-ox categorization/vitals
-                                # trends+streak)
+                                # trends+streak, step-detection algorithm/
+                                # steps trends, hydration trends/interval-
+                                # based reminder logic)
   e2e/                          # Playwright — real UI flows, zero console errors
 scripts/
   serve.mjs                   # zero-dependency static server (dev + e2e)
@@ -275,14 +278,16 @@ programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
 Hub/mini-apps model described above, with **Sleep**, **Focus**,
-**Meditate**, **Vitals**, and **Steps** built out as real mini-apps —
-Focus and Meditate together sharing one guided-session engine with free,
-on-device voice guidance, Vitals and Steps together sharing a Bluetooth
-feature-detect with Heart Rate, and Steps' own real motion-sensed step
-detector — and the Hub itself rebuilt as a real spatial-tilt,
-kinetic-data scene (`js/lib/tilt.ts`, see "The Hub" above). **Every Hub
-tile is real now** — Steps was the last "coming soon" placeholder.
-586 Vitest unit tests and 350 Playwright end-to-end tests
+**Meditate**, **Vitals**, **Steps**, and **Hydration** built out as real
+mini-apps — Focus and Meditate together sharing one guided-session engine
+with free, on-device voice guidance, Vitals and Steps together sharing a
+Bluetooth feature-detect with Heart Rate, Steps' own real motion-sensed
+step detector, and Hydration sharing Goals' local-notification approach
+for its own interval-based reminder — and the Hub itself rebuilt as a
+real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The Hub"
+above). **Every Hub tile is real now** — Steps was the last "coming soon"
+placeholder.
+599 Vitest unit tests and 378 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -360,8 +365,8 @@ It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
 pattern every future mini-app has to slot into without the grid needing a
 rework or something ending up buried under "more tools." Sleep, Focus,
-Meditate, Vitals, and Steps each get their own gradient identity per
-tile; Fitness Toolkit uses the app's existing neutral surface, since it
+Meditate, Vitals, Steps, and Hydration each get their own gradient identity
+per tile; Fitness Toolkit uses the app's existing neutral surface, since it
 isn't a mini-app with its own visual identity. **Every tile on the grid
 is real now** — Steps (see below) was the last "coming soon" placeholder.
 
@@ -377,8 +382,9 @@ problems. A static HTML spot (`<use href="#icon-name">`) and a JS-built one
 always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
-straight in the Hub — Sleep, Focus, Meditate, Vitals, and Steps need zero
-profile data, so nothing about them requires registering first. Skipping
+straight in the Hub — Sleep, Focus, Meditate, Vitals, Steps, and Hydration
+need zero profile data, so nothing about them requires registering first.
+Skipping
 is remembered
 (`localStorage`, the same lightweight preference store the theme setting
 already uses) so it only has to happen once. The Fitness Toolkit still
@@ -951,6 +957,59 @@ what a tool like [PWABuilder](https://www.pwabuilder.com) needs to
 package a real, installable Android app from this site's own live URL,
 without wrapping the codebase in a native Capacitor build at all.
 
+## Hydration
+
+The Hub's seventh tile: a running daily total logged from real serving
+sizes or a custom amount, drawn as a human figure that actually fills
+with water as the day's log grows — not a decorative animation loop, a
+real reading of today's total against the daily goal.
+
+**A real fill, not a trick of CSS.** The figure is one clipped SVG
+silhouette (`#hydrationFigureClip`) with a `<rect>` behind it
+(`#hydration-water-fill`) whose `y` and `height` attributes are set
+directly from `todayMl / goal`, the exact same "real attribute drives the
+data, CSS only eases the transition" technique as Sleep's score ring and
+Steps' goal ring — the ring's `stroke-dashoffset`, this screen's `y`/
+`height`, never a competing value fighting the JS-driven fill. The one
+purely decorative piece is the small wave riding the water's surface
+(`.hydration-wave-scroll`'s own looping `@keyframes`, positioned by JS to
+track the fill's real top edge but animated by CSS) — it never encodes
+data itself, and `prefers-reduced-motion` turns it (and the fill's own
+eased transition) off entirely, jumping straight to the real value like
+every other kinetic reading in this app.
+
+**A real, cited daily goal, not the popular "8 glasses a day."** The
+default suggested goal (2,200ml, user-editable) is drawn from the
+National Academies of Medicine's Dietary Reference Intake for total
+water — roughly 3.7L/day for men and 2.7L/day for women including food,
+about 3.0L and 2.2L from drinks alone — a real range rather than the
+much more widely repeated but unsourced eight-glasses folk rule.
+
+**Every entry is real and additive.** Three quick-log servings (a 250ml
+cup, a 500ml bottle, a 750ml large bottle) or a custom amount each add
+one real, timestamped row (`js/db/repositories/hydration.js`'s
+`hydrationEntries`, append-only like nutrition's own log) rather than
+overwriting a single day's number — several drinks logged across a day
+sum into the running total shown on the figure and in "Today's Log."
+`js/features/hydration/hydration-trend.js` mirrors every other mini-app's
+own streak and 7-day-average math, grouping multiple same-day entries
+into one real daily total first.
+
+**A real reminder, honestly scoped.** The Reminders card is the same
+local/in-session notification approach as Goals (`js/lib/
+notifications.js`) — asked for once, never on its own, then a real
+system notification. Unlike Goals' once-per-calendar-day nudge, water
+needs reminding more than once a day, so `js/features/hydration/
+hydration-reminders.js`'s `hydrationNeedsReminder` is interval-based (a
+user-editable "remind every N hours," checked against a persisted
+timestamp of the last reminder rather than a date string) — checked on
+every app load and every time this screen opens, and it stands down for
+the rest of the day the moment today's goal is actually met, so it never
+nags once you're done. And it's honest about its real limit: this only
+ever fires while the app is open — there's still no push server behind
+this on-device app — the same "not a true background alarm" caveat as
+Goals' own nudge, spelled out on the screen itself rather than implied.
+
 ## The Fitness Toolkit
 
 Everything from the original 14-phase build — activity logging, tailored
@@ -1432,7 +1491,7 @@ end to end without ever touching an actual microphone.
 
 The vocabulary originally only covered six of the app's screens; it now
 reaches Nutrition, Heart Rate, the Cycle Tracker, Goals, Run History,
-Sleep, Focus, Meditate, Vitals, and Steps too. The feedback bubble also picked up two real fixes:
+Sleep, Focus, Meditate, Vitals, Steps, and Hydration too. The feedback bubble also picked up two real fixes:
 it shows a few example phrases while listening (`EXAMPLE_PHRASES` in
 `voice-control.js`) instead of a bare "Listening…" with no indication of
 what it understands, and it now carries a real dismiss button rather

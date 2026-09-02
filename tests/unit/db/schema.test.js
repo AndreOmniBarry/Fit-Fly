@@ -14,6 +14,7 @@ describe('schema', () => {
         'exercises',
         'favoriteFoods',
         'goals',
+        'hydrationEntries',
         'injuryScreens',
         'profile',
         'heartRateSamples',

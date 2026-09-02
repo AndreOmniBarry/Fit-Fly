@@ -80,6 +80,7 @@
     <symbol id="icon-meditate" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="2.5"/><path d="M12 8v3"/><path d="M4 19c1-3 3-5 4-5h8c1 0 3 2 4 5"/><path d="M8 14c-1 1-2 2-2 3.5M16 14c1 1 2 2 2 3.5"/></symbol>
     <symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16 16 10"/><circle cx="12" cy="16" r="1.3" fill="currentColor" stroke="none"/></symbol>
     <symbol id="icon-footprints" viewBox="0 0 24 24"><ellipse cx="8" cy="7.5" rx="2.6" ry="4" transform="rotate(-12 8 7.5)"/><circle cx="6.2" cy="2.6" r="1" fill="currentColor" stroke="none"/><ellipse cx="16" cy="16.5" rx="2.6" ry="4" transform="rotate(-12 16 16.5)"/><circle cx="14.2" cy="11.6" r="1" fill="currentColor" stroke="none"/></symbol>
+    <symbol id="icon-glass-water" viewBox="0 0 24 24"><path d="M6 4h12l-1.5 16h-9L6 4Z"/><path d="M6.6 12c1.5 1 3 1 4.5-.2s3-1.2 4.5-.2"/></symbol>
   </defs>
 </svg>
 
@@ -390,6 +391,18 @@
           <span>
             <span class="hub-tile-title display">Steps</span>
             <p class="hub-tile-sub" id="hub-steps-sub">Count a real walk</p>
+          </span>
+        </span>
+      </button>
+
+      <button class="hub-tile hub-tile--hydration tilt-card tilt-enter" id="btn-home-hydration">
+        <span class="hub-tile-face tilt-press">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-glass-water"></use></svg></span>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Hydration</span>
+            <p class="hub-tile-sub" id="hub-hydration-sub">Log a drink</p>
           </span>
         </span>
       </button>
@@ -1137,6 +1150,127 @@
     <p class="safety-flag" style="margin-top:var(--space-4);">
       <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       A live walk only counts steps while this screen stays open and active — there's no passive, background pedometer here (this web app has no way to keep running once you switch apps or lock your phone). For a full day's real total, log it manually from your phone's own step count.
+    </p>
+  </section>
+
+  <!-- HYDRATION: a human silhouette that fills with real water as the
+       day's intake rises toward its goal — see mini-apps.css's own
+       "HYDRATION" comment block for how the fill/wave are split between
+       real data (the fill rect's y/height, a real attribute) and pure
+       decoration (the scrolling wave). -->
+  <section class="screen miniapp-night theme-hydration" id="screen-hydration" hidden>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-hydration-back" aria-label="Back to your apps">←</button>
+      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Hydration</span>
+      <span style="width:36px;"></span>
+    </div>
+
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Stay hydrated</h2>
+    <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">
+      Tap a real serving size to log a drink, or add your own amount.
+    </p>
+
+    <div class="hydration-figure tilt-enter" style="margin-top:var(--space-4);">
+      <svg viewBox="0 0 100 170" width="160" height="272" data-tilt-depth="1">
+        <defs>
+          <clipPath id="hydrationFigureClip">
+            <circle cx="50" cy="20" r="14"/>
+            <path d="M50 34 C36 34 27 43 26 57 C25 68 29 79 33 87 C27 99 25 116 30 132 C34 145 40 154 44 160 L56 160 C60 154 66 145 70 132 C75 116 73 99 67 87 C71 79 75 68 74 57 C73 43 64 34 50 34 Z"/>
+          </clipPath>
+          <linearGradient id="hydrationWaterGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="var(--hydration-accent-2)"/>
+            <stop offset="100%" stop-color="var(--hydration-accent)"/>
+          </linearGradient>
+        </defs>
+        <g class="hydration-figure-outline">
+          <circle cx="50" cy="20" r="14"/>
+          <path d="M50 34 C36 34 27 43 26 57 C25 68 29 79 33 87 C27 99 25 116 30 132 C34 145 40 154 44 160 L56 160 C60 154 66 145 70 132 C75 116 73 99 67 87 C71 79 75 68 74 57 C73 43 64 34 50 34 Z"/>
+        </g>
+        <g clip-path="url(#hydrationFigureClip)">
+          <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="170" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
+          <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(170px);">
+            <g class="hydration-wave-scroll">
+              <path d="M0 4 Q12.5 -3 25 4 T50 4 T75 4 T100 4 T125 4 T150 4 T175 4 T200 4 V16 H0 Z"/>
+            </g>
+          </g>
+        </g>
+      </svg>
+      <div class="hydration-figure-value">
+        <span class="amount"><span id="hydration-today-ml">0</span><span class="unit">ml</span></span>
+        <span class="label" id="hydration-goal-label">of 2,200ml goal</span>
+      </div>
+    </div>
+
+    <div class="hydration-stat-row" style="margin-top:var(--space-4);">
+      <div class="hydration-stat-tile tilt-card tilt-enter">
+        <span class="value" id="hydration-stat-streak">—</span>
+        <span class="label">day streak</span>
+      </div>
+      <div class="hydration-stat-tile tilt-card tilt-enter">
+        <span class="value" id="hydration-stat-avg">—</span>
+        <span class="label">ml/day, avg last 7</span>
+      </div>
+    </div>
+
+    <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
+      <span class="tilt-press stack">
+        <h3>Quick Log</h3>
+        <div class="hydration-quick-log" id="hydration-quick-log">
+          <button type="button" class="hydration-quick-log-btn" data-ml="250">
+            <span class="amount">250ml</span>
+            <span class="name">Cup</span>
+          </button>
+          <button type="button" class="hydration-quick-log-btn" data-ml="500">
+            <span class="amount">500ml</span>
+            <span class="name">Bottle</span>
+          </button>
+          <button type="button" class="hydration-quick-log-btn" data-ml="750">
+            <span class="amount">750ml</span>
+            <span class="name">Large Bottle</span>
+          </button>
+        </div>
+        <div class="row" style="margin-top:4px;">
+          <input class="input" type="number" id="hydration-custom-ml" min="1" max="5000" placeholder="Custom amount (ml)">
+          <button class="btn btn-secondary" id="btn-hydration-custom-save">Log</button>
+        </div>
+        <span class="field-error" id="err-hydration-custom" hidden>Enter a real amount between 1 and 5,000ml.</span>
+      </span>
+    </div>
+
+    <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
+        <h3>Daily Goal</h3>
+        <p class="muted" style="font-size:var(--fs-sm);">
+          The National Academies of Medicine's Dietary Reference Intake for total water is roughly 3.7L/day for men and 2.7L/day for women (including food) — about 3.0L and 2.2L from drinks alone. Set your own if you'd rather.
+        </p>
+        <div class="row">
+          <input class="input" type="number" id="hydration-goal-input" min="500" max="6000" placeholder="2200">
+          <button class="btn btn-secondary" id="btn-hydration-goal-save">Set</button>
+        </div>
+      </span>
+    </div>
+
+    <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
+        <h3>Reminders</h3>
+        <p class="muted" id="hydration-notify-status" style="font-size:var(--fs-sm);">Checking…</p>
+        <button class="btn btn-secondary btn-block" id="btn-hydration-enable-notify">Enable Notifications</button>
+        <div class="row" id="hydration-interval-row" style="align-items:center; gap:8px; margin-top:4px;">
+          <label for="hydration-interval-hours" style="font-size:var(--fs-sm); margin:0;">Remind every</label>
+          <input class="input" type="number" id="hydration-interval-hours" min="1" max="8" style="width:70px;" value="2">
+          <span class="muted" style="font-size:var(--fs-sm);">hours</span>
+        </div>
+      </span>
+    </div>
+
+    <div class="stack" style="margin-top:var(--space-3);">
+      <h3>Today's Log</h3>
+      <div class="stack tilt-stagger" id="hydration-history-list"></div>
+    </div>
+
+    <p class="safety-flag" style="margin-top:var(--space-4);">
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+      Reminders are real system notifications, but only while this app is open — there's no server here to push a notification once it's fully closed. A true background reminder that fires even with the app closed needs a native wrapper, a legitimate next step, not faked here.
     </p>
   </section>
 

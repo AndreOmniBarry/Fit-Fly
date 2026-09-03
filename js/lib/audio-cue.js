@@ -44,6 +44,30 @@ export function playCompletionBeep() {
   }
 }
 
+/** A single crisp "ding" — deliberately a different, shorter shape than
+ *  playCompletionBeep's two-note chime so a split cue (which can fire
+ *  several times mid-run) never gets mistaken for a timer finishing.
+ *  Real running apps call out every split; this is the same honest
+ *  "something just happened" cue, no audio file needed. */
+export function playSplitCue() {
+  try {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = 1318.5; // E6 — bright, distinct from the completion beep's 880/1175
+    gain.gain.setValueAtTime(0.0001, now);
+    gain.gain.exponentialRampToValueAtTime(0.18, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(now);
+    osc.stop(now + 0.12);
+  } catch {
+    // best-effort only
+  }
+}
+
 export function vibrateDevice(pattern = [200, 100, 200]) {
   try {
     navigator.vibrate?.(pattern);

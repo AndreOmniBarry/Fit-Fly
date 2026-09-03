@@ -4,6 +4,8 @@ import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { createStopwatch, formatDuration } from '../../lib/timer.js';
 import { requestWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
+import { primeAudio, playSplitCue, vibrateDevice } from '../../lib/audio-cue.js';
+import { isNativeRuntime } from '../../lib/native-runtime.js';
 import { calculatePaceSecPerKm, filterAccuratePoints, recentPaceSecPerKm, totalRouteDistanceMeters } from './gps-math.js';
 import { computeSplits } from './splits.js';
 import {
@@ -15,13 +17,31 @@ import {
 } from './run-units.js';
 import { drawRoute } from './route-canvas.js';
 import { detectNewPRs } from './personal-records.js';
+import { assessGpsSignalQuality } from './gps-signal-quality.js';
+import { estimateRunCalories } from './run-calorie-estimate.js';
 import { listAllRuns, saveCompletedRun } from '../../db/repositories/runs.js';
+import { getProfile } from '../../db/repositories/profile.js';
 
 // "How far back counts as *now*" for the live pace readout — long enough
 // that a couple of noisy GPS fixes don't swing it wildly, short enough
 // that it actually reacts within the run instead of just re-deriving the
 // whole-run average.
 const LIVE_PACE_WINDOW_MS = 30000;
+
+// The web platform's real limit here — no service worker keeps a GPS
+// watch alive once the app isn't the foregrounded, active tab, so
+// tracking needs the screen open and awake (see js/lib/wake-lock.js).
+// Once this project is wrapped with Capacitor, a real native background-
+// geolocation plugin removes that limit — js/lib/native-runtime.js's
+// isNativeRuntime() is the seam that becomes true then, with no code
+// change needed here beyond this message. Provably false in every
+// browser context today, same contract as every other feature-detected
+// API in this app.
+function backgroundTrackingNote() {
+  return isNativeRuntime()
+    ? 'This device tracks your run in the background — you can lock the screen or switch apps.'
+    : "Keep this screen open and awake while you run — a web app can't track your route once the screen locks or you switch apps.";
+}
 
 /** Renders a splits list into `container` — shared by the live screen,
  *  the summary, and history, so the three don't drift out of sync with
@@ -64,6 +84,10 @@ export function initRunFeature() {
   // render tick — a live "on pace for a PR" read only needs to be
   // approximately live, not a fresh DB round-trip every second.
   let priorRunsForThisSession = [];
+  // How many splits existed as of the last render — the only way to
+  // tell "a new split was *just* crossed" (play the cue) apart from "the
+  // same splits list, re-rendered again this tick" (stay silent).
+  let lastSplitCount = 0;
 
   function stopPolling() {
     if (pollHandle) clearInterval(pollHandle);
@@ -96,7 +120,28 @@ export function initRunFeature() {
     const accentColor = getComputedStyle(canvas).color || '#000';
     drawRoute(canvas, filtered, accentColor);
 
-    renderSplitsList(byId('run-live-splits'), computeSplits(filtered, splitBoundaryMetersForUnit(unit)), unit);
+    const liveSplits = computeSplits(filtered, splitBoundaryMetersForUnit(unit));
+    renderSplitsList(byId('run-live-splits'), liveSplits, unit);
+    // A real running-app touch: an audible + haptic cue the instant a
+    // new split is actually crossed, not on every render tick re-drawing
+    // the same list. Both calls are best-effort/no-ops if audio was
+    // never primed by a user gesture or the device has no vibration API
+    // — see audio-cue.js's own comment.
+    if (liveSplits.length > lastSplitCount) {
+      playSplitCue();
+      vibrateDevice([120]);
+    }
+    lastSplitCount = liveSplits.length;
+
+    // GPS quality: the same "give a person something to react to" fix
+    // as heart rate's live signal-quality feedback, just for the fix
+    // accuracy filterAccuratePoints already silently filters on — read
+    // from the latest *raw* point (even one just filtered out) so a
+    // weak-signal message can actually explain why distance stalled.
+    const latestAccuracyM = points.length > 0 ? points[points.length - 1].accuracyM : null;
+    const quality = assessGpsSignalQuality(latestAccuracyM);
+    byId('run-gps-dot').dataset.quality = quality.level;
+    byId('run-gps-quality-text').textContent = quality.message;
 
     // Guarded on real movement — detectNewPRs alone would call an empty
     // run (0m, right after Start) a "distance PR" against no prior runs,
@@ -212,6 +257,10 @@ export function initRunFeature() {
   });
 
   function startOrResume() {
+    // Must happen inside this real click handler — Web Audio requires a
+    // user gesture to unlock playback, and the split cue fires later,
+    // asynchronously, from inside render() (see audio-cue.js).
+    primeAudio();
     if (!startWatching()) return;
     requestWakeLock();
     stopwatch.start();
@@ -220,6 +269,7 @@ export function initRunFeature() {
     running = true;
     byId('btn-run-toggle').textContent = 'Pause';
     byId('btn-run-finish').hidden = false;
+    byId('run-gps-quality').hidden = false;
     // Best-effort, fire-and-forget — used only for the live "on pace for
     // a PR" badge above; a run started before this resolves just shows
     // the badge a tick later than one started after, never blocks Start.
@@ -261,9 +311,13 @@ export function initRunFeature() {
     const durationMs = stopwatch.getElapsedMs();
     const avgPaceSecPerKm = calculatePaceSecPerKm(distanceMeters, durationMs);
 
-    const priorRuns = await listAllRuns();
+    const [priorRuns, profile] = await Promise.all([listAllRuns(), getProfile()]);
     const prs = detectNewPRs({ distanceMeters, avgPaceSecPerKm }, priorRuns);
     const splits = computeSplits(filtered, splitBoundaryMetersForUnit(currentUnit()));
+    // Always ESTIMATED, never MEASURED — there's no calorie sensor here.
+    // null (no profile weight on file yet) just skips the row entirely
+    // rather than showing a fabricated number — see renderSummary.
+    const calories = estimateRunCalories({ durationMs, avgPaceSecPerKm, weightKg: profile?.weightKg });
 
     await saveCompletedRun({
       distanceMeters,
@@ -272,7 +326,7 @@ export function initRunFeature() {
       route: filtered,
     });
 
-    renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm }, prs, splits, currentUnit());
+    renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }, prs, splits, currentUnit());
     showScreen('screen-run-summary');
   });
 
@@ -301,10 +355,13 @@ export function initRunFeature() {
     points = [];
     running = false;
     priorRunsForThisSession = [];
+    lastSplitCount = 0;
     hideGeoError();
     byId('run-live-pr-badge').hidden = true;
     byId('btn-run-toggle').textContent = 'Start';
     byId('btn-run-finish').hidden = true;
+    byId('run-gps-quality').hidden = true;
+    byId('run-background-note-text').textContent = backgroundTrackingNote();
     const unit = currentUnit();
     byId('run-unit-toggle').querySelectorAll('[data-unit]').forEach((chip) => {
       chip.setAttribute('aria-pressed', String(chip.dataset.unit === unit));
@@ -329,7 +386,7 @@ export function initRunFeature() {
   }
 }
 
-function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm }, prs, splits, unit) {
+function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }, prs, splits, unit) {
   // The final numbers arriving, same kinetic-data language as the rest of
   // the app — animateCountUp interpolates the raw meters/ms/pace and
   // re-formats each frame with the same real formatters used everywhere
@@ -343,6 +400,14 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm }, prs, spl
   } else {
     animateCountUp(byId('run-summary-pace'), avgPaceSecPerKm, { formatter: (p) => formatPaceForUnit(p, unit) });
   }
+
+  // Calories are the one number on this screen this app can't measure —
+  // null (no profile weight on file) just hides the row entirely rather
+  // than showing a fabricated figure, same honesty as Activity logging's
+  // own calorie badge.
+  const caloriesRow = byId('run-summary-calories-row');
+  caloriesRow.hidden = calories == null;
+  if (calories != null) animateCountUp(byId('run-summary-calories'), calories.kcal, { formatter: (k) => `${Math.round(k)} kcal` });
 
   const badges = [];
   if (prs.isDistancePR) badges.push('New longest run');
@@ -361,7 +426,7 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm }, prs, spl
 }
 
 async function renderHistory() {
-  const runs = await listAllRuns();
+  const [runs, profile] = await Promise.all([listAllRuns(), getProfile()]);
   const sorted = [...runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const list = byId('run-history-list');
   const unit = getDistanceUnit();
@@ -371,13 +436,20 @@ async function renderHistory() {
     return;
   }
 
+  // Splits and calories are both recomputed fresh from each run's own
+  // saved distance/duration/pace here rather than stored on the record —
+  // splits because the recorded route is the one source of truth for
+  // them, calories because a profile weight can change after the run was
+  // logged and this should always reflect the current one, same as
+  // Activity logging's own estimate.
   const runsWithSplits = sorted.map((run) => ({
     run,
     splits: computeSplits(run.route ?? [], splitBoundaryMetersForUnit(unit)),
+    calories: estimateRunCalories({ durationMs: run.durationMs, avgPaceSecPerKm: run.avgPaceSecPerKm, weightKg: profile?.weightKg }),
   }));
 
   list.innerHTML = runsWithSplits
-    .map(({ run, splits }, index) => {
+    .map(({ run, splits, calories }, index) => {
       const dateLabel = new Date(run.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const splitsId = `run-history-splits-${index}`;
       return `
@@ -390,7 +462,10 @@ async function renderHistory() {
                 <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${dateLabel} · ${formatDuration(run.durationMs)}</p>
               </span>
             </span>
-            <span class="data-badge measured">${formatPaceForUnit(run.avgPaceSecPerKm, unit)}</span>
+            <span class="row" style="gap:6px; align-items:center;">
+              ${calories != null ? `<span class="data-badge estimated">${Math.round(calories.kcal)} kcal</span>` : ''}
+              <span class="data-badge measured">${formatPaceForUnit(run.avgPaceSecPerKm, unit)}</span>
+            </span>
           </div>
           ${
             splits.length > 0

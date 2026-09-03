@@ -87,6 +87,18 @@
   --hydration-accent-2:#38bdf8;
   --hydration-accent-soft:rgba(45,212,191,0.16);
 
+  /* ---------- Run: a hot track-red/amber palette, its own identity again ---------- */
+  --run-bg-start:#3d1a16;
+  --run-bg-mid:#24100e;
+  --run-bg-end:#140a09;
+  --run-ink:#fdf3ef;
+  --run-ink-muted:rgba(253,243,239,0.55);
+  --run-card-bg:rgba(253,243,239,0.06);
+  --run-card-border:rgba(253,243,239,0.1);
+  --run-accent:#ff6b4a;
+  --run-accent-2:#ffb648;
+  --run-accent-soft:rgba(255,107,74,0.16);
+
   /* The breathing pacer (Sleep's Wind Down, and every guided session) is
      shared markup across both night surfaces — this is what lets its
      glow/ring color follow whichever theme it's actually drawn on
@@ -129,6 +141,7 @@
 .theme-vitals .muted, .theme-vitals .field label, .theme-vitals .field-hint{ color:var(--vitals-ink-muted); }
 .theme-steps .muted, .theme-steps .field label, .theme-steps .field-hint{ color:var(--steps-ink-muted); }
 .theme-hydration .muted, .theme-hydration .field label, .theme-hydration .field-hint{ color:var(--hydration-ink-muted); }
+.theme-run .muted, .theme-run .field label, .theme-run .field-hint{ color:var(--run-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -166,6 +179,12 @@
 .theme-hydration .chip[aria-pressed="true"]{
   background:var(--hydration-accent-soft); border-color:rgba(45,212,191,0.4); color:var(--hydration-accent); font-weight:700;
 }
+.theme-run .chip{
+  background:rgba(253,243,239,0.06); border:1px solid rgba(253,243,239,0.12); color:var(--run-ink-muted);
+}
+.theme-run .chip[aria-pressed="true"]{
+  background:var(--run-accent-soft); border-color:rgba(255,107,74,0.4); color:var(--run-accent); font-weight:700;
+}
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
@@ -175,6 +194,7 @@
 .theme-vitals .btn-ghost{ color:var(--vitals-ink); border-color:var(--vitals-card-border); }
 .theme-steps .btn-ghost{ color:var(--steps-ink); border-color:var(--steps-card-border); }
 .theme-hydration .btn-ghost{ color:var(--hydration-ink); border-color:var(--hydration-card-border); }
+.theme-run .btn-ghost{ color:var(--run-ink); border-color:var(--run-card-border); }
 
 /* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
    readable enough on the app's light/dark surfaces, but noticeably lower
@@ -188,6 +208,7 @@
 .theme-vitals :focus-visible{ outline-color:var(--vitals-accent); }
 .theme-steps :focus-visible{ outline-color:var(--steps-accent); }
 .theme-hydration :focus-visible{ outline-color:var(--hydration-accent); }
+.theme-run :focus-visible{ outline-color:var(--run-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
@@ -217,6 +238,23 @@
   background:radial-gradient(120% 70% at 25% -10%, var(--hydration-bg-start) 0%, var(--hydration-bg-mid) 45%, var(--hydration-bg-end) 100%);
   color:var(--hydration-ink);
   --pacer-accent-rgb:45,212,191;
+}
+.theme-run{
+  background:radial-gradient(120% 70% at 25% -10%, var(--run-bg-start) 0%, var(--run-bg-mid) 45%, var(--run-bg-end) 100%);
+  color:var(--run-ink);
+  --pacer-accent-rgb:255,107,74;
+}
+/* Run's screens reuse the Fitness Toolkit's shared .card/.card-accent
+   markup directly (every other mini-app instead has its own dedicated
+   -card class) — without this, .card's app-wide --surface token renders
+   as a solid light-mode-white block on top of this dark gradient. Scoped
+   to .theme-run only, so Heart Rate's own plain .card (still on the
+   app's normal light/dark surface, not a night gradient) is untouched. */
+.theme-run .card{
+  background:var(--run-card-bg); border-color:var(--run-card-border); box-shadow:none;
+}
+.theme-run .card-accent{
+  border-color:var(--run-accent); background:var(--run-accent-soft);
 }
 
 /* drifting stars, shared between the two night surfaces — tone follows
@@ -1043,4 +1081,25 @@
   #guided-session-pacer-outer,
   #guided-session-pacer-mid,
   #guided-session-pacer-core{ transition:opacity .3s ease; filter:none; }
+}
+
+/* ============================================================================
+   RUN — a live GPS quality dot, the same "give a person something to
+   react to during live capture" honesty as Heart Rate's own signal-
+   quality feedback (js/features/run/gps-signal-quality.js), just for a
+   GPS fix's real accuracy radius instead of a camera-PPG signal.
+   ========================================================================== */
+.run-gps-dot{
+  width:9px; height:9px; border-radius:50%; flex-shrink:0;
+  background:var(--run-ink-muted);
+}
+.run-gps-dot[data-quality="strong"]{ background:#6ee787; }
+.run-gps-dot[data-quality="fair"]{ background:var(--run-accent-2); }
+.run-gps-dot[data-quality="weak"]{ background:var(--danger); animation:run-gps-weak-pulse 1.6s ease-in-out infinite; }
+@keyframes run-gps-weak-pulse{
+  0%, 100%{ opacity:.5; }
+  50%{ opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){
+  .run-gps-dot[data-quality="weak"]{ animation:none; opacity:.9; }
 }

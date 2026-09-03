@@ -91,12 +91,13 @@ anything passively overnight — see "Sleep" below for why.
   `aria-hidden` SVG next to a real text label, never the only description
   of what a control does.
 - **`:focus-visible` keyboard-focus rings use each mini-app's own bright
-  accent color** on Sleep/Focus/Meditate/Vitals/Steps/Hydration's night
-  surfaces (`.theme-sleep :focus-visible` / `.theme-focus :focus-visible` /
-  `.theme-meditate :focus-visible` / `.theme-vitals :focus-visible` /
-  `.theme-steps :focus-visible` / `.theme-hydration :focus-visible` in
-  `mini-apps.css`), not just the app-wide neutral accent — noticeably
-  higher contrast against a dark gradient than a mid-tone blue would be.
+  accent color** on Sleep/Focus/Meditate/Vitals/Steps/Hydration/Run's
+  night surfaces (`.theme-sleep :focus-visible` / `.theme-focus
+  :focus-visible` / `.theme-meditate :focus-visible` / `.theme-vitals
+  :focus-visible` / `.theme-steps :focus-visible` / `.theme-hydration
+  :focus-visible` / `.theme-run :focus-visible` in `mini-apps.css`), not
+  just the app-wide neutral accent — noticeably higher contrast against a
+  dark gradient than a mid-tone blue would be.
 - **A real dark-mode contrast bug, found and fixed this round**: every
   category accent's `-strong` token (the text color `.btn-secondary` and
   similar pairs read against a `-soft` background) had no dark-mode value
@@ -174,7 +175,7 @@ js/
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
     exercises/                        # exercise library + hand-authored demo SVGs
-    run/                                # GPS run mode: map, history, PRs
+    run/                                # GPS run mode: route canvas, splits, PRs, live GPS-quality feedback, pace-inferred calorie estimate — its own night-surface theme now too
     heart-rate/                          # camera PPG, manual entry, BLE (feature-detected)
     womens-health/                        # cycle tracker (encrypted store)
     nutrition/                             # macro/nutrition tracking
@@ -286,8 +287,12 @@ step detector, and Hydration sharing Goals' local-notification approach
 for its own interval-based reminder — and the Hub itself rebuilt as a
 real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The Hub"
 above). **Every Hub tile is real now** — Steps was the last "coming soon"
-placeholder.
-599 Vitest unit tests and 378 Playwright end-to-end tests
+placeholder. Run mode, still living under the Fitness Toolkit rather than
+the Hub grid, caught up to the same bar this round: its own night-surface
+identity, live GPS-quality feedback, a real Capacitor-readiness seam
+actually wired in (not just documented), audible/haptic split cues, and
+an estimated calorie badge (see "Run mode" below).
+616 Vitest unit tests and 388 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -297,11 +302,13 @@ built opportunistically alongside this round of work); no export/import
 for on-device data either yet; no offline service worker/asset caching
 yet; there's no true passive background sensing anywhere in this app — a
 phone's mic/motion sensors stop the moment the screen locks or the tab
-isn't active (see Sleep's own overnight honesty note, and Steps' own
-"a live walk only counts while this screen stays open" note) — a real
-"keeps working once you switch apps or lock your phone" mode for either
-is a legitimate, buildable next step, needing either a native Capacitor
-wrapper or (for Sleep specifically) a phone genuinely staying awake on a
+isn't active (see Sleep's own overnight honesty note, Steps' own "a live
+walk only counts while this screen stays open" note, and Run mode's own
+GPS-tracking version of the same caveat — now reading `isNativeRuntime()`
+live, see "Run mode" below) — a real "keeps working once you switch apps
+or lock your phone" mode for any of these is a legitimate, buildable next
+step, needing either a native Capacitor wrapper or (for Sleep
+specifically) a phone genuinely staying awake on a
 nightstand, not attempted opportunistically alongside this round of work.
 
 ## Data layer
@@ -1194,6 +1201,68 @@ button wired to the exact same start path the main button uses, and
 screen entry so a known-denied state shows before anyone has to tap
 Start and watch it fail.
 
+**A real identity, not the Fitness Toolkit's neutral chrome borrowed
+wholesale.** Run's three screens (live, summary, history) now carry
+their own night-surface theme — a hot track-red/amber palette
+(`--run-accent`/`--run-accent-2` in `mini-apps.css`), the same
+`.miniapp-night`/`.theme-*` mechanics as Sleep/Focus/Meditate/Vitals/
+Steps/Hydration, applied to a screen that already had the most
+sophisticated real logic of any of them (live GPS, splits, PR
+detection) but none of their visual polish. Everything underneath —
+the stat card, the route canvas, the splits list, the PR badge — is
+unchanged; only the surface it sits on is new.
+
+**Live GPS-quality feedback, the same fix Heart Rate's camera capture
+already got.** The original build silently dropped any GPS fix worse
+than 30m (`filterAccuratePoints`) with nothing to show for it — accurate,
+but gave someone stuck indoors or under tree cover no way to understand
+why their distance wasn't climbing. `js/features/run/gps-signal-
+quality.js`'s `assessGpsSignalQuality` reads the real accuracy radius off
+the latest fix (even one just filtered out) and shows it live — "Strong/
+Fair/Weak GPS signal (±Nm)" plus a colored dot — the exact same "give a
+person something to react to during live capture" fix as heart rate's
+own `signal-quality.js`, just for a GPS fix's accuracy instead of a
+camera-PPG signal's coefficient of variation.
+
+**A real Capacitor-readiness seam, actually wired in, not just
+documented.** `js/lib/native-runtime.js`'s `isNativeRuntime()` already
+existed as a seam for future native builds (see "Heart rate" below) but
+wasn't called from anywhere yet. Run's own honesty note — "keep this
+screen open, a web app can't track your route once it's backgrounded" —
+now reads that seam directly: false in every browser context today (so
+the message is unchanged for anyone using this app right now), and once
+this project is actually wrapped with Capacitor, the same check flips to
+a real "this device tracks your run in the background" message with no
+further code change here — the concrete, testable version of the seam
+this app has been building toward all along, not another paragraph about
+it.
+
+**Real audible and haptic split cues — the one thing that most made this
+not feel like a runner's app.** `js/lib/audio-cue.js` gained
+`playSplitCue()` (a single synthesized "ding," deliberately a different
+shape from the rest-timer's two-note completion chime) plus a short
+device vibration, fired the instant `computeSplits` reports a *new* split
+— not on every render tick re-drawing the same list. The same honest,
+best-effort, no-audio-file approach as the rest-timer's own beep;
+`primeAudio()` unlocks it from inside the real Start/Resume click, since
+splits themselves fire later, asynchronously.
+
+**A real, cited-from-the-same-estimator calorie badge — reusing Activity
+logging's MET formula, not a second one.** Run mode never showed a
+calorie figure at all, unlike Activity logging just across the Fitness
+Toolkit. `js/features/run/run-calorie-estimate.js`'s `estimateRunCalories`
+calls the exact same `estimateActivityCalories` MET-formula estimator
+Activity already has — no new number-fabricating path — but infers
+intensity from the run's own real recorded average pace
+(`intensityFromPaceSecPerKm`: sub-5:00/km reads as vigorous, 5:00-7:00/km
+as moderate, slower as light) instead of needing it self-reported after
+the fact. Always tagged `estimated`, right next to the pace's own
+`measured` GPS badge, on both the finish summary and every past run in
+History (recomputed live from each run's own saved distance/duration/
+pace and the *current* profile weight, same "never stored, always fresh"
+rule as splits) — and simply hidden, never a fabricated number, for
+anyone without a profile weight on file yet.
+
 ## Heart rate
 
 Three sources feed one `heartRateSamples` store, distinguished by
@@ -1280,7 +1349,10 @@ build has no way to install or exercise would risk shipping something
 wrong instead of just not-yet-built. Blood pressure and SpO2 no longer
 wait on this seam at all — see "Vitals" below, which ships a real
 Bluetooth GATT path today, the same Web Bluetooth API this section's own
-BLE strap already uses.
+BLE strap already uses. Run mode (below) is the first feature actually
+calling `isNativeRuntime()`, not just documenting it — its own
+background-tracking honesty note reads real, live output from this same
+function.
 
 Playwright's Chromium launches with `--use-fake-device-for-media-stream`
 (this sandbox has no real camera), which lets `heart-rate.spec.js` drive

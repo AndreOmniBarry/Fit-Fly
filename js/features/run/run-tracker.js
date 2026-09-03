@@ -18,6 +18,7 @@ import {
 import { drawRoute } from './route-canvas.js';
 import { detectNewPRs } from './personal-records.js';
 import { assessGpsSignalQuality } from './gps-signal-quality.js';
+import { isNativeBackgroundGeoAvailable, startNativeBackgroundWatch } from './native-background-geo.js';
 import { estimateRunCalories } from './run-calorie-estimate.js';
 import { listAllRuns, saveCompletedRun } from '../../db/repositories/runs.js';
 import { getProfile } from '../../db/repositories/profile.js';
@@ -97,6 +98,10 @@ export function initRunFeature() {
   const stopwatch = createStopwatch();
   let points = [];
   let watchId = null;
+  // The native background-geolocation watcher, when active — see
+  // startWatching()/stopWatching() below. null on the plain web build,
+  // always.
+  let nativeWatcher = null;
   let pollHandle = null;
   let running = false;
   // Snapshotted once per run (at start) rather than re-queried every
@@ -215,11 +220,7 @@ export function initRunFeature() {
     );
   }
 
-  function startWatching() {
-    if (!('geolocation' in navigator)) {
-      showGeoError('This browser doesn\'t support location tracking.');
-      return false;
-    }
+  async function startWatching() {
     // A fresh attempt supersedes whatever error the last one left up —
     // never leave a stale "denied" banner showing through a retry that's
     // actually in flight, which reads as permanently stuck even once the
@@ -228,6 +229,23 @@ export function initRunFeature() {
     // double-tap on Try Again) without leaking a second live watch.
     hideGeoError();
     stopWatching();
+
+    if (isNativeBackgroundGeoAvailable()) {
+      nativeWatcher = await startNativeBackgroundWatch({
+        onPosition: (point) => {
+          hideGeoError();
+          points.push(point);
+          render();
+        },
+        onError: (error) => showGeoError(error.message),
+      });
+      return nativeWatcher != null;
+    }
+
+    if (!('geolocation' in navigator)) {
+      showGeoError('This browser doesn\'t support location tracking.');
+      return false;
+    }
     watchId = navigator.geolocation.watchPosition(onPosition, onPositionError, {
       enableHighAccuracy: true,
       maximumAge: 5000,
@@ -236,6 +254,10 @@ export function initRunFeature() {
   }
 
   function stopWatching() {
+    if (nativeWatcher) {
+      nativeWatcher.stop();
+      nativeWatcher = null;
+    }
     if (watchId != null) navigator.geolocation.clearWatch(watchId);
     watchId = null;
   }
@@ -275,12 +297,12 @@ export function initRunFeature() {
     showScreen('screen-hub');
   });
 
-  function startOrResume() {
+  async function startOrResume() {
     // Must happen inside this real click handler — Web Audio requires a
     // user gesture to unlock playback, and the split cue fires later,
     // asynchronously, from inside render() (see audio-cue.js).
     primeAudio();
-    if (!startWatching()) return;
+    if (!(await startWatching())) return;
     requestWakeLock();
     stopwatch.start();
     stopPolling(); // idempotent — never leak a second interval on a repeat tap
@@ -399,6 +421,12 @@ export function initRunFeature() {
   // available and already denied, showing the real reason immediately —
   // before a tap — beats waiting for watchPosition to fail.
   function checkGeoPermissionUpfront() {
+    // The native plugin manages its own Android runtime permission,
+    // entirely separate from the WebView's own (often inaccurate inside
+    // a native shell) Permissions API — its real flow already runs
+    // fresh on every Start tap instead (addWatcher's requestPermissions
+    // option), so there's nothing honest to check upfront here.
+    if (isNativeBackgroundGeoAvailable()) return;
     if (!navigator.permissions?.query) return;
     navigator.permissions
       .query({ name: 'geolocation' })

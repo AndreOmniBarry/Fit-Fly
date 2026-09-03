@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fit Fly</string>
+    <string name="title_activity_main">Fit Fly</string>
+    <string name="package_name">app.fitfly.mobile</string>
+    <string name="custom_url_scheme">app.fitfly.mobile</string>
+</resources>

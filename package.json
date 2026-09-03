@@ -13,12 +13,21 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "pretest:e2e": "npm run build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "cap:prepare": "npm run build && node scripts/prepare-native-www.mjs",
+    "cap:sync": "npm run cap:prepare && npx cap sync android",
+    "cap:open": "npm run cap:sync && npx cap open android"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.5.1",
     "@playwright/test": "^1.62.1",
     "fake-indexeddb": "^6.2.5",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11"
+  },
+  "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor/android": "^8.5.1",
+    "@capacitor/core": "^8.5.1"
   }
 }

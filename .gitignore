@@ -4,3 +4,17 @@ test-results/
 .vitest-cache/
 *.log
 .DS_Store
+
+# Capacitor native project — www/ is a generated copy of the web app
+# (scripts/prepare-native-www.mjs), and android/ carries its own build
+# output/generated files that `cap sync` regenerates every time; nothing
+# here is a second source of truth worth committing.
+www/
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+android/capacitor-cordova-android-plugins/

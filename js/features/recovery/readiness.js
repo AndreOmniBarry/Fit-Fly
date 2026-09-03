@@ -67,6 +67,23 @@ export function calculateReadiness({ sleepHours = null, energyLevel = null, sore
   return { score, category, reasoning: buildReasoning(components, category) };
 }
 
+/** A plain-language nudge for the category alone — used wherever a
+ *  screen only has the stored score/category to show (e.g. My Program's
+ *  own readiness banner, see program-view.js) and no fresh component
+ *  breakdown to reason from. Deliberately a suggestion, not an
+ *  instruction — this app is a software developer's tool, not a coach or
+ *  a doctor, and the actual decision always stays with the person. */
+export function readinessActionSuggestion(category) {
+  switch (category) {
+    case 'high':
+      return "You're primed to push a bit harder today, if you want to.";
+    case 'low':
+      return 'Worth going easier today, or trading today\'s session for extra rest.';
+    default:
+      return "A fairly average day — go by feel on how hard to push.";
+  }
+}
+
 function buildReasoning(components, category) {
   const reasoning = [];
 

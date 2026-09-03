@@ -6,6 +6,7 @@ import {
   EQUIPMENT,
   EXERCISE_LIBRARY,
   getLibraryExercise,
+  LOG_METRIC,
   MOVEMENT_PATTERNS,
 } from '../../../js/features/exercises/exercise-library.js';
 import { BODY_AREA_TAGS } from '../../../js/features/programs/body-area-tag.js';
@@ -27,6 +28,23 @@ describe('EXERCISE_LIBRARY data integrity', () => {
       expect(exercise.cues.length).toBeGreaterThan(0);
       expect(Array.isArray(exercise.muscleGroups)).toBe(true);
       expect(exercise.muscleGroups.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("no bodyweight exercise is logged as reps-weight — there's no real 'kg' for your own bodyweight", () => {
+    for (const exercise of EXERCISE_LIBRARY) {
+      expect(LOG_METRIC).toContain(exercise.logMetric);
+      if (exercise.equipment === 'bodyweight') {
+        expect(exercise.logMetric).not.toBe('reps-weight');
+      }
+    }
+  });
+
+  it('every dumbbell exercise is logged as reps-weight — it genuinely has a real, loggable weight', () => {
+    for (const exercise of EXERCISE_LIBRARY) {
+      if (exercise.equipment === 'dumbbell') {
+        expect(exercise.logMetric).toBe('reps-weight');
+      }
     }
   });
 

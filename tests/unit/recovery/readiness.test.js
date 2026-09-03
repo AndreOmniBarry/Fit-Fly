@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateReadiness } from '../../../js/features/recovery/readiness.js';
+import { calculateReadiness, readinessActionSuggestion } from '../../../js/features/recovery/readiness.js';
 
 describe('calculateReadiness: basic scoring', () => {
   it('a great night, high energy, no soreness, no recent training scores high', () => {
@@ -52,6 +52,25 @@ describe('calculateReadiness: reasoning reflects what actually pulled the score 
   it('says everything looks solid when nothing is flagged', () => {
     const result = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1, recentSessionCount: 0 });
     expect(result.reasoning[0]).toMatch(/solid/);
+  });
+});
+
+describe('readinessActionSuggestion: a plain-language nudge per category', () => {
+  it('gives a distinct, non-empty suggestion for each real category', () => {
+    const high = readinessActionSuggestion('high');
+    const moderate = readinessActionSuggestion('moderate');
+    const low = readinessActionSuggestion('low');
+    expect(new Set([high, moderate, low]).size).toBe(3); // three genuinely different messages
+    for (const message of [high, moderate, low]) {
+      expect(message.length).toBeGreaterThan(10);
+    }
+  });
+
+  it('never phrases it as an instruction — "worth" and "if you want", not "must" or "should"', () => {
+    for (const category of ['high', 'moderate', 'low']) {
+      const message = readinessActionSuggestion(category).toLowerCase();
+      expect(message).not.toMatch(/\bmust\b|\byou should\b/);
+    }
   });
 });
 

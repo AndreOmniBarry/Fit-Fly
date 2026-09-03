@@ -46,6 +46,13 @@ export function initHubFeature(): void {
   byId('btn-home-hydration').addEventListener('click', () => showScreen('screen-hydration'));
   byId('btn-hydration-back').addEventListener('click', () => showScreen('screen-hub'));
 
+  // Run's own back button carries an "end this run without saving?"
+  // confirm that only run-tracker.js knows about, so — unlike every tile
+  // above — only the forward direction is wired here; the back button
+  // stays entirely run-tracker.js's own, same reason its own click
+  // handler on btn-home-run (below) is a side effect, not a navigation.
+  byId('btn-home-run').addEventListener('click', () => showScreen('screen-run'));
+
   // Spatial tilt: one shared reading (pointer, or real device tilt once
   // granted) drives every tile's depth-layered parallax at once. iOS 13+
   // gates device-tilt behind a user gesture — asking on the Hub's own
@@ -92,6 +99,11 @@ export function setStepsTileSubtitle(text: string): void {
 /** Same handoff again, for Hydration's own logging-streak text. */
 export function setHydrationTileSubtitle(text: string): void {
   byId('hub-hydration-sub').textContent = text;
+}
+
+/** Same handoff again, for Run's own most-recent-run text. */
+export function setRunTileSubtitle(text: string): void {
+  byId('hub-run-sub').textContent = text;
 }
 
 /** Draws the Sleep tile's mini ring in to a real score (0-100), or back to

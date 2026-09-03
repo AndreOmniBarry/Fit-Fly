@@ -21,6 +21,25 @@ import { assessGpsSignalQuality } from './gps-signal-quality.js';
 import { estimateRunCalories } from './run-calorie-estimate.js';
 import { listAllRuns, saveCompletedRun } from '../../db/repositories/runs.js';
 import { getProfile } from '../../db/repositories/profile.js';
+import { setRunTileSubtitle } from '../hub/hub-view.js';
+
+const DEFAULT_TILE_SUBTITLE = 'GPS-tracked, live pace & splits';
+
+/** Updates the Hub tile with the most recent real run — distance and
+ *  date, the same "real number or an honest default, never a fabricated
+ *  one" rule as every other tile's subtitle. Called once at startup (so
+ *  the Hub's first paint already reflects prior history) and again right
+ *  after a run is saved. */
+async function refreshRunTile() {
+  const runs = await listAllRuns();
+  if (runs.length === 0) {
+    setRunTileSubtitle(DEFAULT_TILE_SUBTITLE);
+    return;
+  }
+  const latest = [...runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt))[0];
+  const dateLabel = new Date(latest.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  setRunTileSubtitle(`${formatDistanceForUnit(latest.distanceMeters, getDistanceUnit())} · ${dateLabel}`);
+}
 
 // "How far back counts as *now*" for the live pace readout — long enough
 // that a couple of noisy GPS fixes don't swing it wildly, short enough
@@ -242,10 +261,10 @@ export function initRunFeature() {
     render(); // reflect the new unit immediately, not on the next tick
   });
 
-  byId('btn-home-run').addEventListener('click', () => {
-    resetRunScreen();
-    showScreen('screen-run');
-  });
+  // Navigation itself (showScreen) is hub-view.ts's job, same as every
+  // other Hub tile — this listener is Run's own side effect on open,
+  // same split as Steps'/Hydration's own "void refreshAll()" listeners.
+  byId('btn-home-run').addEventListener('click', () => resetRunScreen());
 
   byId('btn-run-back').addEventListener('click', () => {
     if (running && !window.confirm('End this run without saving?')) return;
@@ -253,7 +272,7 @@ export function initRunFeature() {
     stopPolling();
     releaseWakeLock();
     running = false;
-    showScreen('screen-home');
+    showScreen('screen-hub');
   });
 
   function startOrResume() {
@@ -325,22 +344,26 @@ export function initRunFeature() {
       avgPaceSecPerKm,
       route: filtered,
     });
+    void refreshRunTile();
 
     renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }, prs, splits, currentUnit());
     showScreen('screen-run-summary');
   });
 
-  byId('btn-run-summary-done').addEventListener('click', () => showScreen('screen-home'));
+  byId('btn-run-summary-done').addEventListener('click', () => showScreen('screen-hub'));
   byId('btn-run-summary-history').addEventListener('click', async () => {
     await renderHistory();
     showScreen('screen-run-history');
   });
 
+  // Same id and behavior as before — just relocated from a standalone
+  // Fitness Toolkit list entry into a small icon-button on the live
+  // screen's own header, now that Run has somewhere of its own to live.
   byId('btn-home-run-history').addEventListener('click', async () => {
     await renderHistory();
     showScreen('screen-run-history');
   });
-  byId('btn-run-history-back').addEventListener('click', () => showScreen('screen-home'));
+  byId('btn-run-history-back').addEventListener('click', () => showScreen('screen-hub'));
 
   // A backgrounded tab drops the wake lock automatically (spec behavior)
   // — re-request it once the person comes back, if a run is still going.
@@ -384,6 +407,8 @@ export function initRunFeature() {
       })
       .catch(() => {}); // unsupported query name on some browsers — ignore
   }
+
+  void refreshRunTile();
 }
 
 function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }, prs, splits, unit) {

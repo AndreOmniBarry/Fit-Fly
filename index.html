@@ -81,6 +81,9 @@
     <symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16 16 10"/><circle cx="12" cy="16" r="1.3" fill="currentColor" stroke="none"/></symbol>
     <symbol id="icon-footprints" viewBox="0 0 24 24"><ellipse cx="8" cy="7.5" rx="2.6" ry="4" transform="rotate(-12 8 7.5)"/><circle cx="6.2" cy="2.6" r="1" fill="currentColor" stroke="none"/><ellipse cx="16" cy="16.5" rx="2.6" ry="4" transform="rotate(-12 16 16.5)"/><circle cx="14.2" cy="11.6" r="1" fill="currentColor" stroke="none"/></symbol>
     <symbol id="icon-glass-water" viewBox="0 0 24 24"><path d="M6 4h12l-1.5 16h-9L6 4Z"/><path d="M6.6 12c1.5 1 3 1 4.5-.2s3-1.2 4.5-.2"/></symbol>
+    <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.6 1H20a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
+    <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M7 14l5-5 5 5"/><path d="M4 19h16"/></symbol>
   </defs>
 </svg>
 
@@ -301,6 +304,9 @@
   <section class="screen" id="screen-hub" hidden>
     <div class="row-between">
       <h2>Fit Fly</h2>
+      <button class="icon-btn" id="btn-hub-settings" aria-label="Settings">
+        <svg class="icon" width="20" height="20" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
+      </button>
     </div>
     <p class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">
       Your apps
@@ -418,6 +424,54 @@
           </span>
         </span>
       </button>
+    </div>
+  </section>
+
+  <!-- SETTINGS: on-device backup — export/import everything this app has
+       stored, entirely local (see js/db/backup.js and "Export & import"
+       in the README) -->
+  <section class="screen" id="screen-settings" hidden>
+    <div class="row-between">
+      <h2>Settings</h2>
+      <button class="icon-btn" id="btn-settings-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="card stack tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <h3>Backup &amp; restore</h3>
+        <p class="muted">
+          Everything Fit Fly has ever saved on this device — every
+          mini-app's history, your profile, and your preferences — as one
+          file you keep yourself. Nothing here ever touches a server:
+          exporting only ever saves a file to this device, and importing
+          only ever reads one you choose. The Cycle Tracker's entries stay
+          encrypted inside the file exactly as they are on this device —
+          your PIN still unlocks them after a restore, and this screen
+          never sees it.
+        </p>
+        <button class="btn btn-secondary btn-block" id="btn-settings-export">
+          <svg class="icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-download"></use></svg>
+          Export a backup
+        </button>
+        <span class="muted" id="settings-export-status" style="font-size:var(--fs-sm);"></span>
+
+        <button class="btn btn-secondary btn-block" id="btn-settings-import">
+          <svg class="icon" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-upload"></use></svg>
+          Restore from a backup
+        </button>
+        <input type="file" accept="application/json" id="settings-import-file" hidden>
+        <span class="field-error" id="err-settings-import" hidden></span>
+        <p class="muted" id="settings-import-success" hidden style="font-size:var(--fs-sm);"></p>
+      </span>
+    </div>
+
+    <div class="safety-flag" id="settings-import-confirm" hidden>
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+      <div class="stack">
+        <p id="settings-import-confirm-text">Importing replaces everything currently saved on this device with this file's data — this can't be undone.</p>
+        <button class="btn btn-danger" id="btn-settings-import-confirm">Replace everything on this device</button>
+        <button class="btn btn-ghost" id="btn-settings-import-cancel">Cancel</button>
+      </div>
     </div>
   </section>
 

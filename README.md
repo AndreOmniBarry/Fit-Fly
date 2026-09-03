@@ -43,8 +43,10 @@ lives in this browser's IndexedDB, on this device, and nowhere else. That
 matters most for the women's-health/cycle data, which is additionally
 encrypted at rest (AES-GCM via Web Crypto) and gated behind the app's
 optional PIN lock. Uninstalling the app or clearing site data deletes it
-permanently — there is no cloud copy to restore from, and no export/import
-tooling yet is a known gap, not an oversight.
+permanently — there is no cloud copy to restore from automatically, which
+is exactly what Settings' own export/import is for (see "Export &
+import" below): a real, on-device backup file, entirely in your own
+hands.
 
 **One narrow, explicit exception**: Nutrition's food search sends the
 text you type to [Open Food Facts](https://openfoodfacts.org), a free,
@@ -54,6 +56,38 @@ happens when you tap Search (never live-as-you-type), only carries the
 search text, and never touches what you've actually logged, which stays
 local exactly like everything else. Recent and Favorites don't need it
 at all — both are built entirely from data already on this device.
+
+## Export & import
+
+Settings (the gear icon on the Hub, or "open settings" by voice) can
+export everything Fit Fly has ever saved on this device — every mini-app's
+history, the profile, and every stored preference — as one JSON file
+(`js/db/backup.js`: every current Dexie table plus every `fitfly:`-prefixed
+preference, see "Your data stays on this device" and "TypeScript, without
+a bundler"). It's a real file save (`Blob` + an `<a download>`, no
+library), not a fake button — the same file a person picks back with
+Import restores it, verified with a real round-trip Playwright test
+(`tests/e2e/settings.spec.js`), not just a unit test of the encoding.
+
+The Cycle Tracker's entries are the one store this ever touches that
+isn't plaintext — they export exactly as encrypted as they already are at
+rest (AES-GCM ciphertext + iv, base64-encoded only so they survive JSON,
+see `js/lib/crypto.js`). Export and import both stay completely blind to
+what's inside: the PIN is never asked for, never stored in the file, and
+still the only thing that ever unlocks that data, before or after a
+restore.
+
+Import is a real restore, not a merge — it replaces this device's data
+with whatever's in the file, exactly as exported, then reloads the app so
+every screen picks up the change (there's no "refresh everything" call
+threaded through every feature to do this piecemeal). That's destructive
+enough to need a real confirmation, not just a click: picking a file
+shows a `.safety-flag` with an explicit danger button before anything is
+touched, the same pattern the Cycle Tracker's own "forgot PIN" reset
+already uses. A table this schema no longer has is silently skipped (an
+older backup crossing a schema change, not a reason to fail); a table the
+backup never mentions at all is left completely untouched, never emptied
+out just because the file happened to be silent on it.
 
 ## Honesty about measured vs. estimated data
 
@@ -282,9 +316,10 @@ css/
 js/
   main.js                   # bootstrap
   lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration), register-service-worker.js (registers sw.js — see "Offline support")
-  db/                         # Dexie (IndexedDB) schema and store access
+  db/                         # Dexie (IndexedDB) schema and store access; backup.js exports/imports every table + every pref as one JSON file — see "Export & import"
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
+    settings/                    # export/import backup UI (TypeScript) — see "Export & import"
     sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
     focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
@@ -426,17 +461,17 @@ behind `isNativeRuntime()`, the web build entirely unchanged either way
 worker (`sw.js`, see "Offline support" above) closed the other half of
 that same "actually works, not just documented" bar: the app's own
 "works fully offline once loaded" claim is now backed by a real cache
-strategy instead of the browser's own opportunistic one.
-616 Vitest unit tests and 408 Playwright end-to-end tests
+strategy instead of the browser's own opportunistic one. A real
+export/import (see "Export & import" above) closed the last of this
+round's three gaps: a genuine backup file, including the Cycle Tracker's
+data still exactly as encrypted as it is at rest.
+624 Vitest unit tests and 420 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
 still entirely on-device, no server, by design (a real backend for
 coach/doctor access and cross-device history is planned, deliberately not
-built opportunistically alongside this round of work); no export/import
-for on-device data yet either. A real offline service worker now backs
-the "works fully offline once loaded" claim (see "Offline support"
-above) — that gap is closed. Steps and Run's own passive background sensing is real now on a
+built opportunistically alongside this round of work). Steps and Run's own passive background sensing is real now on a
 native build (see "Native builds (Capacitor)" above) — the plain web
 build still can't do it (a browser tab stops the moment the screen locks
 or it isn't the active tab, the same limit every other feature-detected

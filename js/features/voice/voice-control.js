@@ -33,6 +33,7 @@ const COMMAND_ACTIONS = Object.freeze({
   'open-vitals': () => byId('btn-home-vitals')?.click(),
   'open-steps': () => byId('btn-home-steps')?.click(),
   'open-hydration': () => byId('btn-home-hydration')?.click(),
+  'open-settings': () => byId('btn-hub-settings')?.click(),
 });
 
 const COMMAND_FEEDBACK = Object.freeze({
@@ -53,6 +54,7 @@ const COMMAND_FEEDBACK = Object.freeze({
   'open-vitals': 'Opening Vitals',
   'open-steps': 'Opening Steps',
   'open-hydration': 'Opening Hydration',
+  'open-settings': 'Opening Settings',
 });
 
 // Shown while listening so a first-time (or forgetful) user has somewhere

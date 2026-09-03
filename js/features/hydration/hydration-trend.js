@@ -31,6 +31,22 @@ export function calculateHydrationStreak(entries) {
     }
     return streak;
 }
+/** The single highest daily total across a person's whole logged history
+ *  — a real personal best, never scoped to a recent window (see
+ *  listAllHydrationEntries()). Groups first (several drinks make one
+ *  day's real total) then takes the max, same shape as the streak/
+ *  average functions above. */
+export function bestHydrationDayEver(entries) {
+    const totals = groupHydrationByDate(entries);
+    if (totals.size === 0)
+        return null;
+    let best = null;
+    for (const [date, amountMl] of totals) {
+        if (!best || amountMl > best.amountMl)
+            best = { date, amountMl };
+    }
+    return best;
+}
 /** Real average per logged day across the last N calendar days —
  *  unlogged days dilute nothing, same "average per logged day, not per
  *  calendar day" choice as Nutrition's own weekly trend. */

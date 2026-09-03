@@ -16,7 +16,8 @@ import {
   splitBoundaryMetersForUnit,
 } from './run-units.js';
 import { drawRoute } from './route-canvas.js';
-import { detectNewPRs } from './personal-records.js';
+import { detectNewPRs, longestRun } from './personal-records.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
 import { assessGpsSignalQuality } from './gps-signal-quality.js';
 import { isNativeBackgroundGeoAvailable, startNativeBackgroundWatch } from './native-background-geo.js';
 import { estimateRunCalories } from './run-calorie-estimate.js';
@@ -478,11 +479,50 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }
   renderSplitsList(byId('run-summary-splits'), splits, unit);
 }
 
+/** A real distance-per-run trend (last 8 runs, oldest to newest) plus a
+ *  real "best run" badge — the all-time longest run, from the whole
+ *  history (`runs`, from listAllRuns()), the same personal-record source
+ *  as the live PR badge a run's own summary screen already shows
+ *  (detectNewPRs/longestRun in personal-records.js) rather than a second,
+ *  differently-scoped notion of "best" invented just for this chart. */
+function renderRunTrend(runs, unit) {
+  const card = byId('run-trend-card');
+  card.hidden = runs.length === 0;
+  if (runs.length === 0) return;
+
+  const chronological = [...runs].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const best = longestRun(runs);
+  const window = chronological.slice(-8);
+
+  renderTrendChart(byId('run-trend-chart'), {
+    points: window.map((run) => ({
+      key: run.id,
+      value: run.distanceMeters,
+      axisLabel: new Date(run.startedAt).toLocaleDateString(undefined, { day: 'numeric' }),
+      highlighted: run.id === best?.id,
+      tooltipValue: formatDistanceForUnit(run.distanceMeters, unit),
+      tooltipDetail: `${new Date(run.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${run.id === best?.id ? ' · Longest run' : ''}`,
+    })),
+    accentVar: '--run-accent',
+    emptyMessage: 'Log a second run to start a trend.',
+  });
+
+  const badge = byId('run-best-badge');
+  if (best) {
+    byId('run-best-text').textContent = `Best: ${formatDistanceForUnit(best.distanceMeters, unit)}`;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
+}
+
 async function renderHistory() {
   const [runs, profile] = await Promise.all([listAllRuns(), getProfile()]);
   const sorted = [...runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
   const list = byId('run-history-list');
   const unit = getDistanceUnit();
+
+  renderRunTrend(runs, unit);
 
   if (sorted.length === 0) {
     list.innerHTML = '<p class="muted center-text">No runs logged yet — your first run will show up here.</p>';

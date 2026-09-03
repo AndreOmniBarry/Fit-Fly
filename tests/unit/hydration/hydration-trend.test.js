@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageHydrationPerLoggedDay,
+  bestHydrationDayEver,
   calculateHydrationStreak,
   groupHydrationByDate,
 } from '../../../js/features/hydration/hydration-trend.js';
@@ -48,6 +49,21 @@ describe('calculateHydrationStreak', () => {
       { date: '2026-03-15', amountMl: 500 },
     ];
     expect(calculateHydrationStreak(entries)).toBe(2);
+  });
+});
+
+describe('bestHydrationDayEver', () => {
+  it('is null with nothing logged', () => {
+    expect(bestHydrationDayEver([])).toBeNull();
+  });
+
+  it('finds the real highest day across the whole history, summing same-day entries first', () => {
+    const entries = [
+      { date: '2026-01-01', amountMl: 1500 }, // months earlier, split across two drinks
+      { date: '2026-01-01', amountMl: 1000 },
+      { date: '2026-03-15', amountMl: 800 },
+    ];
+    expect(bestHydrationDayEver(entries)).toEqual({ date: '2026-01-01', amountMl: 2500 });
   });
 });
 

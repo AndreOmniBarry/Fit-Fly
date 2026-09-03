@@ -315,7 +315,7 @@ css/
   mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals + Steps + Hydration's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration), register-service-worker.js (registers sw.js — see "Offline support")
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration), register-service-worker.js (registers sw.js — see "Offline support"), trend-chart.ts (shared bar-trend chart, used by Steps/Hydration/Run — see "A shared trend chart")
   db/                         # Dexie (IndexedDB) schema and store access; backup.js exports/imports every table + every pref as one JSON file — see "Export & import"
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -472,8 +472,12 @@ field for a bodyweight glute bridge, a rep count for a timed plank hold
 that never made sense either. Every exercise now carries a real
 `logMetric` (see "Tailored programs + periodization" above) and gets the
 form that actually fits it. The same pass gave Readiness a real reason to
-exist beyond its own screen — see "Recovery / readiness" above.
-630 Vitest unit tests and 428 Playwright end-to-end tests
+exist beyond its own screen — see "Recovery / readiness" above. Steps,
+Hydration, and Run then each gained a real 14-day (or 8-run) trend chart
+and a real personal-best badge, sharing one implementation
+(`js/lib/trend-chart.ts`, see "A shared trend chart" above) rather than
+three separate ones.
+634 Vitest unit tests and 446 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1078,6 +1082,49 @@ values, brightened the same way `--danger`/`--warning`/`--success`/
 `--info` already were, verified with real computed-style checks against
 both the pre-onboarding neutral accent and a real assigned category.
 
+## A shared trend chart
+
+Steps, Hydration, and Run each gained a real trend chart and a real
+personal-best badge this round — "real insights, not just today's
+number," and genuinely delightful to look at without ever fabricating a
+number to get there. `js/lib/trend-chart.ts`'s `renderTrendChart` is the
+one implementation behind all three, so the bar spacing, the tap/hover
+tooltip, and the highlight treatment are pixel-identical everywhere they
+appear rather than three subtly-different copies.
+
+It's real HTML, not SVG — every bar is a genuine `<button>`, natively
+focusable and tappable, with its own `aria-label` carrying the exact
+value and date/detail. That sidesteps needing a whole separate "table
+view" for screen-reader parity (the usual reason a chart needs one): the
+value is already reachable, with no hover required, through the same
+accessibility tree every other control in this app already uses. Tapping
+or focusing a bar reveals a small tooltip above it — bold value first,
+muted date/detail second, "values lead, labels follow." One hue per
+chart, the mini-app's own accent (passed in as a CSS custom property,
+`accentVar`), at two opacity steps: full strength for a highlighted bar
+(a goal met, a personal best), dimmer for the rest — never a second color
+standing in for status. An optional recessive reference line marks a
+goal, when the mini-app has one (Run's distance has no daily goal, so its
+own chart skips the line entirely rather than drawing one that doesn't
+mean anything).
+
+A real interaction bug came out of actually testing the tap behavior with
+a real click rather than eyeballing hover in a desktop browser: a tap
+dispatches `pointerenter` (which the original code used to *show* the
+tooltip) immediately before its own `click` event — a click-to-*toggle*
+handler saw the tooltip already open and instantly closed it again, so a
+real tap on a real phone would have flashed the tooltip open and shut in
+one motion. Fixed by making tap/hover/focus all simply show it (never
+toggle), leaving only leave/blur to hide it.
+
+Each mini-app supplies its own "personal best," scored from that
+feature's *entire* logged history, never just the chart's own visible
+window — `bestStepsDayEver`/`bestHydrationDayEver` (new pure functions in
+each mini-app's own `-trend.js`) and Run's already-existing `longestRun`
+all follow this same rule, the one Run's live PR badge already set: a
+real record has to survive the person scrolling past the visible window,
+or it isn't really a record.
+
 ## Steps
 
 A fifth sibling mini-app, and the last real "Vitals & Steps" placeholder
@@ -1151,6 +1198,15 @@ what a tool like [PWABuilder](https://www.pwabuilder.com) needs to
 package a real, installable Android app from this site's own live URL,
 without wrapping the codebase in a native Capacitor build at all.
 
+**A real 14-day trend chart, and a real personal best — see "A shared
+trend chart" below.** `steps-trend.js` gains `bestStepsDayEver`, scored
+against the *whole* logged history (`listAllStepEntries()`), not just the
+visible window — the same "a real record, never a recent-window
+illusion" rule Run's own PR badges already followed. Days that cleared
+the daily goal draw at full brightness in the chart; days that missed it
+draw dimmer — the same hue throughout, never a second color standing in
+for status.
+
 ## Hydration
 
 The Hub's seventh tile: a running daily total logged from real serving
@@ -1203,6 +1259,13 @@ nags once you're done. And it's honest about its real limit: this only
 ever fires while the app is open — there's still no push server behind
 this on-device app — the same "not a true background alarm" caveat as
 Goals' own nudge, spelled out on the screen itself rather than implied.
+
+**A real 14-day trend chart, and a real personal best.** Same shape as
+Steps' own (see "A shared trend chart" below): `bestHydrationDayEver`
+groups same-day entries first, then scores the *whole* logged history
+(`listAllHydrationEntries()`), never just the visible window. Days that
+cleared the daily goal draw at full brightness; days that missed it draw
+dimmer.
 
 ## The Fitness Toolkit
 
@@ -1384,6 +1447,15 @@ only written to the `runs` store once completed — a route's points live
 as one embedded array on that run's own record rather than a separate
 table, since they're only ever read back as a whole to redraw that run's
 own path, never queried across runs.
+
+Run History now leads with a real distance-per-run trend chart (last 8
+runs) and a "Best" badge — the same `longestRun()` this screen's own live
+PR badge already calls, so "best" means the same thing in both places
+rather than a second, differently-scoped notion of "best" invented just
+for the chart (see "A shared trend chart" below). The longest run in the
+visible window draws at full brightness; there's no daily goal for
+distance the way Steps/Hydration have, so there's no reference line here
+— just the one real personal best, highlighted.
 
 **Real runner-facing depth, not just distance/duration/pace.**
 `gps-math.js`'s `recentPaceSecPerKm` computes pace over only the last

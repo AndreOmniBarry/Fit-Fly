@@ -54,3 +54,11 @@ export async function getStepEntryForDate(date = todayIsoDate(), db = getDb()) {
 export async function listRecentStepEntries(limit = 30, db = getDb()) {
   return db.stepEntries.orderBy('date').reverse().limit(limit).toArray();
 }
+
+/** Every logged day, unbounded — the basis for a real "best day ever"
+ *  claim (js/features/steps/steps-trend.js's bestStepsDayEver), same
+ *  "personal bests come from the whole history, not a recent window"
+ *  contract as Run's own listAllRuns(). */
+export async function listAllStepEntries(db = getDb()) {
+  return db.stepEntries.toArray();
+}

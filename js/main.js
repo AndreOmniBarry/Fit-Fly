@@ -20,6 +20,7 @@ import { initMeditateFeature } from './features/meditate/meditate-view.js';
 import { initVitalsFeature } from './features/vitals/vitals-view.js';
 import { initStepsFeature } from './features/steps/steps-view.js';
 import { initHydrationFeature } from './features/hydration/hydration-view.js';
+import { initSettingsFeature } from './features/settings/settings-view.js';
 import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
@@ -72,6 +73,7 @@ async function init() {
   initVitalsFeature();
   initStepsFeature();
   initHydrationFeature();
+  initSettingsFeature();
 
   // Same spatial-tilt language as the Hub, Sleep's dashboard, and Focus —
   // the Fitness Toolkit's own home list gets it too, scoped to just this

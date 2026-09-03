@@ -7,7 +7,9 @@ import { getLatestCategoryAssignment } from '../../db/repositories/category-assi
 import { listInjuryScreens } from '../../db/repositories/injury-screens.js';
 import { createProgram, getActiveProgram, PROGRAM_STATUS, setProgramStatus } from '../../db/repositories/programs.js';
 import { addSet, createSession, listRecentSessions, listSetsForExercise } from '../../db/repositories/sessions.js';
+import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
+import { readinessActionSuggestion } from '../recovery/readiness.js';
 import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';
 import { getCurrentWeekNumber } from './week-number.js';
@@ -15,6 +17,10 @@ import { bestEstimatedOneRepMax } from './one-rep-max.js';
 
 function byId(id) {
   return document.getElementById(id);
+}
+
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 const DAY_TYPE_LABELS = {
@@ -55,17 +61,31 @@ export function initProgramFeature() {
   byId('program-days').addEventListener('click', async (event) => {
     const button = event.target.closest('[data-log-set]');
     if (!button) return;
-    const { dayIndex, exerciseId } = button.dataset;
+    const { dayIndex, exerciseId, logMetric } = button.dataset;
+
+    if (logMetric === 'time') {
+      const durationInput = byId(durationInputId(dayIndex, exerciseId));
+      const durationSec = Number(durationInput.value);
+      if (!(durationSec >= 1)) return;
+      await logSet(exerciseId, { durationSec });
+      durationInput.value = '';
+      return;
+    }
+
     const repsInput = byId(repsInputId(dayIndex, exerciseId));
-    const weightInput = byId(weightInputId(dayIndex, exerciseId));
     const reps = Number(repsInput.value);
-    const weightKg = Number(weightInput.value) || 0;
     if (!(reps >= 1)) return;
 
-    await logSet(exerciseId, reps, weightKg);
+    if (logMetric === 'reps-weight') {
+      const weightInput = byId(weightInputId(dayIndex, exerciseId));
+      const weightKg = Number(weightInput.value) || 0;
+      await logSet(exerciseId, { reps, weightKg });
+      weightInput.value = '';
+      await renderOneRepMax(exerciseId); // updates every day card showing this exercise, not just this one
+    } else {
+      await logSet(exerciseId, { reps });
+    }
     repsInput.value = '';
-    weightInput.value = '';
-    await renderOneRepMax(exerciseId); // updates every day card showing this exercise, not just this one
   });
 }
 
@@ -114,6 +134,7 @@ async function renderProgramScreen() {
   animateCountUp(byId('program-week-number'), generated.weekNumber);
   byId('program-block-label').textContent = `Block ${generated.blockNumber}`;
   byId('program-deload-banner').hidden = !generated.isDeload;
+  await renderReadinessBanner();
   byId('program-reasoning').innerHTML = generated.reasoning.map((line) => `<li>${line}</li>`).join('');
   byId('program-days').innerHTML = generated.days.map(renderDay).join('');
 
@@ -142,6 +163,9 @@ function repsInputId(dayIndex, exerciseId) {
 }
 function weightInputId(dayIndex, exerciseId) {
   return `program-weight-${dayIndex}-${exerciseId}`;
+}
+function durationInputId(dayIndex, exerciseId) {
+  return `program-duration-${dayIndex}-${exerciseId}`;
 }
 
 function renderDay(day) {
@@ -174,23 +198,48 @@ function renderDay(day) {
   `;
 }
 
+// A loaded lift shows reps + a real weight and earns an estimated-1RM
+// readout; a bodyweight move only ever shows reps (no "kg" field with
+// nothing real to put in it); a timed hold/cardio bout shows seconds,
+// not a rep count at all — see exercise-library.js's own comment on
+// logMetric for why these three genuinely need different forms, not one
+// reps+kg pair used for everything regardless of what the exercise is.
 function renderExercise(dayIndex, exercise) {
   const libraryEntry = getLibraryExercise(exercise.exerciseId);
+  const cueLine = libraryEntry ? `<span class="muted" style="font-size:var(--fs-xs);">${libraryEntry.cues[0]}</span>` : '';
+
+  const prescriptionText =
+    exercise.logMetric === 'time'
+      ? `${exercise.sets} sets × ${exercise.holdSec}s hold · rest ${exercise.restSec}s`
+      : `${exercise.sets} sets × ${exercise.reps} reps · rest ${exercise.restSec}s`;
+
+  const oneRepMaxSlot =
+    exercise.logMetric === 'reps-weight'
+      ? `<span class="muted" style="font-size:var(--fs-xs);" data-onerepmax-for="${exercise.exerciseId}"></span>`
+      : '';
+
+  const logInputs =
+    exercise.logMetric === 'time'
+      ? `<input class="input" type="number" min="1" id="${durationInputId(dayIndex, exercise.exerciseId)}" placeholder="seconds held">`
+      : exercise.logMetric === 'reps-weight'
+        ? `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">
+           <input class="input" type="number" min="0" step="0.5" id="${weightInputId(dayIndex, exercise.exerciseId)}" placeholder="kg">`
+        : `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">`;
+
   return `
     <div class="stack" style="border-top:1px solid var(--border); padding-top:var(--space-3);">
       <div class="row" style="align-items:flex-start;">
         <div id="${svgSlotId(dayIndex, exercise.exerciseId)}" data-tilt-depth="2" style="width:48px; height:40px; flex-shrink:0; color:var(--ink-2);" aria-hidden="true"></div>
         <div class="stack" style="gap:2px;">
           <strong>${exercise.name}</strong>
-          <span class="muted" style="font-size:var(--fs-sm);">${exercise.sets} sets × ${exercise.reps} reps · rest ${exercise.restSec}s</span>
-          ${libraryEntry ? `<span class="muted" style="font-size:var(--fs-xs);">${libraryEntry.cues[0]}</span>` : ''}
-          <span class="muted" style="font-size:var(--fs-xs);" data-onerepmax-for="${exercise.exerciseId}"></span>
+          <span class="muted" style="font-size:var(--fs-sm);">${prescriptionText}</span>
+          ${cueLine}
+          ${oneRepMaxSlot}
         </div>
       </div>
       <div class="row">
-        <input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">
-        <input class="input" type="number" min="0" step="0.5" id="${weightInputId(dayIndex, exercise.exerciseId)}" placeholder="kg">
-        <button class="btn btn-secondary" data-log-set data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}">Log</button>
+        ${logInputs}
+        <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}">Log</button>
       </div>
     </div>
   `;
@@ -216,20 +265,40 @@ async function loadDemoSvgInto(elementId, svgPath) {
  *  one visit land together, rather than a new session per set. */
 async function getOrCreateTodaySession() {
   const [latest] = await listRecentSessions(1);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIsoDate();
   if (latest && latest.type === 'strength' && latest.startedAt.slice(0, 10) === today) {
     return latest;
   }
   return createSession({ type: 'strength', programId: activeProgramId });
 }
 
-async function logSet(exerciseId, reps, weightKg) {
+/** Surfaces today's Readiness check-in (see js/features/recovery/) right
+ *  where it can actually change a decision — whether to push today's
+ *  session or ease up — instead of leaving it stranded on its own
+ *  screen with nothing downstream ever reading it. Shows nothing at all
+ *  when there's no check-in for today: a nag to go log one would be
+ *  noise, not value. */
+async function renderReadinessBanner() {
+  const checkin = await getReadinessCheckinForDate(todayIsoDate());
+  const banner = byId('program-readiness-banner');
+  if (!checkin) {
+    banner.hidden = true;
+    return;
+  }
+  byId('program-readiness-category').textContent = `${checkin.score} · ${checkin.category}`;
+  byId('program-readiness-suggestion').textContent = readinessActionSuggestion(checkin.category);
+  banner.hidden = false;
+}
+
+async function logSet(exerciseId, fields) {
   const session = await getOrCreateTodaySession();
-  await addSet(session.id, { exerciseId, reps, weightKg });
+  await addSet(session.id, { exerciseId, ...fields });
 }
 
 /** Updates every rendered occurrence of this exercise (it can appear on
- *  more than one day) with the same up-to-date estimate. */
+ *  more than one day) with the same up-to-date estimate. Only ever
+ *  called for logMetric: 'reps-weight' exercises — see renderExercise()
+ *  — but guarded anyway since it's cheap and correct either way. */
 async function renderOneRepMax(exerciseId) {
   const elements = document.querySelectorAll(`[data-onerepmax-for="${exerciseId}"]`);
   if (elements.length === 0) return;

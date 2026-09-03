@@ -44,10 +44,10 @@ test.describe('meditate', () => {
     expect(consoleErrors).toEqual([]);
   });
 
-  test('shows a real streak/minutes card and the crisis-resources note', async ({ page }) => {
+  test('shows a real streak/minutes card and the "not medical advice" note', async ({ page }) => {
     await expect(page.locator('#meditate-stat-streak')).toBeVisible();
     await expect(page.locator('#meditate-stat-minutes')).toBeVisible();
-    await expect(page.getByText('988')).toBeVisible();
+    await expect(page.getByText('not a substitute for a therapist or a diagnosis')).toBeVisible();
   });
 
   test('starting a meditation opens the shared player themed for Meditate, not Focus', async ({ page }) => {

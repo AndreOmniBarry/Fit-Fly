@@ -36,13 +36,20 @@ const CATEGORY_DAY_PLANS = Object.freeze({
   endurance: ['cardio', 'full-body', 'cardio', 'full-body'],
 });
 
+// `holdSec` is the prescription for logMetric: 'time' exercises (plank,
+// standing march) — there's no rep count for a timed hold, so this is a
+// genuinely separate number from `reps`, not the same value relabeled.
+// Roughly scaled to match each category's own reps range/intensity
+// (a beginner plank hold starts short and builds up, same shape as a
+// beginner's rep count — see exercise-library.js's own comment on why
+// this needed splitting out from reps in the first place).
 const CATEGORY_PRESCRIPTIONS = Object.freeze({
-  'sedentary-start': { sets: 2, reps: '10-15', restSec: 60 },
-  'cut-fat-loss': { sets: 3, reps: '12-15', restSec: 45 },
-  recomposition: { sets: 3, reps: '8-12', restSec: 75 },
-  'rehab-recuperation': { sets: 2, reps: '10-12', restSec: 60 },
-  hypertrophy: { sets: 4, reps: '8-12', restSec: 90 },
-  endurance: { sets: 2, reps: '15-20', restSec: 30 },
+  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20', restSec: 60 },
+  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30', restSec: 45 },
+  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30', restSec: 75 },
+  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15', restSec: 60 },
+  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45', restSec: 90 },
+  endurance: { sets: 2, reps: '15-20', holdSec: '30-45', restSec: 30 },
 });
 
 const CATEGORY_REASONING = Object.freeze({
@@ -117,8 +124,10 @@ export function generateProgram({
       exercises: exercises.map((exercise) => ({
         exerciseId: exercise.id,
         name: exercise.name,
+        logMetric: exercise.logMetric,
         sets: setsThisWeek,
         reps: prescription.reps,
+        holdSec: prescription.holdSec,
         restSec: prescription.restSec,
       })),
     };

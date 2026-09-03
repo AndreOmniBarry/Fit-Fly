@@ -143,8 +143,9 @@ test.describe('my program', () => {
 
     // hypertrophy is an upper/lower split — Dumbbell Bench Press appears
     // on both Day 1 and Day 3, so this also proves the id-collision fix
-    // holds. (A bodyweight exercise like push-up has no weight to log,
-    // so estimateOneRepMax() correctly declines to estimate anything.)
+    // holds. (A bodyweight exercise like push-up gets no weight field at
+    // all to log into — see the logMetric tests below — so there's
+    // nothing for estimateOneRepMax() to estimate a max of.)
     const logButtons = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]');
     await expect(logButtons).toHaveCount(2);
 
@@ -158,6 +159,71 @@ test.describe('my program', () => {
     await expect(oneRmSpans.nth(1)).toContainText('Estimated 1RM'); // the Day 3 occurrence updated too
 
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('a bodyweight exercise gets a reps-only log form — no "kg" field, no 1RM estimate', async ({ page }) => {
+    // rehab-recuperation's mobility days always include Glute Bridge for
+    // their hinge slot (see program-generator.js's deterministic pick
+    // order) — a real bodyweight, reps-only exercise.
+    await completeOnboarding(page, { goal: 'endurance', redFlag: 'chest-pain-pressure' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="glute-bridge"]').first();
+    await expect(logButton).toBeVisible();
+    await expect(logButton).toHaveAttribute('data-log-metric', 'reps');
+    const dayIndex = await logButton.getAttribute('data-day-index');
+
+    await expect(page.locator(`#program-reps-${dayIndex}-glute-bridge`)).toBeVisible();
+    await expect(page.locator(`#program-weight-${dayIndex}-glute-bridge`)).toHaveCount(0);
+    await expect(page.locator('[data-onerepmax-for="glute-bridge"]')).toHaveCount(0);
+
+    await page.locator(`#program-reps-${dayIndex}-glute-bridge`).fill('15');
+    await logButton.click();
+    await expect(page.locator(`#program-reps-${dayIndex}-glute-bridge`)).toHaveValue('');
+  });
+
+  test('a timed exercise (plank) gets a seconds-held log form — no reps, no "kg" field', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'endurance', redFlag: 'chest-pain-pressure' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="plank"]').first();
+    await expect(logButton).toBeVisible();
+    await expect(logButton).toHaveAttribute('data-log-metric', 'time');
+    const dayIndex = await logButton.getAttribute('data-day-index');
+
+    const exerciseBlock = page.locator('.stack:has(button[data-log-set][data-exercise-id="plank"])').first();
+    await expect(exerciseBlock).toContainText('hold');
+    await expect(page.locator(`#program-duration-${dayIndex}-plank`)).toBeVisible();
+    await expect(page.locator(`#program-reps-${dayIndex}-plank`)).toHaveCount(0);
+    await expect(page.locator(`#program-weight-${dayIndex}-plank`)).toHaveCount(0);
+
+    await page.locator(`#program-duration-${dayIndex}-plank`).fill('25');
+    await logButton.click();
+    await expect(page.locator(`#program-duration-${dayIndex}-plank`)).toHaveValue('');
+  });
+
+  test('with no readiness check-in logged today, the readiness banner stays hidden', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+    await expect(page.locator('#program-readiness-banner')).toBeHidden();
+  });
+
+  test("logging a readiness check-in shows up on My Program with a real, category-matched suggestion", async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+
+    await page.locator('#btn-home-readiness').click();
+    await page.locator('#readiness-sleep').fill('4');
+    await page.locator('#readiness-energy button[data-value="1"]').click();
+    await page.locator('#readiness-soreness button[data-value="5"]').click();
+    await page.locator('#btn-readiness-save').click();
+    await expect(page.locator('#readiness-category')).toContainText('low');
+    await page.locator('#btn-readiness-back').click();
+
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-readiness-banner')).toBeVisible();
+    await expect(page.locator('#program-readiness-category')).toContainText('low');
+    await expect(page.locator('#program-readiness-suggestion')).toContainText('easier');
   });
 
   test('reacts to tilt, and every day card carries a real day-type icon', async ({ page }) => {

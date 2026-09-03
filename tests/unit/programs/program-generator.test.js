@@ -114,6 +114,27 @@ describe('generateProgram: periodization', () => {
   });
 });
 
+describe('generateProgram: per-exercise logMetric', () => {
+  it('every generated exercise carries the same logMetric as its library entry', () => {
+    const program = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced' });
+    for (const day of program.days) {
+      for (const exercise of day.exercises) {
+        expect(exercise.logMetric).toBe(getLibraryExercise(exercise.exerciseId).logMetric);
+      }
+    }
+  });
+
+  it('a timed exercise (plank) is prescribed a real holdSec range, not a rep count relabeled', () => {
+    // rehab-recuperation's mobility days include core work — plank is a
+    // real, beginner-eligible, no-contraindication candidate for it.
+    const program = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner' });
+    const plank = program.days.flatMap((d) => d.exercises).find((e) => e.exerciseId === 'plank');
+    expect(plank).toBeDefined();
+    expect(plank.logMetric).toBe('time');
+    expect(plank.holdSec).toMatch(/^\d+-\d+$/);
+  });
+});
+
 describe('generateProgram: reasoning is always present', () => {
   it('every category has at least one reasoning line', () => {
     const categories = [

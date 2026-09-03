@@ -464,8 +464,16 @@ that same "actually works, not just documented" bar: the app's own
 strategy instead of the browser's own opportunistic one. A real
 export/import (see "Export & import" above) closed the last of this
 round's three gaps: a genuine backup file, including the Cycle Tracker's
-data still exactly as encrypted as it is at rest.
-624 Vitest unit tests and 420 Playwright end-to-end tests
+data still exactly as encrypted as it is at rest. A follow-up pass then
+fixed a real correctness bug caught by an honest look at the Fitness
+Toolkit rather than proactive feature work: every exercise used to show
+the same reps+kg log form regardless of what it actually was — a "kg"
+field for a bodyweight glute bridge, a rep count for a timed plank hold
+that never made sense either. Every exercise now carries a real
+`logMetric` (see "Tailored programs + periodization" above) and gets the
+form that actually fits it. The same pass gave Readiness a real reason to
+exist beyond its own screen — see "Recovery / readiness" above.
+630 Vitest unit tests and 428 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -955,12 +963,10 @@ Sleep's and Focus's own tiles).
 
 ### Honest about what this is and isn't
 
-The Meditate screen carries its own crisis-resources note alongside the
-app's existing "Not medical advice" framing, extended for mental-health
-content specifically — a real, named resource (the 988 Suicide & Crisis
-Lifeline, for anyone in the US), not a vague "seek help if needed." These
-are real techniques with real evidence behind them, not a substitute for
-a therapist, and the app never pretends otherwise.
+The Meditate screen carries the app's existing "Not medical advice"
+framing, extended for mental-health content specifically: these are real
+techniques with real evidence behind them, not a substitute for a
+therapist or a diagnosis, and the app never pretends otherwise.
 
 **Deliberately out of scope for this round**, sequenced rather than
 crammed in: a written "Self-Care Tools & Resources" guide/article section,
@@ -1311,6 +1317,19 @@ much rest, and a plain-language "why this" reasoning. Safety routing
 screen's free-text injury area onto a small keyword-matched tag set and
 excludes any exercise whose `contraindications` include it — under-
 filtering on a miss, never over-filtering.
+
+Every exercise carries a real `logMetric` — a loaded lift (`goblet-squat`,
+`dumbbell-bench-press`, ...) is `reps-weight` and gets a reps *and* a kg
+field, feeding the estimated-1RM readout; a bodyweight movement
+(`glute-bridge`, `push-up`, ...) is `reps` and gets a reps-only form —
+there's no real "kg" for your own bodyweight, so no kg field is rendered
+for one at all, not just left optional; and an isometric hold or timed
+cardio bout (`plank`, `standing-march`) is `time` and gets a seconds-held
+field instead of a rep count that never meant anything for either of
+them. The Programs screen (`js/features/programs/program-view.js`)
+renders a different prescription line and log form per `logMetric`
+rather than the same reps+kg pair regardless of what the exercise
+actually is.
 
 `js/features/programs/periodization.js` is a standard 4-week mesocycle:
 three weeks of progressive load, then a deload week at reduced volume.
@@ -1685,6 +1704,17 @@ required; recent training load alone isn't a check-in.
 `readinessCheckins` is keyed by date like `cycleLogs`, so revisiting the
 same day prefills what was already logged and a second save just
 overwrites rather than duplicating.
+
+It used to end there — a real, well-reasoned score with nothing
+downstream ever reading it, which is exactly why it read as pointless
+rather than useful. Today's check-in (if there is one) now surfaces
+directly on My Program, right where it can actually change a decision:
+a small banner shows the score/category and a plain-language,
+never-prescriptive nudge (`readinessActionSuggestion` in `readiness.js`
+— "worth going easier," never "you must rest") — visible exactly where
+someone's about to decide how hard to push today's session, not stranded
+on a screen of its own. No check-in today means no banner at all: a nag
+to go log one would be noise, not value.
 
 ## Goals + notifications
 

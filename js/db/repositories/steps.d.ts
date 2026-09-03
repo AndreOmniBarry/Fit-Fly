@@ -14,3 +14,4 @@ export function setStepsForDate(steps: number, date?: string): Promise<StepEntry
 export function syncStepsFromNativePedometer(steps: number, date?: string): Promise<StepEntry>;
 export function getStepEntryForDate(date?: string): Promise<StepEntry | undefined>;
 export function listRecentStepEntries(limit?: number): Promise<StepEntry[]>;
+export function listAllStepEntries(): Promise<StepEntry[]>;

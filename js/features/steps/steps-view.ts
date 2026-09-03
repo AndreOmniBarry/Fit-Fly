@@ -24,11 +24,13 @@ import {
 import {
   addStepsToDate,
   getStepEntryForDate,
+  listAllStepEntries,
   listRecentStepEntries,
   setStepsForDate,
   syncStepsFromNativePedometer,
 } from '../../db/repositories/steps.js';
-import { averageStepsPerLoggedDay, calculateStepsStreak } from './steps-trend.js';
+import { averageStepsPerLoggedDay, bestStepsDayEver, calculateStepsStreak } from './steps-trend.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
 import type { StepEntry } from '../../db/repositories/steps.js';
 
 const DEFAULT_GOAL = 7500;
@@ -227,11 +229,16 @@ export function initStepsFeature(): void {
 }
 
 async function refreshAll(): Promise<void> {
-  const [today, recent] = await Promise.all([getStepEntryForDate(), listRecentStepEntries(30)]);
+  const [today, recent, all] = await Promise.all([
+    getStepEntryForDate(),
+    listRecentStepEntries(30),
+    listAllStepEntries(),
+  ]);
 
   renderRing(today);
   renderHistory(recent);
   renderStats(recent);
+  renderTrend(recent, all);
 }
 
 function renderRing(today: StepEntry | undefined): void {
@@ -253,6 +260,39 @@ function renderStats(recent: StepEntry[]): void {
   animateCountUp(byId('steps-stat-avg'), avg);
 
   setStepsTileSubtitle(streak > 0 ? `${streak}-day streak` : 'Count a real walk');
+}
+
+/** 14-day bar trend + a real "best day ever" badge — a personal best
+ *  drawn from the whole logged history (`all`), never just the visible
+ *  window, same "a real record, not a recent-window illusion" contract
+ *  as Run's own PR badges. */
+function renderTrend(recent: StepEntry[], all: StepEntry[]): void {
+  const goal = getGoal();
+  const window = [...recent].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+
+  renderTrendChart(byId('steps-trend-chart'), {
+    points: window.map((entry) => ({
+      key: entry.date,
+      value: entry.steps,
+      axisLabel: new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' }),
+      highlighted: entry.steps >= goal,
+      tooltipValue: `${entry.steps.toLocaleString()} steps`,
+      tooltipDetail: `${new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${entry.steps >= goal ? ' · Goal met' : ''}`,
+    })),
+    accentVar: '--steps-accent',
+    referenceValue: goal,
+    emptyMessage: 'Log a second day to start a trend.',
+  });
+
+  const bestDay = bestStepsDayEver([...all].sort((a, b) => a.date.localeCompare(b.date)));
+  const badge = byId('steps-best-day-badge');
+  if (bestDay) {
+    const dateLabel = new Date(`${bestDay.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    byId('steps-best-day-text').textContent = `Best: ${bestDay.steps.toLocaleString()} on ${dateLabel}`;
+    badge.hidden = false;
+  } else {
+    badge.hidden = true;
+  }
 }
 
 function renderHistory(recent: StepEntry[]): void {

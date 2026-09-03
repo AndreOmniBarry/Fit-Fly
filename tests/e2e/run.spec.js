@@ -116,6 +116,63 @@ test.describe('run mode', () => {
     await page.locator('#btn-home-run').click();
     await page.getByRole('button', { name: 'Run History' }).click();
     await expect(page.locator('#run-history-list')).toContainText('No runs logged yet');
+    await expect(page.locator('#run-trend-card')).toBeHidden();
+  });
+
+  test('the distance trend chart stays in its honest empty state with only one run logged', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { saveCompletedRun } = await import('/js/db/repositories/runs.js');
+      await saveCompletedRun({ distanceMeters: 3000, durationMs: 900_000, avgPaceSecPerKm: 300, startedAt: new Date().toISOString() });
+    });
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Run History' }).click();
+
+    await expect(page.locator('#run-trend-card')).toBeVisible();
+    await expect(page.locator('#run-trend-chart')).toContainText('Log a second run');
+    // Still a real fact even from a single run — this run genuinely is the best so far.
+    await expect(page.locator('#run-best-badge')).toBeVisible();
+    await expect(page.locator('#run-best-text')).toContainText('3');
+  });
+
+  test('the distance trend chart renders a real bar per run, tap shows its exact distance, and the longest run is highlighted', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { saveCompletedRun } = await import('/js/db/repositories/runs.js');
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      await saveCompletedRun({ distanceMeters: 3000, durationMs: 900_000, avgPaceSecPerKm: 300, startedAt: yesterday.toISOString() });
+      await saveCompletedRun({ distanceMeters: 8000, durationMs: 2_400_000, avgPaceSecPerKm: 300, startedAt: today.toISOString() });
+    });
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Run History' }).click();
+
+    const bars = page.locator('.trend-chart-bar');
+    await expect(bars).toHaveCount(2);
+    await expect(bars.nth(0).locator('.trend-chart-bar-fill')).not.toHaveClass(/trend-chart-bar-fill--highlighted/);
+    await expect(bars.nth(1).locator('.trend-chart-bar-fill')).toHaveClass(/trend-chart-bar-fill--highlighted/);
+
+    await bars.nth(1).click();
+    const tooltip = bars.nth(1).locator('.trend-chart-tooltip');
+    await expect(tooltip).toBeVisible();
+    await expect(tooltip).toContainText('8.00 km');
+    await expect(tooltip).toContainText('Longest run');
+
+    await expect(page.locator('#run-best-text')).toContainText('8.00 km');
+  });
+
+  test('the best-run badge reflects a real all-time longest run, not just one from the visible 8-run window', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { saveCompletedRun } = await import('/js/db/repositories/runs.js');
+      // A genuinely old run, well outside any 8-run trend window, with
+      // the real longest distance — the badge must still find it.
+      await saveCompletedRun({ distanceMeters: 21000, durationMs: 7_000_000, avgPaceSecPerKm: 330, startedAt: '2020-01-01T08:00:00.000Z' });
+      await saveCompletedRun({ distanceMeters: 5000, durationMs: 1_500_000, avgPaceSecPerKm: 300, startedAt: new Date().toISOString() });
+    });
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Run History' }).click();
+
+    await expect(page.locator('#run-best-badge')).toBeVisible();
+    await expect(page.locator('#run-best-text')).toContainText('21.00 km');
   });
 
   test('leaving mid-run prompts a confirmation', async ({ page, context }) => {

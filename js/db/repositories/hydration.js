@@ -26,6 +26,14 @@ export async function listRecentHydrationEntries(limit = 100, db = getDb()) {
   return db.hydrationEntries.orderBy('loggedAt').reverse().limit(limit).toArray();
 }
 
+/** Every logged entry, unbounded — the basis for a real "best day ever"
+ *  claim (js/features/hydration/hydration-trend.js's
+ *  bestHydrationDayEver), same "personal bests come from the whole
+ *  history, not a recent window" contract as Run's own listAllRuns(). */
+export async function listAllHydrationEntries(db = getDb()) {
+  return db.hydrationEntries.toArray();
+}
+
 export async function deleteHydrationEntry(id, db = getDb()) {
   await db.hydrationEntries.delete(id);
 }

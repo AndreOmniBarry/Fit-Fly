@@ -12,8 +12,9 @@ import { getPref, setPref } from '../../lib/storage.js';
 import { getNotificationPermission, requestNotificationPermission, showNotification } from '../../lib/notifications.js';
 import { setHydrationTileSubtitle } from '../hub/hub-view.js';
 import { hydrationNeedsReminder } from './hydration-reminders.js';
-import { averageHydrationPerLoggedDay, calculateHydrationStreak } from './hydration-trend.js';
-import { addHydrationEntry, listHydrationEntriesForDate, listRecentHydrationEntries, sumHydrationEntries, } from '../../db/repositories/hydration.js';
+import { averageHydrationPerLoggedDay, bestHydrationDayEver, calculateHydrationStreak, groupHydrationByDate, } from './hydration-trend.js';
+import { addHydrationEntry, listAllHydrationEntries, listHydrationEntriesForDate, listRecentHydrationEntries, sumHydrationEntries, } from '../../db/repositories/hydration.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
 const DEFAULT_GOAL_ML = 2200;
 const GOAL_PREF_KEY = 'hydrationGoalMl';
 const DEFAULT_INTERVAL_HOURS = 2;
@@ -130,13 +131,15 @@ async function checkHydrationReminders() {
     });
 }
 async function refreshAll() {
-    const [todayEntries, recent] = await Promise.all([
+    const [todayEntries, recent, all] = await Promise.all([
         listHydrationEntriesForDate(),
         listRecentHydrationEntries(500),
+        listAllHydrationEntries(),
     ]);
     renderFigure(sumHydrationEntries(todayEntries));
     renderStats(recent);
     renderHistory(todayEntries);
+    renderTrend(recent, all);
 }
 function renderFigure(todayMl) {
     const goal = getGoalMl();
@@ -156,6 +159,42 @@ function renderStats(recent) {
     animateCountUp(byId('hydration-stat-streak'), streak);
     animateCountUp(byId('hydration-stat-avg'), avg);
     setHydrationTileSubtitle(streak > 0 ? `${streak}-day streak` : 'Log a drink');
+}
+/** 14-day bar trend + a real "best day ever" badge — a personal best
+ *  drawn from the whole logged history (`all`), never just the visible
+ *  window, same "a real record, not a recent-window illusion" contract
+ *  as Run's own PR badges. */
+function renderTrend(recent, all) {
+    const goal = getGoalMl();
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const windowStart = new Date();
+    windowStart.setDate(windowStart.getDate() - 13);
+    const windowStartIso = windowStart.toISOString().slice(0, 10);
+    const dailyTotals = groupHydrationByDate(recent.filter((e) => e.date >= windowStartIso && e.date <= todayIso));
+    const days = [...dailyTotals.entries()].sort(([a], [b]) => a.localeCompare(b));
+    renderTrendChart(byId('hydration-trend-chart'), {
+        points: days.map(([date, amountMl]) => ({
+            key: date,
+            value: amountMl,
+            axisLabel: new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' }),
+            highlighted: amountMl >= goal,
+            tooltipValue: `${amountMl.toLocaleString()}ml`,
+            tooltipDetail: `${new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${amountMl >= goal ? ' · Goal met' : ''}`,
+        })),
+        accentVar: '--hydration-accent',
+        referenceValue: goal,
+        emptyMessage: 'Log a second day to start a trend.',
+    });
+    const bestDay = bestHydrationDayEver([...all].sort((a, b) => a.date.localeCompare(b.date)));
+    const badge = byId('hydration-best-day-badge');
+    if (bestDay) {
+        const dateLabel = new Date(`${bestDay.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        byId('hydration-best-day-text').textContent = `Best: ${bestDay.amountMl.toLocaleString()}ml on ${dateLabel}`;
+        badge.hidden = false;
+    }
+    else {
+        badge.hidden = true;
+    }
 }
 function renderHistory(todayEntries) {
     const list = byId('hydration-history-list');

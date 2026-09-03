@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { averageStepsPerLoggedDay, calculateStepsStreak } from '../../../js/features/steps/steps-trend.js';
+import { averageStepsPerLoggedDay, bestStepsDayEver, calculateStepsStreak } from '../../../js/features/steps/steps-trend.js';
 
 describe('calculateStepsStreak', () => {
   it('is 0 with nothing logged', () => {
@@ -26,6 +26,21 @@ describe('calculateStepsStreak', () => {
       { date: '2026-03-15', steps: 7000 },
     ];
     expect(calculateStepsStreak(entries)).toBe(2);
+  });
+});
+
+describe('bestStepsDayEver', () => {
+  it('is null with nothing logged', () => {
+    expect(bestStepsDayEver([])).toBeNull();
+  });
+
+  it('finds the real highest day across the whole history, not just recent ones', () => {
+    const entries = [
+      { date: '2026-01-01', steps: 12000 }, // months earlier — still the real best
+      { date: '2026-03-14', steps: 8000 },
+      { date: '2026-03-15', steps: 6000 },
+    ];
+    expect(bestStepsDayEver(entries)).toEqual({ date: '2026-01-01', steps: 12000 });
   });
 });
 

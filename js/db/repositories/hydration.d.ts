@@ -11,5 +11,6 @@ export function addHydrationEntry(input: { amountMl: number; date?: string }): P
 export function listHydrationEntriesForDate(date?: string): Promise<HydrationEntry[]>;
 export function listHydrationEntriesInRange(startDate: string, endDate: string): Promise<HydrationEntry[]>;
 export function listRecentHydrationEntries(limit?: number): Promise<HydrationEntry[]>;
+export function listAllHydrationEntries(): Promise<HydrationEntry[]>;
 export function deleteHydrationEntry(id: string): Promise<void>;
 export function sumHydrationEntries(entries: { amountMl?: number | null }[]): number;

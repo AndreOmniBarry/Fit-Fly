@@ -26,6 +26,16 @@ export function calculateStepsStreak(entries: StepEntryLike[]): number {
   return streak;
 }
 
+/** The single highest-steps day across a person's whole logged history —
+ *  a real personal best, never scoped to a recent window (see
+ *  listAllStepEntries()). A tie keeps whichever the array lists first,
+ *  which callers should pass oldest-first so an actual tie reads as the
+ *  first time it was reached, not an arbitrary later repeat. */
+export function bestStepsDayEver(entries: StepEntryLike[]): StepEntryLike | null {
+  if (entries.length === 0) return null;
+  return entries.reduce((best, entry) => (entry.steps > best.steps ? entry : best));
+}
+
 /** Real average across the last N calendar days, counting only days that
  *  actually have an entry — an unlogged day dilutes nothing, the same
  *  "average per logged day" choice Nutrition's own weekly trend makes. */

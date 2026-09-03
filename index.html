@@ -1151,6 +1151,19 @@
 
     <div class="steps-card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
       <span class="tilt-press stack">
+        <div class="row-between">
+          <h3>14-Day Trend</h3>
+          <span class="row" id="steps-best-day-badge" style="gap:6px; align-items:center; font-size:var(--fs-sm);" hidden>
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
+            <span id="steps-best-day-text"></span>
+          </span>
+        </div>
+        <div id="steps-trend-chart"></div>
+      </span>
+    </div>
+
+    <div class="steps-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
         <h3>Live Walk</h3>
         <p class="muted" id="steps-live-status" style="font-size:var(--fs-sm);">Checking availability…</p>
         <div id="steps-live-active" hidden class="row" style="align-items:center; gap:8px;">
@@ -1255,6 +1268,19 @@
     </div>
 
     <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
+      <span class="tilt-press stack">
+        <div class="row-between">
+          <h3>14-Day Trend</h3>
+          <span class="row" id="hydration-best-day-badge" style="gap:6px; align-items:center; font-size:var(--fs-sm);" hidden>
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
+            <span id="hydration-best-day-text"></span>
+          </span>
+        </div>
+        <div id="hydration-trend-chart"></div>
+      </span>
+    </div>
+
+    <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
       <span class="tilt-press stack">
         <h3>Quick Log</h3>
         <div class="hydration-quick-log" id="hydration-quick-log">
@@ -1495,6 +1521,20 @@
       <button class="miniapp-icon-btn" id="btn-run-history-back" aria-label="Back to your apps">←</button>
     </div>
     <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Run History</h2>
+
+    <div class="card stack tilt-card tilt-enter" id="run-trend-card" style="margin-top:var(--space-3);" hidden>
+      <span class="tilt-press stack">
+        <div class="row-between">
+          <h3>Distance Trend</h3>
+          <span class="row" id="run-best-badge" style="gap:6px; align-items:center; font-size:var(--fs-sm);" hidden>
+            <svg class="icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
+            <span id="run-best-text"></span>
+          </span>
+        </div>
+        <div id="run-trend-chart"></div>
+      </span>
+    </div>
+
     <div class="stack tilt-stagger" id="run-history-list" style="margin-top:var(--space-3);"></div>
   </section>
 

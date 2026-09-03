@@ -122,3 +122,43 @@ test.describe('steps', () => {
     expect(parseFloat(tilt.ry)).not.toBe(0);
   });
 });
+
+test.describe('steps: native runtime (mocked)', () => {
+  // window.androidBridge is what a real Capacitor Android WebView
+  // actually injects before any page script runs — undefined in every
+  // real browser context today. Mocking it here is the only way to
+  // exercise the "wrapped natively" branch without an actual native
+  // build. Headless Chromium has no FitFlyStepCounter plugin behind
+  // this, so every native call genuinely fails — this is exactly the
+  // honest-degradation path (see steps-view.ts's own try/catch around
+  // every native call), not a simulation of the real native flow.
+  test('honestly degrades instead of throwing when the native plugin itself is unreachable', async ({ page }) => {
+    const consoleErrors = [];
+    await page.addInitScript(() => {
+      window.androidBridge = {};
+    });
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await page.getByRole('button', { name: 'Skip for now' }).click();
+    await page.getByRole('button', { name: 'Steps' }).click();
+
+    await expect(page.locator('#steps-background-note-text')).toContainText('keeps counting your real steps even with the screen locked');
+    await expect(page.locator('#steps-live-status')).toContainText("Couldn't reach this device's step counter");
+    await expect(page.locator('#btn-steps-live-toggle')).toBeDisabled();
+
+    // Manual entry still works — the one honest fallback whatever else
+    // fails.
+    await page.locator('#steps-manual-count').fill('4200');
+    await page.locator('#btn-steps-manual-save').click();
+    await expect(page.locator('#steps-today-count')).toHaveText('4200', { timeout: 3000 });
+
+    expect(consoleErrors).toEqual([]);
+  });
+});

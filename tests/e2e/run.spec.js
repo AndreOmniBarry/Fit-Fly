@@ -304,12 +304,18 @@ test.describe('run mode', () => {
   });
 
   test('the background-tracking note reads a real Capacitor-native seam once wrapped natively', async ({ page }) => {
-    // window.Capacitor is what js/lib/native-runtime.js's isNativeRuntime()
-    // checks for — undefined in every real browser today. Mocking it here
-    // is the only way to exercise the "once wrapped natively" branch
-    // without an actual native build.
+    // js/lib/native-runtime.js's isNativeRuntime() checks
+    // window.Capacitor.isNativePlatform() — but the app now vendors the
+    // real @capacitor/core runtime (js/vendor/capacitor-core.mjs) for
+    // native-pedometer.js/native-background-geo.js's own registerPlugin()
+    // calls, and that runtime re-derives isNativePlatform() itself from
+    // real bridge signals (window.androidBridge on Android) rather than
+    // trusting whatever's already on window.Capacitor — so mocking
+    // isNativePlatform directly no longer works; window.androidBridge is
+    // what a real Capacitor Android WebView actually injects before any
+    // page script runs, undefined in every real browser context today.
     await page.addInitScript(() => {
-      window.Capacitor = { isNativePlatform: () => true };
+      window.androidBridge = {};
     });
     await page.goto('/');
     await clearAppDb(page);

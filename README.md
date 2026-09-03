@@ -75,15 +75,91 @@ are authored in **TypeScript** (strict mode) and compiled in place by
 `tsc` to the adjacent `.js` the browser actually loads — see "TypeScript,
 without a bundler" below. Neither approach pulls in a UI framework.
 
-The trade-off accepted deliberately across the whole app: GPS tracking
-only works while the screen is on (mitigated with the Screen Wake Lock
-API), background audio (Focus, Sleep's Wind Down) is unreliable once
-the screen locks — that's the OS's rule, stated plainly in the UI rather
-than glossed over — there's no HealthKit/Google Fit bridge, and iOS has no
-Bluetooth heart-rate-strap support in the browser. Camera-based PPG
-heart-rate estimation and manual entry cover that last gap, always labeled
-as an estimate per the rule above. Sleep, similarly, never claims to sense
-anything passively overnight — see "Sleep" below for why.
+The trade-off accepted deliberately across most of the app: background
+audio (Focus, Sleep's Wind Down) is unreliable once the screen locks —
+that's the OS's rule, stated plainly in the UI rather than glossed
+over — there's no HealthKit/Google Fit bridge, and iOS has no Bluetooth
+heart-rate-strap support in the browser. Camera-based PPG heart-rate
+estimation and manual entry cover that last gap, always labeled as an
+estimate per the rule above. Sleep, similarly, never claims to sense
+anything passively overnight — see "Sleep" below for why. Steps and Run
+mode's own GPS tracking used to carry the identical "screen must stay
+on" limit — see "Native builds (Capacitor)" below for the real fix.
+
+## Native builds (Capacitor)
+
+Steps and Run are the two features that actually benefit from running
+outside the browser's own limits — a background pedometer and
+background GPS both need the OS to keep a sensor listener alive with
+the screen locked, which no web page can do. `js/lib/native-runtime.js`'s
+`isNativeRuntime()` is the seam: `false` in every browser context today
+(provably, since `window.Capacitor` is never present there), `true` once
+this project is genuinely wrapped with [Capacitor](https://capacitorjs.com)
+— and as of this round, that wrapping is real, not just documented.
+
+**What's real here today.** A full Capacitor Android project lives in
+`android/` (`npx cap add android`), with two real background-capable
+plugins wired behind `isNativeRuntime()` — the web path is completely
+unchanged either way:
+
+- **Run's GPS** uses `@capacitor-community/background-geolocation`
+  (`js/features/run/native-background-geo.js`) — a real Android
+  foreground service (a persistent notification while tracking, the
+  same one every commercial fitness-tracking app shows) that keeps
+  delivering fixes with the screen locked, feeding the exact same
+  `gps-math.js`/`splits.js`/personal-record pipeline the web build
+  already uses.
+- **Steps' pedometer** is this project's *own* native plugin
+  (`android/app/src/main/java/app/fitfly/mobile/stepcounter/`,
+  wired through `js/features/steps/native-pedometer.js`) rather than a
+  third-party one — the off-the-shelf Capacitor pedometer plugins
+  evaluated for this all unregister their sensor listener the moment
+  the host Activity pauses, which quietly defeats "works with the
+  screen locked" the same way the plain web build already does. This
+  project's own `StepCounterService` instead runs a real foreground
+  service around Android's `TYPE_STEP_COUNTER` hardware sensor — the
+  same low-power counter the phone's own health app reads from — and
+  persists every real reading, so "today's step count" is accurate the
+  moment the app is reopened even if it was never in the foreground
+  while those steps happened.
+
+Both are gated behind the real permission each one needs
+(`ACTIVITY_RECOGNITION` for Steps, fine/coarse location for Run) and
+degrade to an honest status message — never an uncaught error — if the
+native plugin genuinely can't be reached.
+
+**What isn't done here, and can't be.** This sandboxed dev session has
+no way to compile or run this native code — `dl.google.com`, the
+Android SDK's real download host, is blocked by this environment's own
+network policy (the same wall the Steps round hit trying to build an
+APK directly). Every file in `android/` and every native plugin call
+was written and reviewed carefully, but **none of it has been compiled
+here** — the first real build is the real test.
+
+**Building it yourself:**
+
+```bash
+npm install                # installs @capacitor/core, @capacitor/android, the plugins
+npm run cap:sync           # builds the web app into www/, copies it into the native project
+npx cap open android       # opens android/ in Android Studio (needs it installed locally)
+```
+
+From there, Android Studio builds and installs the app to a real device
+over USB (Settings → Developer Options → USB debugging) the normal way
+— **a real device, not the emulator**: a background foreground-service
+notification and a locked-screen test are both far more representative
+on real hardware. Grant the Activity Recognition and Location
+permissions when the app asks. To actually verify background sensing
+works: open Steps, turn on background counting; open Run, start a run;
+then lock the phone, walk around for a minute or two, and reopen the
+app — both screens' real counts should already reflect the time spent
+locked, not restart from zero.
+
+`npm run cap:sync` re-runs whenever native code changes (a new
+build/test cycle); `scripts/prepare-native-www.mjs` is what copies this
+bundler-free app's real files into the `www/` folder Capacitor expects
+— gitignored, regenerated fresh every time, never a second source of
+truth to hand-edit.
 
 ## Accessibility
 
@@ -154,6 +230,8 @@ opportunistically alongside unrelated feature work.
 index.html            # app shell: splash + screen router mount point
 manifest.json          # PWA manifest
 tsconfig.json           # compiles js/**/*.ts in place — see "TypeScript, without a bundler"
+capacitor.config.ts     # Capacitor project config — see "Native builds (Capacitor)"
+android/                 # the real native Android project (npx cap add android) — Steps'/Run's own background-sensing plugins live under app/src/main/java/app/fitfly/mobile/
 css/
   tokens.css            # design tokens: light/dark themes, per-category accents
   base.css               # reset, app chrome, screen-router styles
@@ -169,9 +247,9 @@ js/
     focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
-    steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak (TypeScript)
+    steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak, native-pedometer.js (real background step counting on a native build) (TypeScript)
     hydration/                  # Hydration mini-app: real running daily total, water-fill figure, cited goal, interval-based reminder (TypeScript)
-    run/                         # Run mini-app: GPS route/splits/PRs, live GPS-quality feedback, pace-inferred calorie estimate, its own night-surface theme — promoted from a Fitness Toolkit list row to a standalone Hub tile
+    run/                         # Run mini-app: GPS route/splits/PRs, live GPS-quality feedback, pace-inferred calorie estimate, its own night-surface theme, native-background-geo.js (real background GPS on a native build) — promoted from a Fitness Toolkit list row to a standalone Hub tile
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
@@ -183,7 +261,7 @@ js/
     goals/                                   # goals + local notifications
     voice/                                    # closed-grammar voice commands
   vendor/
-    dexie.min.mjs, fonts/                       # vendored libraries + fonts (npm registry, not a live CDN)
+    dexie.min.mjs, capacitor-core.mjs, fonts/     # vendored libraries + fonts (npm registry, not a live CDN)
 assets/
   icons/                     # app icons
   exercise-svgs/              # hand-authored exercise demonstration SVGs
@@ -203,6 +281,7 @@ tests/
   e2e/                          # Playwright — real UI flows, zero console errors
 scripts/
   serve.mjs                   # zero-dependency static server (dev + e2e)
+  prepare-native-www.mjs        # copies the real app into www/ for Capacitor — see "Native builds (Capacitor)"
 ```
 
 ## Running locally
@@ -292,8 +371,15 @@ promoted from a Fitness Toolkit list row to a standalone 8th Hub tile in
 the same round (see "Run mode" below for both) — and the Hub itself
 rebuilt as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see
 "The Hub" above). **Every Hub tile is real now** — Steps was the last
-"coming soon" placeholder.
-616 Vitest unit tests and 396 Playwright end-to-end tests
+"coming soon" placeholder. The Fitness Toolkit's last four tilt-less
+screens (Activity, Rest Timer, the Cycle Tracker, Readiness) caught up
+to that same spatial language, and — the first genuinely native work in
+this project — the Capacitor-readiness seam most of this stopped being
+theoretical: a real Android project now lives in `android/`, with Steps'
+and Run's own background sensing routed through real native plugins
+behind `isNativeRuntime()`, the web build entirely unchanged either way
+(see "Native builds (Capacitor)" above).
+616 Vitest unit tests and 402 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -301,16 +387,15 @@ still entirely on-device, no server, by design (a real backend for
 coach/doctor access and cross-device history is planned, deliberately not
 built opportunistically alongside this round of work); no export/import
 for on-device data either yet; no offline service worker/asset caching
-yet; there's no true passive background sensing anywhere in this app — a
-phone's mic/motion sensors stop the moment the screen locks or the tab
-isn't active (see Sleep's own overnight honesty note, Steps' own "a live
-walk only counts while this screen stays open" note, and Run mode's own
-GPS-tracking version of the same caveat — now reading `isNativeRuntime()`
-live, see "Run mode" below) — a real "keeps working once you switch apps
-or lock your phone" mode for any of these is a legitimate, buildable next
-step, needing either a native Capacitor wrapper or (for Sleep
-specifically) a phone genuinely staying awake on a
-nightstand, not attempted opportunistically alongside this round of work.
+yet. Steps and Run's own passive background sensing is real now on a
+native build (see "Native builds (Capacitor)" above) — the plain web
+build still can't do it (a browser tab stops the moment the screen locks
+or it isn't the active tab, the same limit every other feature-detected
+API here already has), and Sleep still has no passive sensing at all,
+native or otherwise, on purpose — overnight audio monitoring is a
+different, unbuilt feature, not the same gap as Steps'/Run's, and would
+need a phone genuinely staying awake on a nightstand even with a native
+wrapper.
 
 ## Data layer
 
@@ -935,18 +1020,24 @@ Chrome/Android(+desktop-with-a-real-sensor) API with no Safari/iOS
 implementation at all — "Start a Walk" is disabled with an honest status
 message rather than a dead button wherever it's missing.
 
-**No passive background pedometer, and the screen says so plainly.** This
-is a plain web app with no service worker or background execution — a
-live walk only counts steps while this screen stays open and active,
-the same "no true passive sensing" honesty as Sleep's own overnight
-note. For a full day's real total, "Log Today's Total" sets the day's
-count outright from whatever a phone's own health app or a fitness band
-already reports — deliberately a *set*, not an *add*, since it's meant to
-be the authoritative number for the day. A live-counted walk's steps, in
-contrast, always add to whatever's already logged for today, since a
-walk is always genuinely new activity happening right now — several
-walks in one day add up rather than overwriting each other
-(`js/db/repositories/steps.js`'s `addStepsToDate` vs `setStepsForDate`).
+**No passive background pedometer on the plain web build, and the
+screen says so plainly.** A browser tab has no service worker or
+background execution — a live walk only counts steps while this screen
+stays open and active, the same "no true passive sensing" honesty as
+Sleep's own overnight note. For a full day's real total, "Log Today's
+Total" sets the day's count outright from whatever a phone's own health
+app or a fitness band already reports — deliberately a *set*, not an
+*add*, since it's meant to be the authoritative number for the day. A
+live-counted walk's steps, in contrast, always add to whatever's already
+logged for today, since a walk is always genuinely new activity
+happening right now — several walks in one day add up rather than
+overwriting each other (`js/db/repositories/steps.js`'s `addStepsToDate`
+vs `setStepsForDate`). Wrapped natively via Capacitor, this stops being
+the whole story — see "Native builds (Capacitor)" above for the real
+background pedometer this screen drives once `isNativeRuntime()` is
+true, tagged with its own honest `native-pedometer` source in History
+rather than blending in with a live-counted walk's `sensor` source or a
+typed-in `manual` one.
 
 **A real, cited daily goal, not the popularized "10,000."** The default
 suggested goal (7,500 steps/day, user-editable) cites Lee et al., 2019,
@@ -1257,18 +1348,20 @@ person something to react to during live capture" fix as heart rate's
 own `signal-quality.js`, just for a GPS fix's accuracy instead of a
 camera-PPG signal's coefficient of variation.
 
-**A real Capacitor-readiness seam, actually wired in, not just
-documented.** `js/lib/native-runtime.js`'s `isNativeRuntime()` already
-existed as a seam for future native builds (see "Heart rate" below) but
-wasn't called from anywhere yet. Run's own honesty note — "keep this
-screen open, a web app can't track your route once it's backgrounded" —
-now reads that seam directly: false in every browser context today (so
-the message is unchanged for anyone using this app right now), and once
-this project is actually wrapped with Capacitor, the same check flips to
-a real "this device tracks your run in the background" message with no
-further code change here — the concrete, testable version of the seam
-this app has been building toward all along, not another paragraph about
-it.
+**A real Capacitor-readiness seam — and, as of a later round, a real
+plugin behind it, not just the message-flip.** `js/lib/native-runtime.js`'s
+`isNativeRuntime()` already existed as a seam for future native builds
+(see "Heart rate" below) but wasn't called from anywhere yet. Run's own
+honesty note — "keep this screen open, a web app can't track your route
+once it's backgrounded" — reads that seam directly: false in every
+browser context today (so the message is unchanged for anyone using
+this app right now), and once this project is actually wrapped with
+Capacitor, the same check flips to a real "this device tracks your run
+in the background" message. That flip stopped being hypothetical once
+Run's live GPS watch itself started routing through a genuine
+`@capacitor-community/background-geolocation` foreground service on a
+native build — see "Native builds (Capacitor)" above for the real
+mechanism, not just the honest copy describing it.
 
 **Real audible and haptic split cues — the one thing that most made this
 not feel like a runner's app.** `js/lib/audio-cue.js` gained

@@ -1,15 +1,19 @@
-// Steps: a real, live-counted walk (Generic Sensor API motion sensing —
-// see motion-steps.js) or manual entry for a full day's total. No passive
-// background pedometer — this web app has no way to keep counting once
-// the tab isn't the active, foregrounded page, and the screen says so
-// plainly, the same "no true passive sensing" honesty as Sleep.
+// Steps: on the plain web, a real live-counted walk (Generic Sensor API
+// motion sensing — see motion-steps.js) or manual entry for a full day's
+// total — no passive background pedometer, since a browser tab has no
+// way to keep counting once it isn't the active, foregrounded page.
+// Wrapped natively via Capacitor (see native-pedometer.js), this screen
+// instead drives a real foreground-service-backed background pedometer
+// that keeps counting through a locked screen — js/lib/native-runtime.js
+// is the seam, provably false in every browser context today.
 import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { getPref, setPref } from '../../lib/storage.js';
 import { setStepsTileSubtitle } from '../hub/hub-view.js';
 import { isMotionSensingAvailable, startStepCounting } from './motion-steps.js';
-import { addStepsToDate, getStepEntryForDate, listRecentStepEntries, setStepsForDate } from '../../db/repositories/steps.js';
+import { getNativeStepPermission, getNativeTodayStepCount, isNativeStepCounterAvailable, onNativeStepCountChanged, requestNativeStepPermission, startNativeBackgroundStepCounting, stopNativeBackgroundStepCounting, } from './native-pedometer.js';
+import { addStepsToDate, getStepEntryForDate, listRecentStepEntries, setStepsForDate, syncStepsFromNativePedometer, } from '../../db/repositories/steps.js';
 import { averageStepsPerLoggedDay, calculateStepsStreak } from './steps-trend.js';
 const DEFAULT_GOAL = 7500;
 const GOAL_PREF_KEY = 'stepsGoal';
@@ -32,8 +36,14 @@ export function initStepsFeature() {
     const tilt = attachTilt(stepsScreen);
     stepsScreen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
     byId('steps-goal-input').setAttribute('placeholder', String(getGoal()));
-    // ---------- live walk ----------
-    if (isMotionSensingAvailable()) {
+    byId('steps-background-note-text').textContent = isNativeStepCounterAvailable()
+        ? 'Once background counting is turned on below, this device keeps counting your real steps even with the screen locked or the app closed — the same architecture Run mode\'s own background GPS uses.'
+        : "A live walk only counts steps while this screen stays open and active — there's no passive, background pedometer here (this web app has no way to keep running once you switch apps or lock your phone). For a full day's real total, log it manually from your phone's own step count.";
+    // ---------- live walk (web) / background counting (native) ----------
+    if (isNativeStepCounterAvailable()) {
+        void initNativeBackgroundCounting();
+    }
+    else if (isMotionSensingAvailable()) {
         byId('steps-live-status').textContent = 'Start a walk to count real steps live, right here on this screen.';
     }
     else {
@@ -42,6 +52,10 @@ export function initStepsFeature() {
         byId('btn-steps-live-toggle').disabled = true;
     }
     byId('btn-steps-live-toggle').addEventListener('click', () => {
+        if (isNativeStepCounterAvailable()) {
+            void toggleNativeBackgroundCounting();
+            return;
+        }
         if (liveSession) {
             liveSession.stop();
             liveSession = null;
@@ -72,6 +86,88 @@ export function initStepsFeature() {
             },
         });
     });
+    // ---------- native background counting ----------
+    // Every native call below is wrapped so a real plugin failure (a
+    // native build that isn't fully wired yet, a permission API glitch,
+    // ...) degrades to an honest status message instead of an unhandled
+    // rejection breaking the screen silently — the same "feature-detected
+    // API, never lets a failure throw uncaught into the app" contract as
+    // every other sensor integration here.
+    let nativeBackgroundActive = false;
+    async function refreshNativeStatusText() {
+        try {
+            const permission = await getNativeStepPermission();
+            if (permission === 'denied') {
+                byId('steps-live-status').textContent =
+                    'Background step counting is blocked — enable it in your phone\'s app permissions to count steps while your screen is locked.';
+            }
+            else if (nativeBackgroundActive) {
+                byId('steps-live-status').textContent =
+                    'Fit Fly is counting your real steps in the background — this keeps working even with your screen locked.';
+            }
+            else {
+                byId('steps-live-status').textContent =
+                    'Turn on background counting to keep a real step count going even while your screen is locked.';
+            }
+        }
+        catch {
+            byId('steps-live-status').textContent = "Couldn't reach this device's step counter — log today's total manually instead.";
+            byId('btn-steps-live-toggle').disabled = true;
+        }
+    }
+    async function initNativeBackgroundCounting() {
+        await refreshNativeStatusText();
+        try {
+            // A live "steps so far today" readout on top of the real
+            // background persistence — see native-pedometer.js's own comment
+            // on why this only matters while the screen happens to be on
+            // anyway. Never unsubscribed: this screen's own controller is
+            // initialized once at app bootstrap and lives for the whole
+            // session, same as every other mini-app here.
+            onNativeStepCountChanged((steps) => {
+                byId('steps-live-count').textContent = `${steps.toLocaleString()} step${steps === 1 ? '' : 's'} today (background)`;
+                void syncStepsFromNativePedometer(steps).then(() => refreshAll());
+            });
+            // Reflects whatever the background service already persisted
+            // today — including steps taken before this screen was ever
+            // opened, the actual "worked while locked" payoff.
+            const { steps, hasReading } = await getNativeTodayStepCount();
+            if (hasReading) {
+                byId('steps-live-active').hidden = false;
+                byId('steps-live-count').textContent = `${steps.toLocaleString()} step${steps === 1 ? '' : 's'} today (background)`;
+                void syncStepsFromNativePedometer(steps).then(() => refreshAll());
+            }
+        }
+        catch {
+            // Already reported by refreshNativeStatusText() above if this is
+            // the same underlying failure; nothing further to show.
+        }
+    }
+    async function toggleNativeBackgroundCounting() {
+        try {
+            if (nativeBackgroundActive) {
+                await stopNativeBackgroundStepCounting();
+                nativeBackgroundActive = false;
+                byId('steps-live-active').hidden = true;
+                byId('btn-steps-live-toggle').textContent = 'Turn On Background Counting';
+                await refreshNativeStatusText();
+                return;
+            }
+            const permission = await requestNativeStepPermission();
+            if (permission !== 'granted') {
+                await refreshNativeStatusText();
+                return;
+            }
+            await startNativeBackgroundStepCounting();
+            nativeBackgroundActive = true;
+            byId('steps-live-active').hidden = false;
+            byId('btn-steps-live-toggle').textContent = 'Turn Off Background Counting';
+            await refreshNativeStatusText();
+        }
+        catch {
+            byId('steps-live-status').textContent = "Couldn't reach this device's step counter — log today's total manually instead.";
+        }
+    }
     // ---------- manual entry ----------
     byId('btn-steps-manual-save').addEventListener('click', async () => {
         const steps = Number(byId('steps-manual-count').value);
@@ -127,7 +223,11 @@ function renderHistory(recent) {
         list.innerHTML = '<p class="muted center-text">No days logged yet.</p>';
         return;
     }
-    const sourceLabel = { manual: 'Manual', sensor: 'Live-counted' };
+    const sourceLabel = {
+        manual: 'Manual',
+        sensor: 'Live-counted',
+        'native-pedometer': 'Background',
+    };
     list.innerHTML = recent
         .map((entry) => {
         const dateLabel = new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, {

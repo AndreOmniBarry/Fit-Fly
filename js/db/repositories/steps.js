@@ -4,6 +4,7 @@ import { nowIso } from '../../lib/id.js';
 export const STEP_SOURCE = Object.freeze({
   MANUAL: 'manual',
   SENSOR: 'sensor',
+  NATIVE_PEDOMETER: 'native-pedometer',
 });
 
 function todayIsoDate() {
@@ -31,6 +32,17 @@ export async function addStepsToDate(steps, date = todayIsoDate(), db = getDb())
  *  meant to be the authoritative number, not an increment. */
 export async function setStepsForDate(steps, date = todayIsoDate(), db = getDb()) {
   const entry = { date, steps, source: STEP_SOURCE.MANUAL, updatedAt: nowIso() };
+  await db.stepEntries.put(entry);
+  return entry;
+}
+
+/** The native background pedometer's own "today's real total" — see
+ *  js/features/steps/native-pedometer.js. Like a manual entry, this is
+ *  an authoritative day total (the OS's own hardware counter, not an
+ *  increment), just tagged with its own honest source so the UI can
+ *  show *how* a day's number is known to be real, not only that it is. */
+export async function syncStepsFromNativePedometer(steps, date = todayIsoDate(), db = getDb()) {
+  const entry = { date, steps, source: STEP_SOURCE.NATIVE_PEDOMETER, updatedAt: nowIso() };
   await db.stepEntries.put(entry);
   return entry;
 }

@@ -406,6 +406,18 @@
           </span>
         </span>
       </button>
+
+      <button class="hub-tile hub-tile--run tilt-card tilt-enter" id="btn-home-run">
+        <span class="hub-tile-face tilt-press">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-wind"></use></svg></span>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Run</span>
+            <p class="hub-tile-sub" id="hub-run-sub">GPS-tracked, live pace &amp; splits</p>
+          </span>
+        </span>
+      </button>
     </div>
   </section>
 
@@ -478,30 +490,6 @@
             <span>
               <strong>My Program</strong>
               <p class="muted" style="font-size:var(--fs-sm);">This week's tailored workouts.</p>
-            </span>
-          </span>
-          <span aria-hidden="true">›</span>
-        </span>
-      </button>
-      <button class="card card-button tilt-card tilt-enter" id="btn-home-run">
-        <span class="fitness-row-face tilt-press row-between">
-          <span class="row" style="gap:12px;">
-            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-wind"></use></svg></span>
-            <span>
-              <strong>Run</strong>
-              <p class="muted" style="font-size:var(--fs-sm);">GPS-tracked run, live distance and pace.</p>
-            </span>
-          </span>
-          <span aria-hidden="true">›</span>
-        </span>
-      </button>
-      <button class="card card-button tilt-card tilt-enter" id="btn-home-run-history">
-        <span class="fitness-row-face tilt-press row-between">
-          <span class="row" style="gap:12px;">
-            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-trophy"></use></svg></span>
-            <span>
-              <strong>Run History</strong>
-              <p class="muted" style="font-size:var(--fs-sm);">Past runs and personal records.</p>
             </span>
           </span>
           <span aria-hidden="true">›</span>
@@ -1346,9 +1334,12 @@
   <section class="screen miniapp-night theme-run" id="screen-run" hidden>
     <div class="row-between">
       <button class="miniapp-icon-btn" id="btn-run-back" aria-label="Back to your apps">←</button>
-      <div class="chip-group" id="run-unit-toggle" role="group" aria-label="Distance unit">
-        <button type="button" class="chip" data-unit="km" aria-pressed="true">km</button>
-        <button type="button" class="chip" data-unit="mi" aria-pressed="false">mi</button>
+      <div class="row" style="gap:8px; align-items:center;">
+        <div class="chip-group" id="run-unit-toggle" role="group" aria-label="Distance unit">
+          <button type="button" class="chip" data-unit="km" aria-pressed="true">km</button>
+          <button type="button" class="chip" data-unit="mi" aria-pressed="false">mi</button>
+        </div>
+        <button class="miniapp-icon-btn" id="btn-home-run-history" aria-label="Run History"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></button>
       </div>
     </div>
 

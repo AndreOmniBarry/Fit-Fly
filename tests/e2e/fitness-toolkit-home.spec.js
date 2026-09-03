@@ -29,13 +29,15 @@ test.describe('fitness toolkit home', () => {
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
+    // Run and Run History moved out to their own Hub tile/live-screen
+    // header — Run's own real GPS tracking and splits earned it the same
+    // standalone-tile treatment as Steps and Hydration, so it's no longer
+    // one of this list's rows.
     for (const id of [
       'btn-home-log-activity',
       'btn-home-history',
       'btn-home-rest-timer',
       'btn-home-program',
-      'btn-home-run',
-      'btn-home-run-history',
       'btn-home-heart-rate',
       'btn-home-womens-health',
       'btn-home-nutrition',

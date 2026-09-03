@@ -101,6 +101,24 @@ test.describe('hub', () => {
     await expect(page.locator('#hub-hydration-sub')).toHaveText('1-day streak', { timeout: 3000 });
   });
 
+  test('the Run tile is real and reachable — a standalone tile now, not nested inside the Fitness Toolkit', async ({ page }) => {
+    // By id, not accessible name — the tile's own full name ("Run
+    // GPS-tracked, live pace & splits") isn't just "Run", and the
+    // Fitness Toolkit tile's subtitle ("Programs, run, nutrition &
+    // more") fuzzy-matches "run" too, so neither an exact nor a loose
+    // role query disambiguates the way run.spec.js's own tests avoid
+    // this already, by id.
+    const runTile = page.locator('#btn-home-run');
+    await expect(runTile).toBeVisible();
+    await expect(page.locator('#hub-run-sub')).toHaveText('GPS-tracked, live pace & splits');
+
+    await runTile.click();
+    await expect(page.getByRole('heading', { name: 'Run' })).toBeVisible();
+
+    await page.locator('#btn-run-back').click();
+    await expect(runTile).toBeVisible(); // back on the Hub
+  });
+
   test('tilt reacts to pointer input and eases toward it', async ({ page }) => {
     await page.mouse.move(400, 50);
     await page.waitForTimeout(500);

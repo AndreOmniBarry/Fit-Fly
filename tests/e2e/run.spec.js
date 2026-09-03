@@ -32,7 +32,8 @@ async function completeOnboarding(page) {
   await page.locator('#ob-has-injury button[data-value="no"]').click();
   await page.getByRole('button', { name: 'See my plan' }).click();
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
-  await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // Hub -> Fitness Toolkit, where these tests operate
+  // Lands on the Hub — Run is one of its own tiles now, not nested a
+  // level deeper inside the Fitness Toolkit.
 }
 
 /** Nudges the mocked GPS position northeast in small steps, giving
@@ -112,6 +113,7 @@ test.describe('run mode', () => {
   });
 
   test('run history is empty before any run is completed', async ({ page }) => {
+    await page.locator('#btn-home-run').click();
     await page.getByRole('button', { name: 'Run History' }).click();
     await expect(page.locator('#run-history-list')).toContainText('No runs logged yet');
   });
@@ -339,14 +341,23 @@ test.describe('run mode', () => {
     await expect(firstEntry.locator('.data-badge.measured')).toContainText('/km');
   });
 
+  test('the Hub tile reflects the most recent real run, not a fabricated streak', async ({ page, context }) => {
+    await expect(page.locator('#hub-run-sub')).toHaveText('GPS-tracked, live pace & splits');
+
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5);
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    await expect(page.locator('#hub-run-sub')).not.toHaveText('GPS-tracked, live pace & splits');
+    await expect(page.locator('#hub-run-sub')).toContainText('m'); // real distance, not a streak count
+  });
+
   test('the live and history screens carry Run\'s own visual identity, same as the other mini-apps', async ({ page }) => {
     await page.locator('#btn-home-run').click();
     await expect(page.locator('#screen-run')).toHaveClass(/theme-run/);
-    await page.locator('#btn-run-back').click(); // no run in progress — no confirm dialog
 
-    // "Run History" is a Fitness Toolkit home-list entry, not a button on
-    // the live screen itself — same path run.spec.js's own "run history
-    // is empty" test above uses.
     await page.getByRole('button', { name: 'Run History' }).click();
     await expect(page.locator('#screen-run-history')).toHaveClass(/theme-run/);
   });

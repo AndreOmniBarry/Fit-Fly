@@ -391,6 +391,7 @@
 .hub-grid .hub-tile:nth-child(5){ animation-delay:.26s; }
 .hub-grid .hub-tile:nth-child(6){ animation-delay:.32s; }
 .hub-grid .hub-tile:nth-child(7){ animation-delay:.38s; }
+.hub-grid .hub-tile:nth-child(8){ animation-delay:.44s; }
 
 /* ---------- kinetic data: real numbers, drawn as motion ---------- */
 .hub-tile-kinetic{ position:relative; z-index:1; }
@@ -490,6 +491,14 @@
 }
 .hub-tile--hydration .hub-tile-icon{ background:var(--hydration-accent-soft); }
 .hub-tile--hydration .hub-tile-sub{ color:var(--hydration-accent); }
+
+.hub-tile--run{
+  background:linear-gradient(150deg, var(--run-bg-mid) 0%, var(--run-bg-start) 55%, #3d1a16 100%);
+  box-shadow:0 14px 30px -16px rgba(36,16,14,0.5);
+  color:var(--run-ink);
+}
+.hub-tile--run .hub-tile-icon{ background:var(--run-accent-soft); }
+.hub-tile--run .hub-tile-sub{ color:var(--run-accent); }
 
 .hub-tile--neutral{
   background:var(--surface);

@@ -171,11 +171,11 @@ js/
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
     steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak (TypeScript)
     hydration/                  # Hydration mini-app: real running daily total, water-fill figure, cited goal, interval-based reminder (TypeScript)
+    run/                         # Run mini-app: GPS route/splits/PRs, live GPS-quality feedback, pace-inferred calorie estimate, its own night-surface theme — promoted from a Fitness Toolkit list row to a standalone Hub tile
     onboarding/                    # profile/BMI intake + category engine (optional — see "The Hub")
     activity/                       # activity logging, measured-vs-estimated UI
     programs/                        # tailored exercise programs, periodization
     exercises/                        # exercise library + hand-authored demo SVGs
-    run/                                # GPS run mode: route canvas, splits, PRs, live GPS-quality feedback, pace-inferred calorie estimate — its own night-surface theme now too
     heart-rate/                          # camera PPG, manual entry, BLE (feature-detected)
     womens-health/                        # cycle tracker (encrypted store)
     nutrition/                             # macro/nutrition tracking
@@ -279,20 +279,21 @@ programs, run mode, heart rate, women's health, nutrition, recovery,
 goals, voice, and a final polish pass — and lives on in full behind the
 Hub's Fitness Toolkit tile. On top of that, the app restructured into the
 Hub/mini-apps model described above, with **Sleep**, **Focus**,
-**Meditate**, **Vitals**, **Steps**, and **Hydration** built out as real
-mini-apps — Focus and Meditate together sharing one guided-session engine
-with free, on-device voice guidance, Vitals and Steps together sharing a
-Bluetooth feature-detect with Heart Rate, Steps' own real motion-sensed
-step detector, and Hydration sharing Goals' local-notification approach
-for its own interval-based reminder — and the Hub itself rebuilt as a
-real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see "The Hub"
-above). **Every Hub tile is real now** — Steps was the last "coming soon"
-placeholder. Run mode, still living under the Fitness Toolkit rather than
-the Hub grid, caught up to the same bar this round: its own night-surface
-identity, live GPS-quality feedback, a real Capacitor-readiness seam
-actually wired in (not just documented), audible/haptic split cues, and
-an estimated calorie badge (see "Run mode" below).
-616 Vitest unit tests and 388 Playwright end-to-end tests
+**Meditate**, **Vitals**, **Steps**, **Hydration**, and now **Run**
+built out as real mini-apps — Focus and Meditate together sharing one
+guided-session engine with free, on-device voice guidance, Vitals and
+Steps together sharing a Bluetooth feature-detect with Heart Rate,
+Steps' own real motion-sensed step detector, Hydration sharing Goals'
+local-notification approach for its own interval-based reminder, and Run
+picking up its own night-surface identity, live GPS-quality feedback, a
+real Capacitor-readiness seam actually wired in (not just documented),
+audible/haptic split cues, and an estimated calorie badge before being
+promoted from a Fitness Toolkit list row to a standalone 8th Hub tile in
+the same round (see "Run mode" below for both) — and the Hub itself
+rebuilt as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see
+"The Hub" above). **Every Hub tile is real now** — Steps was the last
+"coming soon" placeholder.
+616 Vitest unit tests and 392 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -372,10 +373,13 @@ It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
 pattern every future mini-app has to slot into without the grid needing a
 rework or something ending up buried under "more tools." Sleep, Focus,
-Meditate, Vitals, Steps, and Hydration each get their own gradient identity
-per tile; Fitness Toolkit uses the app's existing neutral surface, since it
-isn't a mini-app with its own visual identity. **Every tile on the grid
-is real now** — Steps (see below) was the last "coming soon" placeholder.
+Meditate, Vitals, Steps, Hydration, and Run each get their own gradient
+identity per tile; Fitness Toolkit uses the app's existing neutral
+surface, since it isn't a mini-app with its own visual identity. **Every
+tile on the grid is real now** — Steps (see below) was the last "coming
+soon" placeholder. Run is the grid's 8th tile and its only one promoted
+out of the Fitness Toolkit after the fact rather than built here from the
+start — see "Run mode" below for why.
 
 **No emoji anywhere in the app** — `js/lib/icons.ts` plus a sprite of real
 inline SVG `<symbol>` definitions at the top of `index.html` (search it for
@@ -389,9 +393,11 @@ problems. A static HTML spot (`<use href="#icon-name">`) and a JS-built one
 always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
-straight in the Hub — Sleep, Focus, Meditate, Vitals, Steps, and Hydration
-need zero profile data, so nothing about them requires registering first.
-Skipping
+straight in the Hub — Sleep, Focus, Meditate, Vitals, Steps, Hydration,
+and Run need zero profile data, so nothing about them requires
+registering first (Run's own calorie estimate is the one exception that
+wants a profile weight, and simply skips showing that one row without it
+— see "Run mode" below). Skipping
 is remembered
 (`localStorage`, the same lightweight preference store the theme setting
 already uses) so it only has to happen once. The Fitness Toolkit still
@@ -1020,11 +1026,12 @@ Goals' own nudge, spelled out on the screen itself rather than implied.
 ## The Fitness Toolkit
 
 Everything from the original 14-phase build — activity logging, tailored
-programs, run mode, heart rate, women's health, nutrition, recovery,
-goals, voice control — lives on unchanged, just one tap deeper behind the
-Hub's Fitness Toolkit tile instead of being the app's front door. Every
-id, every controller, every test below is exactly as it was; only the
-navigation path to reach it moved.
+programs, heart rate, women's health, nutrition, recovery, goals, voice
+control — lives on unchanged, just one tap deeper behind the Hub's
+Fitness Toolkit tile instead of being the app's front door. Every id,
+every controller, every test below is exactly as it was; only the
+navigation path to reach it moved. (Run mode moved further still — out
+to its own standalone Hub tile; see "Run mode" below.)
 
 **The home list now carries the same spatial-tilt/kinetic-data language
 as the Hub, Sleep, and Focus** — `js/main.js` calls `attachTilt()` on
@@ -1033,37 +1040,30 @@ every row is a `.tilt-card`/`.tilt-press` pair with a depth-separated
 icon badge, using the exact same shared, generic primitives from
 `mini-apps.css` (not a reimplementation) inside the app's own
 light/dark-adaptive theme rather than a mini-app's fixed night surface.
-Each of the 11 rows also gained a real icon for the first time — the
+Each of the 9 rows also gained a real icon for the first time — the
 same icon-sprite system as everywhere else, chosen for what the row
 actually does (a heart for Heart Rate, a flame for Nutrition, a target
 for Goals, ...), not decoration.
 
-**Programs, Nutrition, and Run carry the same language one screen
-deeper**, each `attachTilt()`'d to its own screen exactly as the home
-list is. My Program's week/block indicator is a real kinetic stat — the
-week number counts up (`animateCountUp`) each time the screen renders —
-and every day card carries a depth-separated icon badge picked for what
-kind of day it actually is (a dumbbell for a lift day, wind for cardio, a
-leaf for mobility — a new `icon-dumbbell` was added to the sprite for
-this, there wasn't one before). Nutrition's three cards and every logged
-entry are `.tilt-card`/`.tilt-press` pairs, and today's running totals
-count up live as entries are added or removed — the one set of numbers
-on that screen that actually changes as you use it, which is also why the
-static calorie/macro *targets* deliberately don't animate. Run's live
-screen gives its distance/duration/pace trio and the route canvas real
-depth-separated layers so they visually sit at different distances while
-you're mid-run; its summary screen is where the count-up treatment does
-the most work — `animateCountUp` interpolates the raw meters/ms/pace and
-re-formats *every frame* with the exact same `formatDistance`/
-`formatDuration`/`formatPace` functions the rest of the app uses, so a
-distance or pace arriving on screen is never a fake or rounded-off number
-mid-flight, just the real one animating in; run history rows and PR
-badges get the same tilt/icon treatment as everywhere else. All of it
-reuses the same generic `.tilt-card`/`.tilt-press`/`data-tilt-depth`
-primitives and a new shared `.tilt-stagger` entrance-stagger utility
-(`css/components.css`, generalized off the home list's own per-row
-stagger so these dynamically-rendered lists don't reimplement it) — no
-new mechanism, just the existing one applied further in.
+**Programs and Nutrition carry the same language one screen deeper**,
+each `attachTilt()`'d to its own screen exactly as the home list is. My
+Program's week/block indicator is a real kinetic stat — the week number
+counts up (`animateCountUp`) each time the screen renders — and every day
+card carries a depth-separated icon badge picked for what kind of day it
+actually is (a dumbbell for a lift day, wind for cardio, a leaf for
+mobility — a new `icon-dumbbell` was added to the sprite for this, there
+wasn't one before). Nutrition's three cards and every logged entry are
+`.tilt-card`/`.tilt-press` pairs, and today's running totals count up
+live as entries are added or removed — the one set of numbers on that
+screen that actually changes as you use it, which is also why the static
+calorie/macro *targets* deliberately don't animate. All of it reuses the
+same generic `.tilt-card`/`.tilt-press`/`data-tilt-depth` primitives and
+a shared `.tilt-stagger` entrance-stagger utility (`css/components.css`,
+generalized off the home list's own per-row stagger so these
+dynamically-rendered lists don't reimplement it) — no new mechanism, just
+the existing one applied further in. (Run mode picked up this exact same
+treatment first, before it moved out to its own Hub tile — see "Run mode"
+below for where that description lives now.)
 
 ## Activity tracking
 
@@ -1131,6 +1131,22 @@ generator applies retroactively to everyone's program, not just new
 ones.
 
 ## Run mode
+
+**Its own Hub tile now, not a row inside the Fitness Toolkit.** Run
+started life as one line among many in the original 14-phase build's home
+list; once it had its own night-surface identity (see below) it made
+sense to give it the same standalone-tile treatment as Sleep, Focus,
+Meditate, Vitals, Steps, and Hydration — an 8th Hub tile
+(`hub-tile--run`, `#icon-wind`), its subtitle showing the most recent
+real run's distance and date (`setRunTileSubtitle` in `hub-view.ts`,
+same "real number or an honest default, never fabricated" rule as every
+other tile) rather than a streak, since running every single day isn't
+the natural cadence Steps/Hydration's daily subtitles assume. "Run
+History," previously its own separate home-list row, is now a small
+icon-button in the live screen's own header (`#icon-chart-line`) —
+reachable from inside Run rather than needing its own Hub tile, the same
+way Sleep's History lives behind its own dashboard rather than the Hub
+grid.
 
 `js/features/run/gps-math.js` is the sensor-honest core: haversine
 distance between consecutive fixes, a pace formula that returns `null`

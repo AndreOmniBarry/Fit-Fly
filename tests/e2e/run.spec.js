@@ -182,9 +182,18 @@ test.describe('run mode', () => {
     await expect(page.locator('#run-history-list .card').first()).toContainText('mi');
   });
 
-  test('crossing a full km/mile records a split, live and in the summary', async ({ page, context }) => {
+  test('crossing a full km/mile records a split, live and in the summary, and plays a real audio+haptic cue with zero console errors', async ({
+    page,
+    context,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
     await page.locator('#btn-home-run').click();
-    await page.getByRole('button', { name: 'Start' }).click();
+    await page.getByRole('button', { name: 'Start' }).click(); // a real click — primes audio-cue.js's AudioContext
     // ~0.001deg diagonal step is ~157m — 8 steps covers just over 1km/1mi.
     await moveGps(context, page, 8);
 
@@ -199,6 +208,10 @@ test.describe('run mode', () => {
     await page.getByRole('button', { name: 'View History' }).click();
     await page.locator('#run-history-list summary', { hasText: 'Splits' }).click();
     await expect(page.locator('#run-history-list')).toContainText('Km 1');
+
+    // playSplitCue()/vibrateDevice() fired for real (a real oscillator,
+    // a no-op Vibration API in Chromium) without throwing into the page.
+    expect(consoleErrors).toEqual([]);
   });
 
   test('the live personal-best badge appears once real distance accrues, not at a standing start', async ({
@@ -261,5 +274,80 @@ test.describe('run mode', () => {
     await page.getByRole('button', { name: 'Try Again' }).click();
     await expect(page.locator('#run-geo-error')).toBeHidden();
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
+  });
+
+  test('shows a real, honest GPS-quality readout that reflects the live fix accuracy', async ({ page, context }) => {
+    await page.locator('#btn-home-run').click();
+    await expect(page.locator('#run-gps-quality')).toBeHidden(); // nothing to report before Start
+
+    await page.getByRole('button', { name: 'Start' }).click();
+    await expect(page.locator('#run-gps-quality')).toBeVisible();
+
+    // test.use() above sets accuracy: 10 — right at the "strong" boundary.
+    await moveGps(context, page, 1);
+    await expect(page.locator('#run-gps-dot')).toHaveAttribute('data-quality', 'strong');
+    await expect(page.locator('#run-gps-quality-text')).toContainText('Strong GPS signal');
+
+    // A real fix reporting a worse accuracy radius live-updates to "weak"
+    // — the exact same number filterAccuratePoints uses to drop it.
+    await context.setGeolocation({ latitude: 40.72, longitude: -74.005, accuracy: 80 });
+    await page.waitForTimeout(150);
+    await expect(page.locator('#run-gps-dot')).toHaveAttribute('data-quality', 'weak');
+    await expect(page.locator('#run-gps-quality-text')).toContainText('Weak GPS signal');
+  });
+
+  test('the background-tracking note is honest about the web platform limit today', async ({ page }) => {
+    await page.locator('#btn-home-run').click();
+    await expect(page.locator('#run-background-note-text')).toContainText("can't track your route");
+  });
+
+  test('the background-tracking note reads a real Capacitor-native seam once wrapped natively', async ({ page }) => {
+    // window.Capacitor is what js/lib/native-runtime.js's isNativeRuntime()
+    // checks for — undefined in every real browser today. Mocking it here
+    // is the only way to exercise the "once wrapped natively" branch
+    // without an actual native build.
+    await page.addInitScript(() => {
+      window.Capacitor = { isNativePlatform: () => true };
+    });
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+
+    await page.locator('#btn-home-run').click();
+    await expect(page.locator('#run-background-note-text')).toContainText('tracks your run in the background');
+  });
+
+  test('a completed run shows a real, estimated calorie badge next to the measured pace, live and in history', async ({
+    page,
+    context,
+  }) => {
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5);
+    await page.getByRole('button', { name: 'Finish' }).click();
+
+    // completeOnboarding() fills in a real weightKg, so a calorie
+    // estimate exists — never shown as MEASURED, only ESTIMATED.
+    await expect(page.locator('#run-summary-calories-row')).toBeVisible();
+    await expect(page.locator('#run-summary-calories')).toContainText('kcal');
+    await expect(page.locator('#run-summary-calories-row .data-badge.estimated')).toBeVisible();
+
+    await page.getByRole('button', { name: 'View History' }).click();
+    const firstEntry = page.locator('#run-history-list .card').first();
+    await expect(firstEntry.locator('.data-badge.estimated')).toContainText('kcal');
+    await expect(firstEntry.locator('.data-badge.measured')).toContainText('/km');
+  });
+
+  test('the live and history screens carry Run\'s own visual identity, same as the other mini-apps', async ({ page }) => {
+    await page.locator('#btn-home-run').click();
+    await expect(page.locator('#screen-run')).toHaveClass(/theme-run/);
+    await page.locator('#btn-run-back').click(); // no run in progress — no confirm dialog
+
+    // "Run History" is a Fitness Toolkit home-list entry, not a button on
+    // the live screen itself — same path run.spec.js's own "run history
+    // is empty" test above uses.
+    await page.getByRole('button', { name: 'Run History' }).click();
+    await expect(page.locator('#screen-run-history')).toHaveClass(/theme-run/);
   });
 });

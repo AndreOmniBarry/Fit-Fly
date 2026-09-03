@@ -1343,17 +1343,20 @@
   </section>
 
   <!-- RUN -->
-  <section class="screen" id="screen-run" hidden>
+  <section class="screen miniapp-night theme-run" id="screen-run" hidden>
     <div class="row-between">
-      <h2>Run</h2>
-      <div class="row" style="gap:8px; align-items:center;">
-        <div class="chip-group" id="run-unit-toggle" role="group" aria-label="Distance unit">
-          <button type="button" class="chip" data-unit="km" aria-pressed="true">km</button>
-          <button type="button" class="chip" data-unit="mi" aria-pressed="false">mi</button>
-        </div>
-        <button class="icon-btn" id="btn-run-back" aria-label="Back">←</button>
+      <button class="miniapp-icon-btn" id="btn-run-back" aria-label="Back to your apps">←</button>
+      <div class="chip-group" id="run-unit-toggle" role="group" aria-label="Distance unit">
+        <button type="button" class="chip" data-unit="km" aria-pressed="true">km</button>
+        <button type="button" class="chip" data-unit="mi" aria-pressed="false">mi</button>
       </div>
     </div>
+
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Run</h2>
+    <p class="row" id="run-gps-quality" style="align-items:center; gap:7px; font-size:var(--fs-sm); margin-top:6px;" hidden>
+      <span class="run-gps-dot" id="run-gps-dot" aria-hidden="true"></span>
+      <span id="run-gps-quality-text">Finding your location…</span>
+    </p>
 
     <div class="safety-flag stack" id="run-geo-error" hidden>
       <span class="row" style="align-items:flex-start; gap:8px;">
@@ -1368,7 +1371,7 @@
       <span id="run-live-pr-badge-text">On pace for a new best</span>
     </div>
 
-    <div class="card tilt-card tilt-enter">
+    <div class="card tilt-card tilt-enter" style="margin-top:var(--space-3);">
       <span class="tilt-press stack">
         <div class="row" style="justify-content:space-around; text-align:center;" data-tilt-depth="1">
           <div class="stack" style="align-items:center;">
@@ -1386,11 +1389,16 @@
           </div>
         </div>
 
-        <canvas id="run-canvas" width="320" height="200" style="width:100%; height:200px; color:var(--accent);" aria-label="Route shape" data-tilt-depth="2"></canvas>
+        <canvas id="run-canvas" width="320" height="200" style="width:100%; height:200px; color:var(--run-accent);" aria-label="Route shape" data-tilt-depth="2"></canvas>
 
         <div class="stack" id="run-live-splits" style="gap:4px;"></div>
       </span>
     </div>
+
+    <p class="safety-flag" style="margin-top:var(--space-3);">
+      <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+      <span id="run-background-note-text">Keep this screen open and awake while you run — a web app can't track your route once the screen locks or you switch apps.</span>
+    </p>
 
     <div class="row" style="margin-top:auto;">
       <button class="btn btn-danger" id="btn-run-finish" hidden>Finish</button>
@@ -1399,13 +1407,26 @@
   </section>
 
   <!-- RUN SUMMARY -->
-  <section class="screen" id="screen-run-summary" hidden>
-    <h2>Run Complete</h2>
-    <div class="card card-accent tilt-card tilt-enter">
+  <section class="screen miniapp-night theme-run" id="screen-run-summary" hidden>
+    <h2 class="display" style="font-size:26px;">Run Complete</h2>
+    <div class="card card-accent tilt-card tilt-enter" style="margin-top:var(--space-3);">
       <span class="tilt-press stack">
         <div class="row-between" data-tilt-depth="1"><span class="muted">Distance</span><strong id="run-summary-distance">—</strong></div>
         <div class="row-between" data-tilt-depth="1"><span class="muted">Duration</span><strong id="run-summary-duration">—</strong></div>
-        <div class="row-between" data-tilt-depth="1"><span class="muted">Avg Pace</span><strong id="run-summary-pace">—</strong></div>
+        <div class="row-between" data-tilt-depth="1">
+          <span class="muted">Avg Pace</span>
+          <span class="row" style="gap:6px; align-items:center;">
+            <strong id="run-summary-pace">—</strong>
+            <span class="data-badge measured">GPS</span>
+          </span>
+        </div>
+        <div class="row-between" data-tilt-depth="1" id="run-summary-calories-row" hidden>
+          <span class="muted">Calories</span>
+          <span class="row" style="gap:6px; align-items:center;">
+            <strong id="run-summary-calories">—</strong>
+            <span class="data-badge estimated">estimated</span>
+          </span>
+        </div>
       </span>
     </div>
     <div class="stack tilt-stagger" id="run-summary-prs"></div>
@@ -1420,12 +1441,12 @@
   </section>
 
   <!-- RUN HISTORY -->
-  <section class="screen" id="screen-run-history" hidden>
+  <section class="screen miniapp-night theme-run" id="screen-run-history" hidden>
     <div class="row-between">
-      <h2>Run History</h2>
-      <button class="icon-btn" id="btn-run-history-back" aria-label="Back">←</button>
+      <button class="miniapp-icon-btn" id="btn-run-history-back" aria-label="Back to your apps">←</button>
     </div>
-    <div class="stack tilt-stagger" id="run-history-list"></div>
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Run History</h2>
+    <div class="stack tilt-stagger" id="run-history-list" style="margin-top:var(--space-3);"></div>
   </section>
 
   <!-- HEART RATE -->

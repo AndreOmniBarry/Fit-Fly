@@ -141,4 +141,31 @@ test.describe('women\'s health / cycle tracker', () => {
     await page.locator('#btn-home-womens-health').click();
     await expect(page.locator('#whealth-unlock-pane')).toBeVisible();
   });
+
+  test('both the lock screen and the main tracker react to tilt, same spatial language as the rest of the Fitness Toolkit', async ({
+    page,
+  }) => {
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    let tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-whealth-lock'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+    await expect(page.locator('#whealth-flow')).toBeVisible();
+
+    await page.mouse.move(100, 400);
+    await page.waitForTimeout(500);
+    tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-whealth-main'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
 });

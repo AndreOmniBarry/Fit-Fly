@@ -293,7 +293,7 @@ the same round (see "Run mode" below for both) — and the Hub itself
 rebuilt as a real spatial-tilt, kinetic-data scene (`js/lib/tilt.ts`, see
 "The Hub" above). **Every Hub tile is real now** — Steps was the last
 "coming soon" placeholder.
-616 Vitest unit tests and 392 Playwright end-to-end tests
+616 Vitest unit tests and 396 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1064,6 +1064,23 @@ dynamically-rendered lists don't reimplement it) — no new mechanism, just
 the existing one applied further in. (Run mode picked up this exact same
 treatment first, before it moved out to its own Hub tile — see "Run mode"
 below for where that description lives now.)
+
+**Every remaining Fitness Toolkit screen now carries it too.** Log
+Activity, Activity History, the Rest Timer, the Cycle Tracker's PIN
+lock/unlock and main screens, and Readiness were the last ones still on
+the app's plain surface with no `attachTilt()` call at all — each now
+gets its own scoped instance, the identical `attachTilt(screen)` +
+one-time `pointerdown` motion-permission request every other screen
+already uses. History rows that had no icon before (Activity, Readiness)
+now carry one, reusing that same feature's own already-established icon
+(`icon-sliders` for Activity, `icon-sparkle` for Readiness — the same
+one its own Fitness Toolkit list row already uses, not a new one) rather
+than inventing a fresh meaning. The Rest Timer's duration picker and the
+Cycle Tracker's PIN/prediction/log-entry panels are now real `.tilt-card`/
+`.tilt-press` pairs, the same "the *form itself* is the pressable card"
+treatment as Goals' own New Goal card — no new mechanism anywhere here,
+every one of these reuses the exact same generic primitives the Hub and
+Programs/Nutrition already established.
 
 ## Activity tracking
 

@@ -24,6 +24,7 @@ import { seedExerciseLibrary } from './features/exercises/seed.js';
 import { getProfile } from './db/repositories/profile.js';
 import { getLatestCategoryAssignment } from './db/repositories/category-assignments.js';
 import { attachTilt } from './lib/tilt.js';
+import { registerServiceWorker } from './lib/register-service-worker.js';
 
 function renderHome(profile, assignment) {
   applyCategoryAccent(assignment?.category, document.documentElement);
@@ -49,6 +50,8 @@ async function init() {
     isValidThemePreference(storedTheme) ? storedTheme : 'system',
     document.documentElement
   );
+
+  registerServiceWorker();
 
   initRouter();
   initActivityFeature();

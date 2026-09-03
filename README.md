@@ -67,9 +67,11 @@ presented with false precision. Look for the badge:
 ## Platform notes (why web, not a native app)
 
 Fit Fly is a web app — installable as a home-screen PWA on iOS/Android,
-works fully offline once loaded — built with **no bundler and no dev
-server rewrite step**: every module the browser loads is a real file at a
-real path, the same file `import` statements reference. The original
+works fully offline once loaded, backed by a real service worker (see
+"Offline support" below) rather than just the browser's own opportunistic
+HTTP cache — built with **no bundler and no dev server rewrite step**:
+every module the browser loads is a real file at a real path, the same
+file `import` statements reference. The original
 14-phase feature set is plain ES modules; the Hub, Sleep, and Focus
 are authored in **TypeScript** (strict mode) and compiled in place by
 `tsc` to the adjacent `.js` the browser actually loads — see "TypeScript,
@@ -161,6 +163,45 @@ bundler-free app's real files into the `www/` folder Capacitor expects
 — gitignored, regenerated fresh every time, never a second source of
 truth to hand-edit.
 
+## Offline support
+
+`sw.js` is a real service worker, registered by
+`js/lib/register-service-worker.js` after the page's own `load` event so
+it never sits on the critical path for first paint. It's what makes
+"works fully offline once loaded" (see "Platform notes" above) actually
+true, rather than an accident of however long a phone's browser happens
+to keep the plain HTTP cache around — installed PWAs in particular get
+evicted from that cache far more readily than a person expects.
+
+The strategy, deliberately simple given this app has no build step to
+lean on:
+
+- **Install**: a small, hand-listed "app shell" — `index.html`, the CSS
+  files, the font stylesheet, `manifest.json`, `js/main.js`, and the app
+  icons — is precached up front, so even a cold start of a freshly
+  installed PWA has enough to boot.
+- **Fetch**: every other same-origin `GET` (every feature's own `.js`
+  module, the exercise SVGs, the vendored libraries) is served
+  cache-first with a silent background revalidation whenever the network
+  is actually reachable (stale-while-revalidate) — and cached the first
+  time it's ever requested if it wasn't already. `js/main.js` statically
+  imports essentially this app's entire feature set up front (see
+  "Layout" below), so in practice the whole module graph is already
+  cached within moments of the very first real page load — there's no
+  hand-maintained manifest of "every file" to keep in sync as features
+  get added.
+
+Skipped entirely inside a real Capacitor native build
+(`isNativeRuntime()`, same seam as "Native builds" above) — a native
+app's assets are already bundled straight into the APK/IPA at build
+time, so a browser-style HTTP cache on top of that would be pure
+overhead, not a real gap.
+
+There's no build step here to fingerprint these files automatically —
+`sw.js`'s own `CACHE_VERSION` constant gets bumped by hand whenever a
+precached shell file's content changes, so an already-installed PWA
+picks up the update instead of serving a stale shell forever.
+
 ## Accessibility
 
 - **No emoji anywhere** — see "The Hub" below. Every icon is a real,
@@ -229,6 +270,7 @@ opportunistically alongside unrelated feature work.
 ```
 index.html            # app shell: splash + screen router mount point
 manifest.json          # PWA manifest
+sw.js                    # offline service worker — see "Offline support"
 tsconfig.json           # compiles js/**/*.ts in place — see "TypeScript, without a bundler"
 capacitor.config.ts     # Capacitor project config — see "Native builds (Capacitor)"
 android/                 # the real native Android project (npx cap add android) — Steps'/Run's own background-sensing plugins live under app/src/main/java/app/fitfly/mobile/
@@ -239,7 +281,7 @@ css/
   mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals + Steps + Hydration's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration)
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration), register-service-worker.js (registers sw.js — see "Offline support")
   db/                         # Dexie (IndexedDB) schema and store access
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -297,8 +339,10 @@ first automatically — see "TypeScript, without a bundler" above.)
 ## Deploying to Vercel
 
 The repo is ready to deploy as-is — it's a static site (no backend, no
-build step): `index.html`, `css/`, `js/`, `assets/`, and `manifest.json`
-are served directly. `vercel.json` tells Vercel to skip `npm install`
+build step): `index.html`, `css/`, `js/`, `assets/`, `manifest.json`, and
+`sw.js` are served directly (`sw.js` has to be served from the site
+root — not nested under a subpath — for its scope to cover the whole
+app; see "Offline support" above). `vercel.json` tells Vercel to skip `npm install`
 and any build step entirely (the `devDependencies` are test tooling
 only — Vitest, Playwright, `fake-indexeddb` — never loaded at runtime).
 
@@ -378,16 +422,21 @@ this project — the Capacitor-readiness seam most of this stopped being
 theoretical: a real Android project now lives in `android/`, with Steps'
 and Run's own background sensing routed through real native plugins
 behind `isNativeRuntime()`, the web build entirely unchanged either way
-(see "Native builds (Capacitor)" above).
-616 Vitest unit tests and 402 Playwright end-to-end tests
+(see "Native builds (Capacitor)" above). Right behind it, a real service
+worker (`sw.js`, see "Offline support" above) closed the other half of
+that same "actually works, not just documented" bar: the app's own
+"works fully offline once loaded" claim is now backed by a real cache
+strategy instead of the browser's own opportunistic one.
+616 Vitest unit tests and 408 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
 still entirely on-device, no server, by design (a real backend for
 coach/doctor access and cross-device history is planned, deliberately not
 built opportunistically alongside this round of work); no export/import
-for on-device data either yet; no offline service worker/asset caching
-yet. Steps and Run's own passive background sensing is real now on a
+for on-device data yet either. A real offline service worker now backs
+the "works fully offline once loaded" claim (see "Offline support"
+above) — that gap is closed. Steps and Run's own passive background sensing is real now on a
 native build (see "Native builds (Capacitor)" above) — the plain web
 build still can't do it (a browser tab stops the moment the screen locks
 or it isn't the active tab, the same limit every other feature-detected

@@ -114,4 +114,15 @@ test.describe('rest timer', () => {
     await expect(page.locator('#rest-display')).toHaveText('0:10');
     await expect(page.locator('#rest-status')).toHaveText('Ready');
   });
+
+  test('reacts to tilt, same spatial language as the rest of the Fitness Toolkit', async ({ page }) => {
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    const tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-rest-timer'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
 });

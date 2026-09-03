@@ -1,4 +1,5 @@
 import { showScreen } from '../../lib/router.js';
+import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { calculateReadiness } from './readiness.js';
 import {
@@ -23,6 +24,10 @@ async function countRecentSessions(withinDays = 2) {
 }
 
 export function initReadinessFeature() {
+  const readinessScreen = byId('screen-readiness');
+  const tilt = attachTilt(readinessScreen);
+  readinessScreen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
+
   const energyChips = initChipGroup(byId('readiness-energy'));
   const sorenessChips = initChipGroup(byId('readiness-soreness'));
 
@@ -92,8 +97,11 @@ async function renderHistory() {
   list.innerHTML = checkins
     .map(
       (c) => `
-        <div class="card row-between">
-          <strong>${c.date}</strong>
+        <div class="card row-between tilt-card tilt-enter">
+          <span class="row" style="gap:10px; align-items:center;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-sparkle"></use></svg></span>
+            <strong>${c.date}</strong>
+          </span>
           <span class="data-badge estimated">${c.score} · ${c.category}</span>
         </div>
       `

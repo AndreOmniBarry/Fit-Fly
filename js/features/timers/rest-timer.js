@@ -1,4 +1,5 @@
 import { showScreen } from '../../lib/router.js';
+import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { createCountdown, formatDuration } from '../../lib/timer.js';
 import { playCompletionBeep, primeAudio, vibrateDevice } from '../../lib/audio-cue.js';
@@ -14,6 +15,10 @@ function byId(id) {
 }
 
 export function initRestTimerFeature() {
+  const restScreen = byId('screen-rest-timer');
+  const tilt = attachTilt(restScreen);
+  restScreen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
+
   let durationS = DEFAULT_DURATION_S;
   let timer = createCountdown(durationS * 1000);
   let pollHandle = null;

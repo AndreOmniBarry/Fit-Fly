@@ -1,4 +1,5 @@
 import { showScreen } from '../../lib/router.js';
+import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { ACTIVITY_TYPES, INTENSITIES, getActivityType } from './activity-types.js';
 import { estimateActivityCalories } from './calorie-estimate.js';
@@ -17,6 +18,14 @@ function showError(id, show) {
 /** Wires the "Log Activity" form and the "History" list, both reachable
  *  from the home dashboard's action cards. */
 export function initActivityFeature() {
+  // Same spatial-tilt language as the rest of the Fitness Toolkit — both
+  // screens get their own scoped instance.
+  for (const screenId of ['screen-activity-log', 'screen-activity-history']) {
+    const screen = byId(screenId);
+    const tilt = attachTilt(screen);
+    screen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
+  }
+
   const typeContainer = byId('activity-type');
   typeContainer.innerHTML = ACTIVITY_TYPES.map(
     (a) => `<button type="button" class="chip" data-value="${a.id}" aria-pressed="false">${a.label}</button>`
@@ -97,10 +106,13 @@ function renderHistoryItem(session) {
   const cal = session.caloriesEstimate;
 
   return `
-    <div class="card row-between">
-      <span>
-        <strong>${activity?.label ?? 'Activity'}</strong>
-        <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${dateLabel} · ${session.durationMinutes} min</p>
+    <div class="card row-between tilt-card tilt-enter">
+      <span class="row" style="gap:10px; align-items:center;">
+        <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-sliders"></use></svg></span>
+        <span>
+          <strong>${activity?.label ?? 'Activity'}</strong>
+          <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${dateLabel} · ${session.durationMinutes} min</p>
+        </span>
       </span>
       ${cal ? `<span class="data-badge estimated">${cal.kcal} kcal</span>` : ''}
     </div>

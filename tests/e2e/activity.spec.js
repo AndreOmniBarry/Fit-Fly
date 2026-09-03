@@ -95,4 +95,29 @@ test.describe('activity logging', () => {
     await expect(entry).toContainText('Yoga');
     await expect(entry).toContainText('45 min');
   });
+
+  test('both the log form and history react to tilt, same spatial language as the rest of the Fitness Toolkit', async ({
+    page,
+  }) => {
+    await page.getByRole('button', { name: 'Log Activity' }).click();
+    await page.mouse.move(400, 60);
+    await page.waitForTimeout(500);
+    let tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-activity-log'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+
+    await page.locator('#btn-activity-cancel').click();
+    await page.locator('#btn-home-history').click();
+    await page.mouse.move(100, 400);
+    await page.waitForTimeout(500);
+    tilt = await page.evaluate(() => {
+      const style = getComputedStyle(document.getElementById('screen-activity-history'));
+      return { rx: style.getPropertyValue('--tilt-rx'), ry: style.getPropertyValue('--tilt-ry') };
+    });
+    expect(parseFloat(tilt.rx)).not.toBe(0);
+    expect(parseFloat(tilt.ry)).not.toBe(0);
+  });
 });

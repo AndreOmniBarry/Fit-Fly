@@ -1,4 +1,5 @@
 import { showScreen } from '../../lib/router.js';
+import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { decryptJson, encryptJson, generateIv } from '../../lib/crypto.js';
 import {
@@ -27,6 +28,14 @@ function todayIsoDate() {
 }
 
 export function initWomensHealthFeature() {
+  // Same spatial-tilt language as the rest of the Fitness Toolkit — both
+  // the lock and main screens get their own scoped instance.
+  for (const screenId of ['screen-whealth-lock', 'screen-whealth-main']) {
+    const screen = byId(screenId);
+    const tilt = attachTilt(screen);
+    screen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
+  }
+
   const symptomsChips = initChipGroup(populateChips('whealth-symptoms', SYMPTOMS), { multi: true });
   const moodChips = initChipGroup(populateChips('whealth-mood', MOODS));
   const flowChips = initChipGroup(byId('whealth-flow'), { initial: 'none' });
@@ -182,9 +191,12 @@ async function renderHistory() {
         .map((id) => SYMPTOMS.find((s) => s.id === id)?.label ?? id)
         .join(', ');
       return `
-        <div class="card stack">
+        <div class="card stack tilt-card tilt-enter">
           <div class="row-between">
-            <strong>${log.date}</strong>
+            <span class="row" style="gap:10px; align-items:center;">
+              <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-droplet"></use></svg></span>
+              <strong>${log.date}</strong>
+            </span>
             <span class="muted" style="font-size:var(--fs-sm); text-transform:capitalize;">${log.flowIntensity}</span>
           </div>
           ${symptomLabels ? `<p class="muted" style="font-size:var(--fs-sm);">${symptomLabels}</p>` : ''}

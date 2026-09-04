@@ -1733,18 +1733,27 @@
           <span>Protein: <strong id="nutrition-target-protein">—</strong></span>
           <span>Carbs: <strong id="nutrition-target-carbs">—</strong></span>
           <span>Fat: <strong id="nutrition-target-fat">—</strong></span>
+          <span>Fiber: <strong id="nutrition-target-fiber">—</strong></span>
+        </div>
+        <div class="stack" id="nutrition-reasoning-wrap" hidden style="gap:2px;">
+          <span class="muted" style="font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em;">Why this target</span>
+          <ul id="nutrition-reasoning" class="muted" style="margin:0; padding-left:1.2em; font-size:var(--fs-xs);"></ul>
         </div>
       </span>
     </div>
 
     <div class="card tilt-card tilt-enter">
       <span class="tilt-press stack">
-        <strong>So far today</strong>
+        <div class="row-between">
+          <strong>So far today</strong>
+          <span class="muted" id="nutrition-remaining" style="font-size:var(--fs-sm);" hidden></span>
+        </div>
         <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
           <span>Calories: <strong id="nutrition-total-calories">0</strong></span>
           <span>Protein: <strong id="nutrition-total-protein">0g</strong></span>
           <span>Carbs: <strong id="nutrition-total-carbs">0g</strong></span>
           <span>Fat: <strong id="nutrition-total-fat">0g</strong></span>
+          <span>Fiber: <strong id="nutrition-total-fiber">0g</strong></span>
         </div>
       </span>
     </div>
@@ -1761,6 +1770,7 @@
         </div>
         <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
           <span>Avg protein: <strong id="nutrition-weekly-avg-protein">—</strong></span>
+          <span>Avg fiber: <strong id="nutrition-weekly-avg-fiber">—</strong></span>
         </div>
       </span>
     </div>
@@ -1798,6 +1808,7 @@
           <input class="input" type="number" id="nutrition-carbs" min="0" placeholder="carbs g">
           <input class="input" type="number" id="nutrition-fat" min="0" placeholder="fat g">
         </div>
+        <input class="input" type="number" id="nutrition-fiber" min="0" placeholder="fiber g">
         <span class="field-error" id="err-nutrition-entry" hidden>Enter a name and at least a calorie amount.</span>
         <div class="row">
           <button class="btn btn-ghost" id="btn-nutrition-save-favorite" type="button">

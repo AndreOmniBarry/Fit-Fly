@@ -17,20 +17,21 @@ export function lastNDaysRange(days = DEFAULT_WINDOW_DAYS, today = new Date()) {
 }
 
 /**
- * @param {{date:string, calories:number, proteinG:number, carbsG:number, fatG:number}[]} entriesInWindow
+ * @param {{date:string, calories:number, proteinG:number, carbsG:number, fatG:number, fiberG?:number}[]} entriesInWindow
  * @param {number} dayCount - the size of the window these entries were queried from (see lastNDaysRange)
  * @returns {{daysLogged:number, dayCount:number, avgCalories:number,
- *   avgProteinG:number, avgCarbsG:number, avgFatG:number}|null} null with
- *   nothing logged in the window at all.
+ *   avgProteinG:number, avgCarbsG:number, avgFatG:number, avgFiberG:number}|null}
+ *   null with nothing logged in the window at all.
  */
 export function summarizeWeeklyNutrition(entriesInWindow, dayCount = DEFAULT_WINDOW_DAYS) {
   const totalsByDate = new Map();
   for (const entry of entriesInWindow) {
-    const totals = totalsByDate.get(entry.date) ?? { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
+    const totals = totalsByDate.get(entry.date) ?? { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 };
     totals.calories += entry.calories ?? 0;
     totals.proteinG += entry.proteinG ?? 0;
     totals.carbsG += entry.carbsG ?? 0;
     totals.fatG += entry.fatG ?? 0;
+    totals.fiberG += entry.fiberG ?? 0;
     totalsByDate.set(entry.date, totals);
   }
 
@@ -51,5 +52,6 @@ export function summarizeWeeklyNutrition(entriesInWindow, dayCount = DEFAULT_WIN
     avgProteinG: Math.round(sum('proteinG') / daysLogged),
     avgCarbsG: Math.round(sum('carbsG') / daysLogged),
     avgFatG: Math.round(sum('fatG') / daysLogged),
+    avgFiberG: Math.round(sum('fiberG') / daysLogged),
   };
 }

@@ -5,8 +5,8 @@ import { generateId, nowIso } from '../../lib/id.js';
  *  nutritionEntries (a per-date log of what was actually eaten). Saved
  *  once from either the Quick Add form or a search result, then a
  *  one-tap add from then on. */
-export async function addFavoriteFood({ name, calories, proteinG, carbsG, fatG }, db = getDb()) {
-  const entry = { id: generateId(), name, calories, proteinG, carbsG, fatG, createdAt: nowIso() };
+export async function addFavoriteFood({ name, calories, proteinG, carbsG, fatG, fiberG = 0 }, db = getDb()) {
+  const entry = { id: generateId(), name, calories, proteinG, carbsG, fatG, fiberG, createdAt: nowIso() };
   await db.favoriteFoods.add(entry);
   return entry;
 }

@@ -17,18 +17,31 @@ describe('searchFoods', () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it('normalizes a real Open Food Facts-shaped response into per-100g figures', async () => {
+  it('normalizes a real Open Food Facts-shaped response into per-100g figures, fiber included', async () => {
     const fetchImpl = fakeFetch({
       products: [
         {
           product_name: 'Rolled Oats',
-          nutriments: { 'energy-kcal_100g': 389, proteins_100g: 16.9, carbohydrates_100g: 66.3, fat_100g: 6.9 },
+          nutriments: {
+            'energy-kcal_100g': 389,
+            proteins_100g: 16.9,
+            carbohydrates_100g: 66.3,
+            fat_100g: 6.9,
+            fiber_100g: 10.1,
+          },
         },
       ],
     });
     const result = await searchFoods('oats', { fetchImpl });
     expect(result).toEqual([
-      { name: 'Rolled Oats', caloriesPer100g: 389, proteinGPer100g: 17, carbsGPer100g: 66, fatGPer100g: 7 },
+      {
+        name: 'Rolled Oats',
+        caloriesPer100g: 389,
+        proteinGPer100g: 17,
+        carbsGPer100g: 66,
+        fatGPer100g: 7,
+        fiberGPer100g: 10,
+      },
     ]);
   });
 
@@ -50,7 +63,7 @@ describe('searchFoods', () => {
       products: [{ product_name: 'Water', nutriments: { 'energy-kcal_100g': 0.1 } }],
     });
     const result = await searchFoods('water', { fetchImpl });
-    expect(result[0]).toMatchObject({ proteinGPer100g: 0, carbsGPer100g: 0, fatGPer100g: 0 });
+    expect(result[0]).toMatchObject({ proteinGPer100g: 0, carbsGPer100g: 0, fatGPer100g: 0, fiberGPer100g: 0 });
   });
 
   it('a missing "products" field in the response is treated as no results, not a crash', async () => {

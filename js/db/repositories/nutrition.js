@@ -1,7 +1,7 @@
 import { getDb } from '../client.js';
 import { generateId, nowIso } from '../../lib/id.js';
 
-export async function addNutritionEntry({ date, name, calories, proteinG, carbsG, fatG }, db = getDb()) {
+export async function addNutritionEntry({ date, name, calories, proteinG, carbsG, fatG, fiberG = 0 }, db = getDb()) {
   const entry = {
     id: generateId(),
     date,
@@ -10,6 +10,7 @@ export async function addNutritionEntry({ date, name, calories, proteinG, carbsG
     proteinG,
     carbsG,
     fatG,
+    fiberG,
     loggedAt: nowIso(),
   };
   await db.nutritionEntries.add(entry);
@@ -50,7 +51,8 @@ export function sumNutritionEntries(entries) {
       proteinG: totals.proteinG + (e.proteinG ?? 0),
       carbsG: totals.carbsG + (e.carbsG ?? 0),
       fatG: totals.fatG + (e.fatG ?? 0),
+      fiberG: totals.fiberG + (e.fiberG ?? 0),
     }),
-    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 }
+    { calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 }
   );
 }

@@ -25,7 +25,7 @@ const PAGE_SIZE = 12;
  * @param {{fetchImpl?: typeof fetch}} [options] - fetchImpl is injectable
  *   for tests; defaults to the real global fetch.
  * @returns {Promise<{name:string, caloriesPer100g:number, proteinGPer100g:number,
- *   carbsGPer100g:number, fatGPer100g:number}[]>}
+ *   carbsGPer100g:number, fatGPer100g:number, fiberGPer100g:number}[]>}
  * @throws {Error} on a network failure or a non-OK response — the caller
  *   is responsible for showing that honestly (e.g. "couldn't reach the
  *   food database — check your connection"), never silently swallowing it
@@ -36,7 +36,7 @@ export async function searchFoods(query, { fetchImpl = globalThis.fetch } = {}) 
   if (!trimmed) return [];
   if (!fetchImpl) throw new Error('Food search needs a browser with fetch support.');
 
-  const url = `${SEARCH_URL}?search_terms=${encodeURIComponent(trimmed)}&search_simple=1&action=process&json=1&page_size=${PAGE_SIZE}&fields=product_name,nutriments`;
+  const url = `${SEARCH_URL}?search_terms=${encodeURIComponent(trimmed)}&search_simple=1&action=process&json=1&page_size=${PAGE_SIZE}&fields=product_name,nutriments`; // nutriments carries fiber_100g too — see normalizeProduct
   const response = await fetchImpl(url);
   if (!response.ok) throw new Error(`Food search failed (${response.status})`);
 
@@ -59,5 +59,6 @@ function normalizeProduct(product) {
     proteinGPer100g: Math.round(nutriments.proteins_100g ?? 0),
     carbsGPer100g: Math.round(nutriments.carbohydrates_100g ?? 0),
     fatGPer100g: Math.round(nutriments.fat_100g ?? 0),
+    fiberGPer100g: Math.round(nutriments.fiber_100g ?? 0),
   };
 }

@@ -17,11 +17,17 @@ describe('nutrition repository', () => {
 
   it('adds an entry with a generated id and timestamp', async () => {
     const entry = await addNutritionEntry(
-      { date: '2026-08-01', name: 'Oatmeal', calories: 300, proteinG: 10, carbsG: 50, fatG: 6 },
+      { date: '2026-08-01', name: 'Oatmeal', calories: 300, proteinG: 10, carbsG: 50, fatG: 6, fiberG: 8 },
       db
     );
     expect(entry.id).toBeTruthy();
     expect(entry.loggedAt).toBeTruthy();
+    expect(entry.fiberG).toBe(8);
+  });
+
+  it('defaults fiberG to 0 when not given, rather than storing undefined', async () => {
+    const entry = await addNutritionEntry({ date: '2026-08-01', name: 'Chicken', calories: 200 }, db);
+    expect(entry.fiberG).toBe(0);
   });
 
   it('lists entries for one date only, ordered by time logged', async () => {
@@ -41,20 +47,20 @@ describe('nutrition repository', () => {
 });
 
 describe('sumNutritionEntries', () => {
-  it('sums calories and every macro across entries', () => {
+  it('sums calories and every macro (including fiber) across entries', () => {
     const entries = [
-      { calories: 300, proteinG: 10, carbsG: 50, fatG: 6 },
-      { calories: 200, proteinG: 20, carbsG: 10, fatG: 4 },
+      { calories: 300, proteinG: 10, carbsG: 50, fatG: 6, fiberG: 5 },
+      { calories: 200, proteinG: 20, carbsG: 10, fatG: 4, fiberG: 3 },
     ];
-    expect(sumNutritionEntries(entries)).toEqual({ calories: 500, proteinG: 30, carbsG: 60, fatG: 10 });
+    expect(sumNutritionEntries(entries)).toEqual({ calories: 500, proteinG: 30, carbsG: 60, fatG: 10, fiberG: 8 });
   });
 
   it('treats a missing macro field as 0 rather than producing NaN', () => {
     const entries = [{ calories: 100 }];
-    expect(sumNutritionEntries(entries)).toEqual({ calories: 100, proteinG: 0, carbsG: 0, fatG: 0 });
+    expect(sumNutritionEntries(entries)).toEqual({ calories: 100, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 });
   });
 
   it('sums to all zeros for an empty day, not null/undefined', () => {
-    expect(sumNutritionEntries([])).toEqual({ calories: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+    expect(sumNutritionEntries([])).toEqual({ calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0 });
   });
 });

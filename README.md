@@ -483,8 +483,13 @@ programs + periodization" above), and "build muscle" vs. "build
 strength" are now real, NSCA-grounded distinct prescriptions rather than
 the same template under two labels; long-running programs also rotate
 exercise selection block-to-block instead of repeating identically for
-months.
-644 Vitest unit tests and 454 Playwright end-to-end tests
+months. Nutrition's calorie/macro target stopped being a bare number
+too: a real "why this target" reasoning (the same transparency Programs
+already gives its own plan), fiber tracking end to end (Open Food Facts
+already returned it; it used to be silently discarded), and a real
+"kcal remaining today" comparison instead of a total floating with
+nothing to measure it against.
+661 Vitest unit tests and 462 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1746,14 +1751,33 @@ never a crash-diet-sized cut. `js/features/nutrition/macro-targets.js`
 scales protein by bodyweight and category (higher in a cut, to protect
 muscle), fixes fat at ~30% of calories, and lets carbs fill whatever's
 left — never negative, even against a very low calorie target with a
-high protein/fat floor.
+high protein/fat floor. Fiber gets the same "scale it off a real number,
+not a flat one for everyone" treatment: 14g per 1000 kcal, the Institute
+of Medicine's own derivation of the Dietary Guidelines for Americans'
+fiber recommendation.
+
+**The target stopped being a bare number with nothing behind it.**
+`js/features/nutrition/nutrition-reasoning.js`'s `buildNutritionReasoning`
+gives the calorie/macro/fiber target the same plain-language "why this"
+transparency Programs already gives its generated plan — which BMR
+formula and how many active days drove the estimate, the exact
+category-specific calorie rationale (a 500 kcal deficit for fat loss, a
+250 kcal surplus for hypertrophy, and so on), the precise protein g/kg
+figure and the goal it's scaled to, and the fiber guideline behind that
+target — shown as its own disclosure right under the target card, never
+a black box.
 
 Daily totals (`nutritionEntries`, one row per entry, aggregated by date)
-are summed and compared against the estimated targets. This is also the
-first screen where a person's own free-text input (a food name) gets
-rendered back into the page, so it's the first place `js/lib/html.js`'s
-`escapeHtml()` matters — every list in the app before this one only ever
-rendered static labels or numbers.
+are summed and compared against the estimated targets — including a real
+"kcal remaining today" line under Today's totals, honest subtraction
+that goes negative ("X kcal over") once actually over, rather than
+clamping at zero and hiding it. The weekly average gets the same
+comparison, shown right alongside it rather than as a bare number with
+nothing to read it against. This is also the first screen where a
+person's own free-text input (a food name) gets rendered back into the
+page, so it's the first place `js/lib/html.js`'s `escapeHtml()` matters —
+every list in the app before this one only ever rendered static labels
+or numbers.
 
 **Quick Add stopped being "type everything from memory, every time."**
 The research on why food logging apps get abandoned is consistent: past
@@ -1772,7 +1796,9 @@ Three real shortcuts, in order of how exact their numbers are:
   carry Open Food Facts' own **per-100g** figures, not a guessed serving
   size, and selecting one fills the form with a visible "adjust to match
   your actual portion" hint that stays up until Add — a search result
-  never gets logged as-is.
+  never gets logged as-is. Fiber (`fiber_100g`) rides along with
+  calories/protein/carbs/fat — Open Food Facts already returns it, and it
+  used to be silently dropped on the floor.
 - **Recent** (new `js/features/nutrition/recent-foods.js`) — built
   entirely from what's already been logged (deduplicated by name,
   most-recently-logged amounts win), no separate list to maintain. These
@@ -1785,11 +1811,12 @@ Three real shortcuts, in order of how exact their numbers are:
 
 **A real weekly insight**, not just today's total —
 `js/features/nutrition/weekly-trend.js`'s `summarizeWeeklyNutrition`
-averages calories/protein across the last 7 days *of days actually
+averages calories/protein/fiber across the last 7 days *of days actually
 logged* (not diluted by unlogged days, which would understate what a
 tracked day really looks like) plus how many of the 7 days got logged at
-all — shown as its own kinetic stat card, hidden entirely with nothing
-logged yet rather than a zeroed one.
+all — shown as its own kinetic stat card next to the same calorie target
+Today's card shows, hidden entirely with nothing logged yet rather than
+a zeroed one.
 
 The whole screen also carries the same spatial-tilt language as the rest
 of the Fitness Toolkit.

@@ -112,6 +112,56 @@ describe('generateProgram: periodization', () => {
       }
     }
   });
+
+  it('exercise selection rotates into block 2 where a safe alternative exists, still deterministically', () => {
+    // rehab-recuperation's mobility days always include a 'core' slot —
+    // plank and dead-bug are both real, beginner-eligible candidates for
+    // it, so this is a genuine choice, not a forced single option.
+    const block1 = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner', weekNumber: 1 });
+    const block2 = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner', weekNumber: 5 }); // week 5 = block 2
+
+    const coreExerciseInBlock1 = block1.days[0].exercises.find((e) => ['plank', 'dead-bug'].includes(e.exerciseId));
+    const coreExerciseInBlock2 = block2.days[0].exercises.find((e) => ['plank', 'dead-bug'].includes(e.exerciseId));
+    expect(coreExerciseInBlock1).toBeDefined();
+    expect(coreExerciseInBlock2).toBeDefined();
+    expect(coreExerciseInBlock1.exerciseId).not.toBe(coreExerciseInBlock2.exerciseId);
+
+    // Still fully reproducible: re-running block 2 gives the exact same pick.
+    const block2Again = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner', weekNumber: 5 });
+    expect(block2Again).toEqual(block2);
+  });
+
+  it('notes the rotation in the reasoning starting block 2, not block 1', () => {
+    const block1 = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner', weekNumber: 1 });
+    const block2 = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner', weekNumber: 5 });
+    expect(block1.reasoning.some((l) => l.toLowerCase().includes('rotated'))).toBe(false);
+    expect(block2.reasoning.some((l) => l.toLowerCase().includes('rotated'))).toBe(true);
+  });
+});
+
+describe('generateProgram: trainingFocus (hypertrophy vs strength)', () => {
+  it('trainingFocus "strength" on category hypertrophy uses a real, distinct strength prescription', () => {
+    const hypertrophyProgram = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', trainingFocus: 'hypertrophy' });
+    const strengthProgram = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', trainingFocus: 'strength' });
+
+    const hyperExercise = hypertrophyProgram.days[0].exercises[0];
+    const strengthExercise = strengthProgram.days[0].exercises[0];
+    expect(strengthExercise.reps).not.toBe(hyperExercise.reps);
+    expect(strengthExercise.restSec).toBeGreaterThan(hyperExercise.restSec);
+    expect(strengthExercise.sets).toBeGreaterThan(hyperExercise.sets);
+    expect(strengthProgram.reasoning[0]).not.toBe(hypertrophyProgram.reasoning[0]);
+  });
+
+  it('trainingFocus only changes the prescription for category hypertrophy — a non-hypertrophy category ignores it', () => {
+    const withoutFocus = generateProgram({ category: 'endurance', experienceLevel: 'advanced' });
+    const withStrayFocus = generateProgram({ category: 'endurance', experienceLevel: 'advanced', trainingFocus: 'strength' });
+    expect(withStrayFocus).toEqual(withoutFocus);
+  });
+
+  it('trainingFocus is carried through onto the returned program', () => {
+    const program = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', trainingFocus: 'strength' });
+    expect(program.trainingFocus).toBe('strength');
+  });
 });
 
 describe('generateProgram: per-exercise logMetric', () => {

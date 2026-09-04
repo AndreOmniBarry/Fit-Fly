@@ -14,6 +14,7 @@ describe('assignCategory: goal routing for an otherwise-healthy, conditioned per
   it.each([
     ['fat-loss', 'cut-fat-loss'],
     ['build-muscle', 'hypertrophy'],
+    ['build-strength', 'hypertrophy'],
     ['recomposition', 'recomposition'],
     ['endurance', 'endurance'],
   ])('%s -> %s', (primaryGoal, expectedCategory) => {
@@ -21,6 +22,22 @@ describe('assignCategory: goal routing for an otherwise-healthy, conditioned per
     expect(result.category).toBe(expectedCategory);
     expect(result.needsProfessionalReview).toBe(false);
     expect(result.reasoning.length).toBeGreaterThan(0);
+  });
+
+  it('build-strength lands in the same category as build-muscle but with a distinct trainingFocus', () => {
+    const muscle = assignCategory({ ...CONDITIONED_ADULT, primaryGoal: 'build-muscle' });
+    const strength = assignCategory({ ...CONDITIONED_ADULT, primaryGoal: 'build-strength' });
+    expect(muscle.category).toBe('hypertrophy');
+    expect(strength.category).toBe('hypertrophy');
+    expect(muscle.trainingFocus).toBe('hypertrophy');
+    expect(strength.trainingFocus).toBe('strength');
+    expect(muscle.trainingFocus).not.toBe(strength.trainingFocus);
+  });
+
+  it('trainingFocus is null for every goal that is not build-muscle/build-strength', () => {
+    for (const primaryGoal of ['fat-loss', 'recomposition', 'endurance']) {
+      expect(assignCategory({ ...CONDITIONED_ADULT, primaryGoal }).trainingFocus).toBeNull();
+    }
   });
 
   it('general-fitness with a typical BMI lands on the balanced default', () => {

@@ -28,12 +28,17 @@ export async function setProgramStatus(id, status, db = getDb()) {
   await db.programs.update(id, { status });
 }
 
-/** Only one program should be ACTIVE per category at a time — callers that
- *  activate a new program are expected to archive the old one first. */
-export async function getActiveProgram(category, db = getDb()) {
-  return db.programs
-    .where({ category, status: PROGRAM_STATUS.ACTIVE })
-    .first();
+/** Only one program should be ACTIVE per (category, trainingFocus) pair at
+ *  a time — callers that activate a new program are expected to archive
+ *  the old one first. `trainingFocus` isn't an indexed field (only
+ *  hypertrophy's own two focuses ever need it — see
+ *  category-engine.js), so it's filtered in JS rather than in the
+ *  `where()` clause; `undefined` matches any program regardless of its
+ *  own trainingFocus, `null` matches only programs with no focus set. */
+export async function getActiveProgram(category, trainingFocus = undefined, db = getDb()) {
+  const candidates = await db.programs.where({ category, status: PROGRAM_STATUS.ACTIVE }).toArray();
+  if (trainingFocus === undefined) return candidates[0];
+  return candidates.find((program) => (program.trainingFocus ?? null) === trainingFocus);
 }
 
 export async function listProgramsByCategory(category, db = getDb()) {

@@ -30,7 +30,7 @@ import { registerServiceWorker } from './lib/register-service-worker.js';
 function renderHome(profile, assignment) {
   applyCategoryAccent(assignment?.category, document.documentElement);
   document.getElementById('home-category-badge').textContent = assignment
-    ? formatCategoryLabel(assignment.category)
+    ? formatCategoryLabel(assignment.category, assignment.trainingFocus)
     : '—';
 }
 
@@ -43,6 +43,16 @@ function renderHome(profile, assignment) {
 async function refreshProfileBanner() {
   const profile = await getProfile();
   document.getElementById('fitness-toolkit-no-profile-banner').hidden = Boolean(profile);
+}
+
+/** Re-reads the latest category assignment every time the Fitness
+ *  Toolkit screen is opened — My Program's own "Change Goal" can change
+ *  it without ever passing back through this file, so this badge (set
+ *  once at app load / onboarding completion otherwise) would silently
+ *  go stale without a real refresh here. */
+async function refreshCategoryBadge() {
+  const assignment = await getLatestCategoryAssignment();
+  renderHome(await getProfile(), assignment);
 }
 
 async function init() {
@@ -88,7 +98,8 @@ async function init() {
     onComplete: ({ profile, categoryResult }) => {
       applyCategoryAccent(categoryResult.category, document.documentElement);
       document.getElementById('home-category-badge').textContent = formatCategoryLabel(
-        categoryResult.category
+        categoryResult.category,
+        categoryResult.trainingFocus
       );
       showScreen('screen-hub');
     },
@@ -126,6 +137,7 @@ async function init() {
 
   document.getElementById('btn-home-fitness-toolkit').addEventListener('click', () => {
     void refreshProfileBanner();
+    void refreshCategoryBadge();
   });
 
   document.getElementById('btn-home-restart').addEventListener('click', () => {

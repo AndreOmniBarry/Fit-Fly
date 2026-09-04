@@ -26,11 +26,11 @@ describe('programs repository', () => {
 
   it('activating a program makes it findable as the active program for its category', async () => {
     const program = await createProgram({ category: 'endurance', name: 'Base Building' }, db);
-    expect(await getActiveProgram('endurance', db)).toBeUndefined();
+    expect(await getActiveProgram('endurance', undefined, db)).toBeUndefined();
 
     await setProgramStatus(program.id, PROGRAM_STATUS.ACTIVE, db);
 
-    const active = await getActiveProgram('endurance', db);
+    const active = await getActiveProgram('endurance', undefined, db);
     expect(active.id).toBe(program.id);
   });
 
@@ -39,7 +39,19 @@ describe('programs repository', () => {
     await setProgramStatus(program.id, PROGRAM_STATUS.ACTIVE, db);
     await setProgramStatus(program.id, PROGRAM_STATUS.ARCHIVED, db);
 
-    expect(await getActiveProgram('endurance', db)).toBeUndefined();
+    expect(await getActiveProgram('endurance', undefined, db)).toBeUndefined();
+  });
+
+  it('getActiveProgram scopes by trainingFocus when given one — hypertrophy and strength stay separate active programs', async () => {
+    const hyperProgram = await createProgram({ category: 'hypertrophy', trainingFocus: 'hypertrophy', name: 'Muscle' }, db);
+    const strengthProgram = await createProgram({ category: 'hypertrophy', trainingFocus: 'strength', name: 'Strength' }, db);
+    await setProgramStatus(hyperProgram.id, PROGRAM_STATUS.ACTIVE, db);
+    await setProgramStatus(strengthProgram.id, PROGRAM_STATUS.ACTIVE, db);
+
+    expect((await getActiveProgram('hypertrophy', 'hypertrophy', db)).id).toBe(hyperProgram.id);
+    expect((await getActiveProgram('hypertrophy', 'strength', db)).id).toBe(strengthProgram.id);
+    // No trainingFocus given at all: either active program for the category is a valid match.
+    expect(await getActiveProgram('hypertrophy', undefined, db)).toBeDefined();
   });
 
   it('lists every program for a category regardless of status', async () => {

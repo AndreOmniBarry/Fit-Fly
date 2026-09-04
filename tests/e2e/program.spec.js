@@ -247,3 +247,94 @@ test.describe('my program', () => {
     }
   });
 });
+
+test.describe('my program: change goal', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+  });
+
+  test('the picker opens with the current goal pre-selected', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-goal-label')).toHaveText('Hypertrophy');
+
+    await page.locator('#btn-program-change-goal').click();
+    await expect(page.locator('#program-goal-picker')).toBeVisible();
+    await expect(page.locator('#program-goal-chips button[data-value="build-muscle"]')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('cancel closes the picker with zero changes', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+    // Demo SVGs load asynchronously per exercise, and their <title> text
+    // counts toward textContent — wait for every one of them, or a
+    // capture taken before all fetches resolve reads as "different" from
+    // one taken after, even with zero real changes in between.
+    const exerciseSlots = page.locator('#program-days [id^="program-svg-"]');
+    const exerciseSlotCount = await exerciseSlots.count();
+    await expect(exerciseSlots.locator('svg')).toHaveCount(exerciseSlotCount);
+    const beforeText = await page.locator('#program-days').textContent();
+
+    await page.locator('#btn-program-change-goal').click();
+    await page.locator('#program-goal-chips button[data-value="endurance"]').click();
+    await page.locator('#btn-program-goal-cancel').click();
+
+    await expect(page.locator('#program-goal-picker')).toBeHidden();
+    await expect(page.locator('#program-goal-label')).toHaveText('Hypertrophy');
+    expect(await page.locator('#program-days').textContent()).toBe(beforeText);
+  });
+
+  test('switching to "build strength" regenerates the program with a real, distinct strength prescription', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toContainText('8-12 reps');
+
+    await page.locator('#btn-program-change-goal').click();
+    await page.locator('#program-goal-chips button[data-value="build-strength"]').click();
+    await page.locator('#btn-program-goal-save').click();
+
+    await expect(page.locator('#program-goal-picker')).toBeHidden();
+    await expect(page.locator('#program-goal-label')).toHaveText('Strength Training');
+    await expect(page.locator('#program-days .card').first()).toContainText('3-6 reps');
+    await expect(page.locator('#program-days .card').first()).not.toContainText('8-12 reps');
+    await expect(page.locator('#program-reasoning')).toContainText('meaningfully longer rest');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('switching goal category updates the Fitness Toolkit home badge, not just My Program', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await page.locator('#btn-program-change-goal').click();
+    await page.locator('#program-goal-chips button[data-value="endurance"]').click();
+    await page.locator('#btn-program-goal-save').click();
+    await expect(page.locator('#program-goal-label')).toHaveText('Endurance');
+
+    await page.locator('#btn-program-back').click();
+    await expect(page.locator('#home-category-badge')).toHaveText('Endurance');
+  });
+
+  test('re-picking the exact same goal is a real no-op — no new program, same week', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+    const beforeReasoning = await page.locator('#program-reasoning').textContent();
+
+    await page.locator('#btn-program-change-goal').click();
+    await page.locator('#program-goal-chips button[data-value="build-muscle"]').click();
+    await page.locator('#btn-program-goal-save').click();
+
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    expect(await page.locator('#program-reasoning').textContent()).toBe(beforeReasoning);
+  });
+});

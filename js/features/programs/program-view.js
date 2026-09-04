@@ -2,14 +2,18 @@ import { showScreen } from '../../lib/router.js';
 import { loadInlineSvg } from '../../lib/svg-loader.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
+import { initChipGroup } from '../../lib/chip-group.js';
 import { getProfile } from '../../db/repositories/profile.js';
-import { getLatestCategoryAssignment } from '../../db/repositories/category-assignments.js';
+import { getLatestCategoryAssignment, recordCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import { listInjuryScreens } from '../../db/repositories/injury-screens.js';
 import { createProgram, getActiveProgram, PROGRAM_STATUS, setProgramStatus } from '../../db/repositories/programs.js';
 import { addSet, createSession, listRecentSessions, listSetsForExercise } from '../../db/repositories/sessions.js';
 import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
 import { readinessActionSuggestion } from '../recovery/readiness.js';
+import { assignCategory } from '../onboarding/category-engine.js';
+import { formatCategoryLabel } from '../onboarding/wizard.js';
+import { applyCategoryAccent } from '../../lib/theme.js';
 import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';
 import { getCurrentWeekNumber } from './week-number.js';
@@ -50,6 +54,63 @@ export function initProgramFeature() {
   });
   byId('btn-program-back').addEventListener('click', () => showScreen('screen-home'));
 
+  // ---------- change goal ----------
+  // "Pick the closest fit — you can change this any time," the
+  // onboarding goal screen already says. This is what actually makes
+  // that true, instead of "start over" (a full re-onboarding, including
+  // re-answering things that haven't changed) being the only way.
+  const goalChips = initChipGroup(byId('program-goal-chips'));
+
+  byId('btn-program-change-goal').addEventListener('click', async () => {
+    const assignment = await getLatestCategoryAssignment();
+    goalChips.setValue(assignment?.inputsSnapshot?.primaryGoal ?? null);
+    byId('err-program-goal').hidden = true;
+    byId('program-goal-picker').hidden = false;
+  });
+
+  byId('btn-program-goal-cancel').addEventListener('click', () => {
+    byId('program-goal-picker').hidden = true;
+  });
+
+  byId('btn-program-goal-save').addEventListener('click', async () => {
+    const newGoal = goalChips.getValue();
+    byId('err-program-goal').hidden = Boolean(newGoal);
+    if (!newGoal) return;
+
+    const assignment = await getLatestCategoryAssignment();
+    if (!assignment) return; // this screen never renders without one — see renderProgramScreen()
+    const priorInputs = assignment.inputsSnapshot ?? {};
+
+    if (newGoal !== priorInputs.primaryGoal) {
+      const categoryResult = assignCategory({ ...priorInputs, primaryGoal: newGoal });
+      await recordCategoryAssignment({
+        category: categoryResult.category,
+        reasoning: categoryResult.reasoning,
+        trainingFocus: categoryResult.trainingFocus,
+        inputsSnapshot: { ...priorInputs, primaryGoal: newGoal },
+      });
+
+      // Only one program is ever "current" — archive whatever was active
+      // for the old category/focus so a later switch back starts a real
+      // fresh attempt rather than silently reusing a program abandoned
+      // long ago under a stale start date.
+      const oldProgram = await getActiveProgram(assignment.category, assignment.trainingFocus);
+      if (oldProgram) await setProgramStatus(oldProgram.id, PROGRAM_STATUS.ARCHIVED);
+
+      // The Fitness Toolkit home screen's own category badge/accent is
+      // otherwise only ever set at app load or onboarding completion —
+      // refreshed right here too so it's never stale by the time someone
+      // navigates back to it, regardless of which button they use to
+      // leave this screen.
+      applyCategoryAccent(categoryResult.category, document.documentElement);
+      const homeBadge = document.getElementById('home-category-badge');
+      if (homeBadge) homeBadge.textContent = formatCategoryLabel(categoryResult.category, categoryResult.trainingFocus);
+    }
+
+    byId('program-goal-picker').hidden = true;
+    await renderProgramScreen();
+  });
+
   // Same spatial-tilt language as the Fitness Toolkit home list — scoped
   // to just this screen.
   const programScreen = byId('screen-program');
@@ -89,16 +150,20 @@ export function initProgramFeature() {
   });
 }
 
-/** Reuses the person's existing active program for their category if one
- *  exists, so "start date" (and therefore the week/deload count) stays
- *  stable across visits — otherwise creates one. */
-async function ensureActiveProgram(category, experienceLevel) {
-  const existing = await getActiveProgram(category);
+/** Reuses the person's existing active program for their (category,
+ *  trainingFocus) pair if one exists, so "start date" (and therefore the
+ *  week/deload count) stays stable across visits — otherwise creates
+ *  one. Scoped by trainingFocus too, not just category, so switching
+ *  between "build muscle" and "build strength" (both category
+ *  'hypertrophy') never silently reuses the other one's program. */
+async function ensureActiveProgram(category, experienceLevel, trainingFocus) {
+  const existing = await getActiveProgram(category, trainingFocus);
   if (existing) return existing;
 
   const created = await createProgram({
     category,
     experienceLevel,
+    trainingFocus,
     startedAt: new Date().toISOString(),
   });
   await setProgramStatus(created.id, PROGRAM_STATUS.ACTIVE);
@@ -119,7 +184,7 @@ async function renderProgramScreen() {
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
   if (!profile || !assignment) return;
 
-  const program = await ensureActiveProgram(assignment.category, profile.experienceLevel);
+  const program = await ensureActiveProgram(assignment.category, profile.experienceLevel, assignment.trainingFocus);
   activeProgramId = program.id;
   const weekNumber = getCurrentWeekNumber(program.startedAt);
   const injuryBodyAreaTags = await getInjuryBodyAreaTags();
@@ -127,10 +192,12 @@ async function renderProgramScreen() {
   const generated = generateProgram({
     category: assignment.category,
     experienceLevel: profile.experienceLevel,
+    trainingFocus: assignment.trainingFocus,
     injuryBodyAreaTags,
     weekNumber,
   });
 
+  byId('program-goal-label').textContent = formatCategoryLabel(assignment.category, assignment.trainingFocus);
   animateCountUp(byId('program-week-number'), generated.weekNumber);
   byId('program-block-label').textContent = `Block ${generated.blockNumber}`;
   byId('program-deload-banner').hidden = !generated.isDeload;

@@ -476,8 +476,15 @@ exist beyond its own screen — see "Recovery / readiness" above. Steps,
 Hydration, and Run then each gained a real 14-day (or 8-run) trend chart
 and a real personal-best badge, sharing one implementation
 (`js/lib/trend-chart.ts`, see "A shared trend chart" above) rather than
-three separate ones.
-634 Vitest unit tests and 446 Playwright end-to-end tests
+three separate ones. My Program's goal is no longer fixed at onboarding
+either — a Change Goal action re-routes the category engine against a
+person's already-stored answers and regenerates in place (see "Tailored
+programs + periodization" above), and "build muscle" vs. "build
+strength" are now real, NSCA-grounded distinct prescriptions rather than
+the same template under two labels; long-running programs also rotate
+exercise selection block-to-block instead of repeating identically for
+months.
+644 Vitest unit tests and 454 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -528,9 +535,9 @@ first:
    always, regardless of what else was answered.
 2. Training 0-1 days/week as a self-described beginner → **sedentary-start**
    — build a consistent base before layering on a goal-driven program.
-3. Otherwise, routed by the stated goal (fat loss, build muscle,
-   recomposition, endurance), with a BMI-informed default for anyone who
-   picked "just general fitness."
+3. Otherwise, routed by the stated goal (fat loss, build muscle, build
+   strength, recomposition, endurance), with a BMI-informed default for
+   anyone who picked "just general fitness."
 
 A red flag also sets `needsProfessionalReview`, which the result screen
 surfaces as a caution banner — Fit Fly still isn't a diagnosis, it's a
@@ -1402,7 +1409,37 @@ persisted as static content — `programs` stores just the category,
 experience level, and start date, and the week's actual content is
 (re)computed live every time, which means an improvement to the
 generator applies retroactively to everyone's program, not just new
-ones.
+ones. Beyond the first mesocycle, `pickExercisesForDay` rotates which
+eligible exercise fills a movement-pattern slot by the current block
+number (`candidates[(blockNumber - 1) % candidates.length]`) — still
+fully deterministic (the same week always produces the same program,
+nothing to fight in tests) but no longer frozen on the first eligible
+candidate forever, so a program running for months varies its exercise
+selection instead of repeating identically.
+
+**"Build muscle" and "build strength" are genuinely different programs,
+not the same template under two labels.** Both route to the
+`hypertrophy` category (still one of exactly six — see "Onboarding + the
+category engine" below), but the goal also sets a `trainingFocus`
+(`'hypertrophy'` or `'strength'`) that changes the actual prescription
+underneath: hypertrophy stays 4 sets × 8-12 reps at 90s rest, strength is
+5 sets × 3-6 reps at 180s rest — real, NSCA-grounded rep/set/rest ranges
+that produce a different plan, not a relabeled duplicate. Weight gain
+wasn't added as a further goal alongside it: exercise prescription
+doesn't scientifically differ by caloric surplus vs. deficit — that's
+Nutrition's domain, not a training-structure difference — so adding a
+redundant category just to have one to point at was deliberately
+rejected.
+
+**Onboarding's own claim that a goal "can change any time" is now true.**
+My Program's header carries a Change Goal action that re-runs
+`assignCategory()` against the person's already-stored onboarding
+answers plus just the new goal — no re-running the full wizard — records
+a new category-assignment entry, archives the prior active program for
+that category/focus pair, and regenerates. It deliberately excludes
+"recovering from injury/surgery" from this quick picker (the picker
+notes why, and points to "Start Over" instead): re-signaling an injury
+needs a real safety re-screen, not a goal swap.
 
 ## Run mode
 

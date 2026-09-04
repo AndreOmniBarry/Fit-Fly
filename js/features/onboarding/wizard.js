@@ -152,6 +152,7 @@ export function initOnboardingWizard({ onComplete } = {}) {
     await recordCategoryAssignment({
       category: categoryResult.category,
       reasoning: categoryResult.reasoning,
+      trainingFocus: categoryResult.trainingFocus,
       inputsSnapshot: { ...answers, bmi, age },
     });
 
@@ -163,7 +164,7 @@ export function initOnboardingWizard({ onComplete } = {}) {
 }
 
 function renderResult(categoryResult) {
-  byId('ob-result-category').textContent = formatCategoryLabel(categoryResult.category);
+  byId('ob-result-category').textContent = formatCategoryLabel(categoryResult.category, categoryResult.trainingFocus);
   byId('ob-result-reasoning').innerHTML = categoryResult.reasoning
     .map((line) => `<li>${line}</li>`)
     .join('');
@@ -179,6 +180,12 @@ const CATEGORY_LABELS = {
   endurance: 'Endurance',
 };
 
-export function formatCategoryLabel(category) {
+/** `trainingFocus` only ever distinguishes anything within the
+ *  'hypertrophy' category (see category-engine.js) — 'strength' gets its
+ *  own real label rather than being folded into "Hypertrophy," since
+ *  it's a genuinely different rep-range/rest/set prescription
+ *  underneath, not the same program relabeled. */
+export function formatCategoryLabel(category, trainingFocus = null) {
+  if (category === 'hypertrophy' && trainingFocus === 'strength') return 'Strength Training';
   return CATEGORY_LABELS[category] ?? category;
 }

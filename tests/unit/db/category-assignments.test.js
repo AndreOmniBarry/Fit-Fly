@@ -35,6 +35,15 @@ describe('category-assignments repository', () => {
     expect(all[1].category).toBe('hypertrophy');
   });
 
+  it('stores trainingFocus as its own field, defaulting to null when not given', async () => {
+    await recordCategoryAssignment({ category: 'hypertrophy', reasoning: '', inputsSnapshot: {}, trainingFocus: 'strength' }, db);
+    await recordCategoryAssignment({ category: 'endurance', reasoning: '', inputsSnapshot: {} }, db);
+
+    const all = await listCategoryAssignments(db);
+    expect(all[0].trainingFocus).toBe('strength');
+    expect(all[1].trainingFocus).toBeNull();
+  });
+
   it('getLatestCategoryAssignment returns the most recent one', async () => {
     await recordCategoryAssignment({ category: 'sedentary-start', reasoning: '', inputsSnapshot: {} }, db);
     await recordCategoryAssignment({ category: 'endurance', reasoning: '', inputsSnapshot: {} }, db);

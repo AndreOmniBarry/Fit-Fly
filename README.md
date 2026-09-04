@@ -493,8 +493,15 @@ real, cited techniques from its first round rather than filler copy —
 picked up two genuinely distinct additions rather than a rewrite:
 Loving-Kindness (metta), the traditional other-directed counterpart to
 the self-compassion break already there, and Box Breathing, a tactical
-equal-phase pattern distinct from 4-7-8's longer, sedating exhale.
-665 Vitest unit tests and 462 Playwright end-to-end tests
+equal-phase pattern distinct from 4-7-8's longer, sedating exhale. The
+Cycle Tracker's real prediction math — already honest, already
+confidence-scored — finally reached the screen as more than two lines
+of text: a real month calendar (`js/lib/calendar-grid.ts`, shared with
+Sleep's own history calendar) replaces the flat entry list, a "Day N ·
+phase" card replaces the bare "next period" label, and tapping any past
+day now opens *that* date to log or edit, the same retroactive capability
+Sleep History already had.
+673 Vitest unit tests and 468 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -700,8 +707,10 @@ not a disconnected copy.
 night is one row in `sleepLogs`, keyed by its own date (`date` is the
 primary key — logging a new night has never overwritten an older one;
 what was actually missing was a way to *see* them again after the day
-passed). `#screen-sleep-history` (`sleep-calendar.ts` for the pure
-month-grid math, tested in isolation) opens from **two real, visible
+passed). `#screen-sleep-history` (`js/lib/calendar-grid.ts` for the pure
+month-grid math, tested in isolation — later shared with the Cycle
+Tracker's own calendar, see "Women's health / cycle tracker" below)
+opens from **two real, visible
 entry points, not one clever-but-easy-to-miss gesture**: a calendar icon
 button in the header (the same pattern as the already-proven Insights
 button right next to it) and an explicitly-labeled ghost button in the
@@ -1753,6 +1762,37 @@ pure/testable module never touches a PIN or a key. Its confidence
 reflects how much (and how regular) a history it has to extrapolate
 from — `low` off one or two cycles, up to `high` only with a longer,
 consistent one — always shown as an estimate, never a certainty.
+
+**A real calendar, not a flat questionnaire with a list underneath it.**
+The prediction math above always existed; it just never reached the
+screen as more than two lines of text next to a plain list of past
+entries. `js/lib/calendar-grid.ts` (extracted from Sleep's own history
+calendar — its first user — since the Cycle Tracker needed the exact
+same day-grid math, not a second copy of it) now drives a real month
+calendar that replaces that list entirely. Logged flow days render
+filled, at four opacity steps for the four intensities (spotting
+lightest, heavy solid) — the same "one hue, stepped intensity" rule the
+trend-chart's own highlighted bars already use, rather than a second
+color scheme invented just for this screen. The estimated fertile window
+renders in its own distinct hue so it's never confusable with a real
+logged period, and the single predicted next-period-start day renders
+dashed and unfilled — a guess about the future never looks like a real
+logged fact. Unlike Sleep's calendar (where a future day is meaningless
+and fully dimmed), future days here stay legible: a prediction landing
+on a future day is the one thing worth showing there.
+
+`currentCyclePhase` (new, in `cycle-prediction.js`) turns that same
+fertile-window estimate into a real "Day N · phase" card — follicular,
+fertile, or luteal — instead of a bare "Next period (estimated)" label.
+Real logged flow for today always overrides a guessed phase rather than
+contradicting it, and the function deliberately returns unknown (`null`)
+once a day is genuinely past the estimated next start, rather than
+calling every day after it indefinitely "luteal" — real, but only where
+the estimate can still support it.
+
+Tapping any non-future calendar day now opens *that* date's entry to log
+or edit — a real retroactive log, the same capability Sleep History
+already has, instead of the form only ever reading and writing today.
 
 ## Nutrition
 

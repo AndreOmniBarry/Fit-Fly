@@ -2,6 +2,7 @@ import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { decryptJson, encryptJson, generateIv } from '../../lib/crypto.js';
+import { formatMonthLabel, getMonthGridDays } from '../../lib/calendar-grid.js';
 import {
   getSessionKey,
   hasPinSet,
@@ -12,7 +13,7 @@ import {
   unlockWithPin,
 } from './pin.js';
 import { derivePeriodStartDates, MOODS, SYMPTOMS } from './constants.js';
-import { predictFertileWindow, predictionConfidence, predictNextPeriodStart } from './cycle-prediction.js';
+import { currentCyclePhase, predictFertileWindow, predictionConfidence, predictNextPeriodStart } from './cycle-prediction.js';
 import {
   getEncryptedCycleLog,
   listAllEncryptedCycleLogs,
@@ -27,6 +28,22 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function formatDayLabel(dateStr, { withYear = false } = {}) {
+  const d = new Date(`${dateStr}T00:00:00`);
+  return d.toLocaleDateString(
+    undefined,
+    withYear
+      ? { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
+      : { weekday: 'short', month: 'short', day: 'numeric' }
+  );
+}
+
+const PHASE_LABEL = {
+  follicular: 'Follicular phase',
+  fertile: 'Fertile window',
+  luteal: 'Luteal phase',
+};
+
 export function initWomensHealthFeature() {
   // Same spatial-tilt language as the rest of the Fitness Toolkit — both
   // the lock and main screens get their own scoped instance.
@@ -39,6 +56,16 @@ export function initWomensHealthFeature() {
   const symptomsChips = initChipGroup(populateChips('whealth-symptoms', SYMPTOMS), { multi: true });
   const moodChips = initChipGroup(populateChips('whealth-mood', MOODS));
   const flowChips = initChipGroup(byId('whealth-flow'), { initial: 'none' });
+
+  // The date the log form is currently reading/writing — defaults to
+  // today every time the screen is (re-)entered, and changes only when
+  // a non-future calendar day is tapped. Every decrypted log this
+  // session touches lives in `allLogs`, refreshed once per save/unlock
+  // rather than re-decrypted per render.
+  let editingDate = todayIsoDate();
+  let calendarYear;
+  let calendarMonth;
+  let allLogs = [];
 
   byId('btn-home-womens-health').addEventListener('click', async () => {
     if (isUnlocked()) {
@@ -65,24 +92,43 @@ export function initWomensHealthFeature() {
   }
 
   async function enterMain() {
-    flowChips.setValue('none');
-    symptomsChips.setValue([]);
-    moodChips.setValue(null);
-    byId('whealth-notes').value = '';
+    const today = new Date(`${todayIsoDate()}T00:00:00`);
+    calendarYear = today.getFullYear();
+    calendarMonth = today.getMonth();
+    editingDate = todayIsoDate();
 
-    const existing = await getEncryptedCycleLog(todayIsoDate());
-    if (existing) {
-      const payload = await decryptJson(getSessionKey(), existing.iv, existing.cipherBytes);
-      flowChips.setValue(payload.flowIntensity ?? 'none');
-      symptomsChips.setValue(payload.symptoms ?? []);
-      moodChips.setValue(payload.mood ?? null);
-      byId('whealth-notes').value = payload.notes ?? '';
-    }
-
-    await renderPrediction();
-    await renderHistory();
+    await refreshAll();
     showScreen('screen-whealth-main');
   }
+
+  /** The whole screen's data flow: decrypt every log once, then render
+   *  the prediction/phase card, the calendar, and the log form for
+   *  whatever date is currently being edited — same "one decrypt, three
+   *  renders" shape whether this runs after unlocking, saving, or
+   *  navigating a calendar month. */
+  async function refreshAll() {
+    allLogs = await decryptAllLogs();
+    renderPrediction();
+    renderCalendar();
+    loadFormForDate(editingDate);
+  }
+
+  function loadFormForDate(date) {
+    editingDate = date;
+    const isToday = date === todayIsoDate();
+    byId('whealth-log-heading').textContent = isToday ? 'Log Today' : `Log ${formatDayLabel(date)}`;
+    byId('btn-whealth-editing-today').hidden = isToday;
+
+    const existing = allLogs.find((l) => l.date === date);
+    flowChips.setValue(existing?.flowIntensity ?? 'none');
+    symptomsChips.setValue(existing?.symptoms ?? []);
+    moodChips.setValue(existing?.mood ?? null);
+    byId('whealth-notes').value = existing?.notes ?? '';
+  }
+
+  byId('btn-whealth-editing-today').addEventListener('click', () => {
+    loadFormForDate(todayIsoDate());
+  });
 
   // ---------- PIN setup ----------
   byId('btn-whealth-pin-set').addEventListener('click', async () => {
@@ -117,7 +163,7 @@ export function initWomensHealthFeature() {
     await enterLockScreen();
   });
 
-  // ---------- save today's entry ----------
+  // ---------- save the entry currently being edited ----------
   byId('btn-whealth-save').addEventListener('click', async () => {
     const payload = {
       flowIntensity: flowChips.getValue(),
@@ -127,11 +173,138 @@ export function initWomensHealthFeature() {
     };
     const iv = generateIv();
     const cipherBytes = await encryptJson(getSessionKey(), iv, payload);
-    await saveEncryptedCycleLog({ date: todayIsoDate(), iv, cipherBytes });
+    await saveEncryptedCycleLog({ date: editingDate, iv, cipherBytes });
 
-    await renderPrediction();
-    await renderHistory();
+    await refreshAll();
   });
+
+  // ---------- calendar month navigation ----------
+  byId('btn-whealth-prev-month').addEventListener('click', () => shiftCalendarMonth(-1));
+  byId('btn-whealth-next-month').addEventListener('click', () => shiftCalendarMonth(1));
+
+  function shiftCalendarMonth(delta) {
+    const next = new Date(calendarYear, calendarMonth + delta, 1);
+    calendarYear = next.getFullYear();
+    calendarMonth = next.getMonth();
+    renderCalendar();
+  }
+
+  byId('whealth-calendar-grid').addEventListener('click', (event) => {
+    const cell = event.target.closest('[data-date]');
+    if (!cell || cell.disabled) return;
+    loadFormForDate(cell.dataset.date);
+    byId('whealth-log-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  function renderPrediction() {
+    const periodStartDates = derivePeriodStartDates(
+      allLogs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity }))
+    );
+
+    const predictionCard = byId('whealth-prediction');
+    if (periodStartDates.length === 0) {
+      predictionCard.hidden = true;
+      return;
+    }
+
+    const nextStart = predictNextPeriodStart(periodStartDates);
+    const confidence = predictionConfidence(periodStartDates);
+    const fertileWindow = predictFertileWindow(periodStartDates);
+
+    // "Day N · phase" only when today itself is inside the current
+    // cycle (currentCyclePhase returns null once genuinely past the
+    // estimated next start) — real logged flow today always wins over a
+    // guessed phase label, the same "measured beats estimated" rule
+    // every other screen's badges already follow.
+    const today = todayIsoDate();
+    const isBleedingToday = allLogs.some((l) => l.date === today && l.flowIntensity && l.flowIntensity !== 'none');
+    const phase = currentCyclePhase(periodStartDates, today);
+    if (isBleedingToday) {
+      byId('whealth-cycle-day-label').textContent = phase ? `Day ${phase.cycleDayNumber} · Period` : 'Period';
+    } else if (phase) {
+      byId('whealth-cycle-day-label').textContent = `Day ${phase.cycleDayNumber} · ${PHASE_LABEL[phase.phase]}`;
+    } else {
+      // currentCyclePhase only ever returns null here (periodStartDates
+      // is non-empty, so it's not that) once today is at or past the
+      // estimated next start — say so honestly instead of a vague label.
+      byId('whealth-cycle-day-label').textContent = 'Next period overdue (estimated)';
+    }
+
+    byId('whealth-prediction-date').textContent = `Next period estimated: ${nextStart}`;
+    byId('whealth-prediction-confidence').textContent = `estimated · ${confidence}`;
+    byId('whealth-fertile-window').textContent = fertileWindow
+      ? `Estimated fertile window: ${fertileWindow.start} – ${fertileWindow.end}`
+      : '';
+    predictionCard.hidden = false;
+  }
+
+  function renderCalendar() {
+    byId('whealth-calendar-month-label').textContent = formatMonthLabel(calendarYear, calendarMonth);
+
+    const logsByDate = new Map(allLogs.map((l) => [l.date, l]));
+    const periodStartDates = derivePeriodStartDates(
+      allLogs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity }))
+    );
+    const nextStart = predictNextPeriodStart(periodStartDates);
+    const fertileWindow = predictFertileWindow(periodStartDates);
+
+    const grid = byId('whealth-calendar-grid');
+    grid.innerHTML = '';
+    const days = getMonthGridDays(calendarYear, calendarMonth, todayIsoDate());
+
+    for (const day of days) {
+      const log = logsByDate.get(day.date);
+      const hasRealFlow = log?.flowIntensity && log.flowIntensity !== 'none';
+      const isFertile = fertileWindow && day.date >= fertileWindow.start && day.date <= fertileWindow.end;
+      const isPredictedStart = day.date === nextStart;
+
+      const cell = document.createElement('button');
+      cell.type = 'button';
+      cell.setAttribute('role', 'gridcell');
+      cell.dataset.date = day.date;
+
+      const classes = ['whealth-calendar-day'];
+      if (!day.inMonth) classes.push('whealth-calendar-day--out-of-month');
+      if (day.isFuture) classes.push('whealth-calendar-day--future');
+      if (day.isToday) classes.push('whealth-calendar-day--today');
+
+      let ariaSuffix = 'not logged';
+      if (hasRealFlow) {
+        classes.push('whealth-calendar-day--period');
+        cell.dataset.flow = log.flowIntensity;
+        ariaSuffix = `period logged, ${log.flowIntensity} flow`;
+      } else if (isFertile) {
+        classes.push('whealth-calendar-day--fertile');
+        ariaSuffix = 'estimated fertile window';
+      } else if (isPredictedStart) {
+        classes.push('whealth-calendar-day--predicted-period');
+        ariaSuffix = 'estimated next period start';
+      } else if (log) {
+        classes.push('whealth-calendar-day--logged');
+        ariaSuffix = 'logged';
+      }
+      cell.className = classes.join(' ');
+      cell.disabled = day.isFuture;
+
+      const dayNumber = Number(day.date.slice(-2));
+      const dot = !hasRealFlow && (isFertile || isPredictedStart || log) ? '<span class="whealth-calendar-day-dot"></span>' : '';
+      cell.innerHTML = `<span>${dayNumber}</span>${dot}`;
+      cell.setAttribute('aria-label', `${formatDayLabel(day.date, { withYear: true })}, ${ariaSuffix}`);
+
+      grid.append(cell);
+    }
+  }
+
+  async function decryptAllLogs() {
+    const encrypted = await listAllEncryptedCycleLogs();
+    const key = getSessionKey();
+    const decrypted = [];
+    for (const log of encrypted) {
+      const payload = await decryptJson(key, log.iv, log.cipherBytes);
+      decrypted.push({ date: log.date, ...payload });
+    }
+    return decrypted;
+  }
 }
 
 function populateChips(containerId, items) {
@@ -140,68 +313,4 @@ function populateChips(containerId, items) {
     .map((item) => `<button type="button" class="chip" data-value="${item.id}" aria-pressed="false">${item.label}</button>`)
     .join('');
   return container;
-}
-
-async function decryptAllLogs() {
-  const encrypted = await listAllEncryptedCycleLogs();
-  const key = getSessionKey();
-  const decrypted = [];
-  for (const log of encrypted) {
-    const payload = await decryptJson(key, log.iv, log.cipherBytes);
-    decrypted.push({ date: log.date, ...payload });
-  }
-  return decrypted;
-}
-
-async function renderPrediction() {
-  const logs = await decryptAllLogs();
-  const periodStartDates = derivePeriodStartDates(logs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity })));
-
-  const predictionCard = byId('whealth-prediction');
-  if (periodStartDates.length === 0) {
-    predictionCard.hidden = true;
-    return;
-  }
-
-  const nextStart = predictNextPeriodStart(periodStartDates);
-  const confidence = predictionConfidence(periodStartDates);
-  const fertileWindow = predictFertileWindow(periodStartDates);
-
-  byId('whealth-prediction-date').textContent = nextStart;
-  byId('whealth-prediction-confidence').textContent = `estimated · ${confidence}`;
-  byId('whealth-fertile-window').textContent = fertileWindow
-    ? `Estimated fertile window: ${fertileWindow.start} – ${fertileWindow.end}`
-    : '';
-  predictionCard.hidden = false;
-}
-
-async function renderHistory() {
-  const logs = await decryptAllLogs();
-  const sorted = [...logs].sort((a, b) => b.date.localeCompare(a.date));
-  const list = byId('whealth-history-list');
-
-  if (sorted.length === 0) {
-    list.innerHTML = '<p class="muted center-text">No entries logged yet.</p>';
-    return;
-  }
-
-  list.innerHTML = sorted
-    .map((log) => {
-      const symptomLabels = (log.symptoms ?? [])
-        .map((id) => SYMPTOMS.find((s) => s.id === id)?.label ?? id)
-        .join(', ');
-      return `
-        <div class="card stack tilt-card tilt-enter">
-          <div class="row-between">
-            <span class="row" style="gap:10px; align-items:center;">
-              <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-droplet"></use></svg></span>
-              <strong>${log.date}</strong>
-            </span>
-            <span class="muted" style="font-size:var(--fs-sm); text-transform:capitalize;">${log.flowIntensity}</span>
-          </div>
-          ${symptomLabels ? `<p class="muted" style="font-size:var(--fs-sm);">${symptomLabels}</p>` : ''}
-        </div>
-      `;
-    })
-    .join('');
 }

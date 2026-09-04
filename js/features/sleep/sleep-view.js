@@ -14,7 +14,7 @@ import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } fro
 import { buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
 import { computeSleepLogTimes } from './sleep-duration.js';
-import { formatMonthLabel, getMonthGridDays, monthDateRange } from './sleep-calendar.js';
+import { formatMonthLabel, getMonthGridDays, monthDateRange } from '../../lib/calendar-grid.js';
 import { formatClockTime, formatDurationHM, formatTimeInputValue } from './format.js';
 import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';

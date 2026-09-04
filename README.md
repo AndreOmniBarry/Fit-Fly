@@ -514,8 +514,14 @@ real metrics, backed by a new `earnedBadges` store and a shared
 their own copy of the same streak algorithm — and then **Hearing
 health** (see "Hearing health" above), a real ambient-noise check-in
 from the phone's own microphone, honestly labeled an estimate against
-real NIOSH/WHO exposure guidance, the tenth Hub tile.
-750 Vitest unit tests and 490 Playwright end-to-end tests
+real NIOSH/WHO exposure guidance, the tenth Hub tile. **Active Energy**
+(see "Active Energy" above) followed — a real cross-app calorie rollup
+on the Hub itself, closing the gap between three already-real per-
+feature calorie estimates that had never once been added together, with
+Steps and Strength sessions each getting a real estimate for the first
+time. Gait metrics were deliberately left out rather than faked — see
+that section for why.
+768 Vitest unit tests and 498 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -2177,3 +2183,55 @@ single quiet reading can hide a loud one behind — a real count of how
 many check-ins this week actually crossed a real exposure-risk
 threshold (`very-loud` or worse), not just a number that got averaged
 away. It's the grid's 10th tile.
+
+## Active Energy
+
+Apple Health's Move ring is a single daily total — every calorie burned
+through activity, added up from whatever a person actually did that
+day. This app already had three separate, real calorie estimators
+(Run's own badge, Activity logging's own badge, all sharing one MET-
+formula module, `activity/calorie-estimate.js`) — what it didn't have
+was Steps contributing at all, or anything that ever added them
+together. This closes both real gaps rather than inventing a fourth
+number-fabricating path.
+
+**Steps now gets a real estimate too.** `steps/steps-calorie-estimate.js`
+reuses the exact same shared MET-formula estimator, converting a day's
+raw step count into an estimated duration via ~100 steps/minute — the
+commonly cited moderate-intensity walking cadence threshold from
+step-based physical-activity research (e.g. Tudor-Locke et al.) — since
+a step count alone carries no duration of its own. Shown right on the
+Steps screen, under the ring.
+
+**Strength sessions get a real estimate for the first time.**
+`activity/session-calorie-estimate.js` derives a session's actual
+elapsed duration from its own logged sets (the real gap between the
+first and last set completed — never a guessed length), then hands that
+to the same shared estimator with the existing `strength` MET value.
+Fewer than two sets means no real duration to derive from, so it stays
+honestly unestimated rather than assuming one.
+
+**The Hub shows a real cross-app total.** `activity/active-energy.js`'s
+`sumActiveEnergy` adds together whatever real per-source estimates exist
+for today — Steps, every run, every logged activity, every strength
+session — treating a source with nothing to estimate from as a real
+zero contribution, not a reason to hide the others. The whole line stays
+hidden with no profile weight on file at all (every source would be
+null), same "never a fabricated number" rule as everywhere else in this
+app, rather than showing a misleading 0. Evaluated on load and every
+time the Hub becomes visible again (`js/lib/router.js`'s `onScreenShown`,
+the same hook Badges' own tile count already uses) — logging steps and
+returning straight to the Hub updates the total live, not only on the
+next app open.
+
+**Deliberately not attempted: gait metrics.** Apple Watch's walking
+steadiness/asymmetry/double-support-time figures are a validated
+clinical algorithm built on dedicated IMU hardware and Apple's own
+research — there's no way to responsibly approximate that from a phone
+browser's motion APIs without risking exactly the kind of
+fabricated-feeling health claim this app has refused to make anywhere
+else (the same reasoning that kept blood pressure estimation out of
+Vitals entirely — see "Vitals" above). A real walking *pace* already
+exists wherever there's real GPS distance and time to derive it from
+(Run mode's own pace, already shown there) — extending gait analysis
+further than that would mean inventing a number, not estimating one.

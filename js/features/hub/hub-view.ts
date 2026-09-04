@@ -124,6 +124,16 @@ export function setHearingTileSubtitle(text: string): void {
   byId('hub-hearing-sub').textContent = text;
 }
 
+/** Active Energy's real cross-app rollup (active-energy-view.js) — a
+ *  `null` text hides the line entirely (no profile weight on file, or
+ *  nothing logged yet today), the same "never a fabricated number" rule
+ *  as every other honesty-gated readout in this app. */
+export function setActiveEnergyText(text: string | null): void {
+  const el = byId('hub-active-energy');
+  el.hidden = text == null;
+  el.textContent = text ?? '';
+}
+
 /** Draws the Sleep tile's mini ring in to a real score (0-100), or back to
  * its empty "waiting for data" state for `null` — the same honesty rule as
  * the subtitle: never a number that isn't backed by an actual logged

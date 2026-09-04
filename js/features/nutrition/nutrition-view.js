@@ -3,7 +3,8 @@ import { escapeHtml } from '../../lib/html.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { calculateBmr, calculateTdee, calorieTargetForCategory, tdeeConfidenceBand } from './bmr-tdee.js';
-import { calculateMacroTargets } from './macro-targets.js';
+import { calculateMacroTargets, proteinGPerKgForCategory } from './macro-targets.js';
+import { buildNutritionReasoning } from './nutrition-reasoning.js';
 import { searchFoods } from './food-search.js';
 import { computeRecentFoods } from './recent-foods.js';
 import { lastNDaysRange, summarizeWeeklyNutrition } from './weekly-trend.js';
@@ -33,7 +34,11 @@ export function initNutritionFeature() {
   let lastSearchResults = [];
 
   byId('btn-home-nutrition').addEventListener('click', async () => {
-    await Promise.all([renderTargets(), renderToday(), renderWeeklyTrend(), renderRecent(), renderFavorites()]);
+    // renderTargets sets the module-level currentTargets that
+    // renderToday/renderWeeklyTrend read for their "vs target" lines —
+    // it has to finish first, not race the rest in one Promise.all.
+    await renderTargets();
+    await Promise.all([renderToday(), renderWeeklyTrend(), renderRecent(), renderFavorites()]);
     showScreen('screen-nutrition');
   });
   byId('btn-nutrition-back').addEventListener('click', () => showScreen('screen-home'));
@@ -46,16 +51,24 @@ export function initNutritionFeature() {
     once: true,
   });
 
-  function fillForm({ name, calories, proteinG, carbsG, fatG }) {
+  function fillForm({ name, calories, proteinG, carbsG, fatG, fiberG = 0 }) {
     byId('nutrition-name').value = name;
     byId('nutrition-calories').value = String(calories);
     byId('nutrition-protein').value = String(proteinG);
     byId('nutrition-carbs').value = String(carbsG);
     byId('nutrition-fat').value = String(fatG);
+    byId('nutrition-fiber').value = String(fiberG);
   }
 
   function clearForm() {
-    for (const id of ['nutrition-name', 'nutrition-calories', 'nutrition-protein', 'nutrition-carbs', 'nutrition-fat']) {
+    for (const id of [
+      'nutrition-name',
+      'nutrition-calories',
+      'nutrition-protein',
+      'nutrition-carbs',
+      'nutrition-fat',
+      'nutrition-fiber',
+    ]) {
       byId(id).value = '';
     }
     byId('nutrition-portion-hint').hidden = true;
@@ -119,6 +132,7 @@ export function initNutritionFeature() {
       proteinG: food.proteinGPer100g,
       carbsG: food.carbsGPer100g,
       fatG: food.fatGPer100g,
+      fiberG: food.fiberGPer100g,
     });
     // A search result is per 100g of the product, not "however much you
     // actually ate" — this stays visible until Add or a clear, so it's
@@ -169,6 +183,7 @@ export function initNutritionFeature() {
       proteinG: Number(byId('nutrition-protein').value) || 0,
       carbsG: Number(byId('nutrition-carbs').value) || 0,
       fatG: Number(byId('nutrition-fat').value) || 0,
+      fiberG: Number(byId('nutrition-fiber').value) || 0,
     });
     await renderFavorites();
   });
@@ -188,6 +203,7 @@ export function initNutritionFeature() {
       proteinG: Number(byId('nutrition-protein').value) || 0,
       carbsG: Number(byId('nutrition-carbs').value) || 0,
       fatG: Number(byId('nutrition-fat').value) || 0,
+      fiberG: Number(byId('nutrition-fiber').value) || 0,
     });
 
     clearForm();
@@ -196,7 +212,14 @@ export function initNutritionFeature() {
 }
 
 function pickFoodFields(food) {
-  return { name: food.name, calories: food.calories, proteinG: food.proteinG, carbsG: food.carbsG, fatG: food.fatG };
+  return {
+    name: food.name,
+    calories: food.calories,
+    proteinG: food.proteinG,
+    carbsG: food.carbsG,
+    fatG: food.fatG,
+    fiberG: food.fiberG ?? 0,
+  };
 }
 
 // Populated by renderRecent/renderFavorites, read by the click handlers
@@ -205,31 +228,55 @@ function pickFoodFields(food) {
 let currentRecentFoods = [];
 let currentFavorites = [];
 
+// Set by renderTargets(), read by renderToday()/renderWeeklyTrend() for
+// their "vs target" lines — null with no profile/category assignment yet
+// (both back off to their un-compared display in that case).
+let currentTargets = null;
+
 async function renderTargets() {
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
-  if (!profile || !assignment) return;
+  if (!profile || !assignment) {
+    currentTargets = null;
+    return;
+  }
 
+  const activeDays = profile.weeklyActiveDays ?? 3;
   const bmr = calculateBmr({
     sex: profile.sex,
     weightKg: profile.weightKg,
     heightCm: profile.heightCm,
     age: profile.age,
   });
-  const tdee = calculateTdee(bmr, profile.weeklyActiveDays ?? 3);
+  const tdee = calculateTdee(bmr, activeDays);
   const calorieTarget = calorieTargetForCategory(tdee, assignment.category);
   const band = tdeeConfidenceBand(calorieTarget);
   const macros = calculateMacroTargets({ calorieTarget, weightKg: profile.weightKg, category: assignment.category });
 
   if (!band || !macros) {
+    currentTargets = null;
     byId('nutrition-calorie-target').textContent = 'Not enough profile info yet to estimate this.';
+    byId('nutrition-reasoning-wrap').hidden = true;
     return;
   }
+
+  currentTargets = { band, macros };
 
   byId('nutrition-calorie-target').textContent = `${band.low}–${band.high} kcal (around ${band.central})`;
   byId('nutrition-calorie-confidence').textContent = `estimated · ${band.confidence}`;
   byId('nutrition-target-protein').textContent = `${macros.proteinG}g`;
   byId('nutrition-target-carbs').textContent = `${macros.carbsG}g`;
   byId('nutrition-target-fat').textContent = `${macros.fatG}g`;
+  byId('nutrition-target-fiber').textContent = `${macros.fiberG}g`;
+
+  const reasoning = buildNutritionReasoning({
+    category: assignment.category,
+    trainingFocus: assignment.trainingFocus,
+    activeDays,
+    proteinGPerKg: proteinGPerKgForCategory(assignment.category),
+    fiberG: macros.fiberG,
+  });
+  byId('nutrition-reasoning').innerHTML = reasoning.map((line) => `<li>${line}</li>`).join('');
+  byId('nutrition-reasoning-wrap').hidden = false;
 }
 
 async function renderToday() {
@@ -244,6 +291,20 @@ async function renderToday() {
   animateCountUp(byId('nutrition-total-protein'), totals.proteinG, { formatter: gramsFormatter });
   animateCountUp(byId('nutrition-total-carbs'), totals.carbsG, { formatter: gramsFormatter });
   animateCountUp(byId('nutrition-total-fat'), totals.fatG, { formatter: gramsFormatter });
+  animateCountUp(byId('nutrition-total-fiber'), totals.fiberG, { formatter: gramsFormatter });
+
+  // A real comparison against today's target, not just a floating total
+  // with nothing to measure it against — honest subtraction, so it goes
+  // negative ("over") rather than clamping at zero and hiding it.
+  const remainingEl = byId('nutrition-remaining');
+  if (currentTargets) {
+    const remaining = currentTargets.band.central - totals.calories;
+    remainingEl.hidden = false;
+    remainingEl.textContent =
+      remaining >= 0 ? `${remaining} kcal remaining today` : `${Math.abs(remaining)} kcal over today's target`;
+  } else {
+    remainingEl.hidden = true;
+  }
 
   const list = byId('nutrition-entry-list');
   if (entries.length === 0) {
@@ -259,7 +320,7 @@ async function renderToday() {
             <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-flame"></use></svg></span>
             <span>
               <strong>${escapeHtml(entry.name)}</strong>
-              <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${entry.calories} kcal · P${entry.proteinG}g C${entry.carbsG}g F${entry.fatG}g</p>
+              <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${entry.calories} kcal · P${entry.proteinG}g C${entry.carbsG}g F${entry.fatG}g${entry.fiberG ? ` · Fiber${entry.fiberG}g` : ''}</p>
             </span>
           </span>
           <button class="btn btn-ghost" data-delete-id="${entry.id}" aria-label="Delete ${escapeHtml(entry.name)}">✕</button>
@@ -288,9 +349,14 @@ async function renderWeeklyTrend() {
   card.hidden = !trend;
   if (!trend) return;
 
-  byId('nutrition-weekly-avg-calories').textContent = `${trend.avgCalories} kcal`;
+  // Compared against the same target the "Today" card shows, not a bare
+  // number with nothing to read it against.
+  byId('nutrition-weekly-avg-calories').textContent = currentTargets
+    ? `${trend.avgCalories} kcal (target ~${currentTargets.band.central})`
+    : `${trend.avgCalories} kcal`;
   byId('nutrition-weekly-days-logged').textContent = `${trend.daysLogged}/${trend.dayCount} days`;
   byId('nutrition-weekly-avg-protein').textContent = `${trend.avgProteinG}g`;
+  byId('nutrition-weekly-avg-fiber').textContent = `${trend.avgFiberG}g`;
 }
 
 async function renderRecent() {

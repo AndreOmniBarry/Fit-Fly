@@ -215,7 +215,75 @@ test.describe('nutrition', () => {
     await page.locator('#btn-nutrition-add').click();
 
     await expect(page.locator('#nutrition-weekly-card')).toBeVisible();
-    await expect(page.locator('#nutrition-weekly-avg-calories')).toHaveText('600 kcal');
+    // Compared against the real computed target now, not a bare number —
+    // the exact target depends on the profile's BMR/TDEE math, so assert
+    // the shape rather than hardcoding a number that formula changes
+    // would silently make wrong here.
+    await expect(page.locator('#nutrition-weekly-avg-calories')).toContainText('600 kcal');
+    await expect(page.locator('#nutrition-weekly-avg-calories')).toContainText(/target ~\d/);
     await expect(page.locator('#nutrition-weekly-days-logged')).toContainText('1/7 days');
+  });
+
+  test('shows a real "why this target" reasoning, and a fiber target derived from the calorie target', async ({
+    page,
+  }) => {
+    await expect(page.locator('#nutrition-target-fiber')).toContainText('g');
+
+    await page.locator('#nutrition-reasoning-wrap').scrollIntoViewIfNeeded();
+    await expect(page.locator('#nutrition-reasoning-wrap')).toBeVisible();
+    const reasoningItems = page.locator('#nutrition-reasoning li');
+    await expect(reasoningItems).toHaveCount(4);
+    await expect(reasoningItems.nth(0)).toContainText('Mifflin-St Jeor');
+    await expect(reasoningItems.nth(1)).toContainText('surplus'); // build-muscle -> hypertrophy
+    await expect(reasoningItems.nth(2)).toContainText('per kg of bodyweight');
+    await expect(reasoningItems.nth(3)).toContainText('14g per 1000 kcal');
+  });
+
+  test('logging food shows real "kcal remaining" math against today\'s target, and goes honestly negative once over it', async ({
+    page,
+  }) => {
+    const targetText = await page.locator('#nutrition-calorie-target').textContent();
+    const central = Number(targetText.match(/around (\d+)/)[1]);
+
+    await page.locator('#nutrition-name').fill('Big meal');
+    await page.locator('#nutrition-calories').fill(String(central + 500));
+    await page.locator('#btn-nutrition-add').click();
+
+    await expect(page.locator('#nutrition-remaining')).toBeVisible();
+    await expect(page.locator('#nutrition-remaining')).toContainText('500 kcal over');
+  });
+
+  test('fiber is tracked end to end: search result, quick add, today\'s total, and the entry line', async ({
+    page,
+  }) => {
+    await page.route('https://world.openfoodfacts.org/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          products: [
+            {
+              product_name: 'Lentils',
+              nutriments: {
+                'energy-kcal_100g': 116,
+                proteins_100g: 9,
+                carbohydrates_100g: 20,
+                fat_100g: 0.4,
+                fiber_100g: 8,
+              },
+            },
+          ],
+        }),
+      })
+    );
+
+    await page.locator('#nutrition-search-query').fill('lentils');
+    await page.locator('#btn-nutrition-search').click();
+    await page.locator('#nutrition-search-results button').first().click();
+    await expect(page.locator('#nutrition-fiber')).toHaveValue('8');
+
+    await page.locator('#btn-nutrition-add').click();
+    await expect(page.locator('#nutrition-total-fiber')).toHaveText('8g');
+    await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Fiber8g');
   });
 });

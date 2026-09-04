@@ -47,4 +47,19 @@ describe('summarizeWeeklyNutrition', () => {
     // day 1: 500+700=1200, day 2: 1200 -> avg 1200
     expect(result.avgCalories).toBe(1200);
   });
+
+  it('averages fiber across logged days the same way as every other macro', () => {
+    const entries = [
+      { date: '2026-03-14', calories: 2000, proteinG: 150, carbsG: 200, fatG: 60, fiberG: 30 },
+      { date: '2026-03-15', calories: 1800, proteinG: 130, carbsG: 180, fatG: 50, fiberG: 20 },
+    ];
+    const result = summarizeWeeklyNutrition(entries, 7);
+    expect(result.avgFiberG).toBe(25);
+  });
+
+  it('treats a missing fiber field as 0 rather than NaN', () => {
+    const entries = [{ date: '2026-03-14', calories: 500 }];
+    const result = summarizeWeeklyNutrition(entries, 7);
+    expect(result.avgFiberG).toBe(0);
+  });
 });

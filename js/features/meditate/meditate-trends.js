@@ -1,28 +1,14 @@
 // Real insight from logged sessions, not just a list — same principle
 // applied everywhere else in this app (Run's splits, Heart Rate's trend
 // card, Nutrition's weekly average, Goals' milestones).
+import { calculateStreak } from '../../lib/streak.js';
 /** Current streak of consecutive days with at least one completed
  *  session, ending at the most recent one — a gap of even one day breaks
- *  it. Same shape and same UTC-day-string comparison as Sleep's
- *  calculateLoggingStreak (js/features/sleep/sleep-trends.ts) — logging a
- *  session and logging a night are the same kind of "did this happen
- *  today" streak. */
+ *  it. Logging a session and logging a night are the same kind of "did
+ *  this happen today" streak, so this delegates to the same shared
+ *  js/lib/streak.ts every other mini-app's streak does. */
 export function calculateMeditationStreak(sessions) {
-    if (sessions.length === 0)
-        return 0;
-    const dates = [...new Set(sessions.map((s) => s.date))].sort().reverse();
-    let streak = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const current = dates[i - 1];
-        const prior = dates[i];
-        if (current == null || prior == null)
-            break;
-        const dayGap = (Date.parse(`${current}T00:00:00Z`) - Date.parse(`${prior}T00:00:00Z`)) / 86_400_000;
-        if (dayGap !== 1)
-            break;
-        streak++;
-    }
-    return streak;
+    return calculateStreak(sessions.map((s) => s.date));
 }
 /** Total minutes practiced across the given sessions — rounded down, so
  *  a handful of seconds never inflates into a minute that wasn't really

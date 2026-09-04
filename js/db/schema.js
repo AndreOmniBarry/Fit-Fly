@@ -335,4 +335,33 @@ export function defineSchema(db) {
 
     hydrationEntries: '++id, date, loggedAt',
   });
+
+  // v14 — Badges: one row per badge id the person has actually earned,
+  // written once and never overwritten (a real medal stays earned even if
+  // a streak that unlocked it later breaks) — see js/features/badges/.
+  db.version(14).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+
+    earnedBadges: 'id, earnedAt',
+  });
 }

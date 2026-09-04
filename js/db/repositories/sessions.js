@@ -55,3 +55,11 @@ export async function listSessionsByType(type, db = getDb()) {
 export async function listRecentSessions(limit = 20, db = getDb()) {
   return db.sessions.orderBy('startedAt').reverse().limit(limit).toArray();
 }
+
+/** Every logged session, unbounded — the basis for a real lifetime
+ *  "workouts completed" count (Badges), same "personal bests/lifetime
+ *  totals come from the whole history, not a recent window" contract as
+ *  Run's own listAllRuns(). */
+export async function listAllSessions(db = getDb()) {
+  return db.sessions.toArray();
+}

@@ -585,13 +585,15 @@ It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
 pattern every future mini-app has to slot into without the grid needing a
 rework or something ending up buried under "more tools." Sleep, Focus,
-Meditate, Vitals, Steps, Hydration, and Run each get their own gradient
-identity per tile; Fitness Toolkit uses the app's existing neutral
-surface, since it isn't a mini-app with its own visual identity. **Every
-tile on the grid is real now** — Steps (see below) was the last "coming
-soon" placeholder. Run is the grid's 8th tile and its only one promoted
-out of the Fitness Toolkit after the fact rather than built here from the
-start — see "Run mode" below for why.
+Meditate, Vitals, Steps, Hydration, Run, and Badges each get their own
+gradient identity per tile; Fitness Toolkit uses the app's existing
+neutral surface, since it isn't a mini-app with its own visual identity.
+**Every tile on the grid is real now** — Steps (see below) was the last
+"coming soon" placeholder. Run is the grid's 8th tile and its only one
+promoted out of the Fitness Toolkit after the fact rather than built here
+from the start — see "Run mode" below for why. Badges (see "Badges"
+below) is the 9th, the first tile whose own data comes from every other
+mini-app at once rather than owning a store of its own.
 
 **No emoji anywhere in the app** — `js/lib/icons.ts` plus a sprite of real
 inline SVG `<symbol>` definitions at the top of `index.html` (search it for
@@ -606,7 +608,7 @@ always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
 straight in the Hub — Sleep, Focus, Meditate, Vitals, Steps, Hydration,
-and Run need zero profile data, so nothing about them requires
+Run, and Badges need zero profile data, so nothing about them requires
 registering first (Run's own calorie estimate is the one exception that
 wants a profile weight, and simply skips showing that one row without it
 — see "Run mode" below). Skipping
@@ -2041,3 +2043,64 @@ what it understands, and it now carries a real dismiss button rather
 than only ever going away on its own timeout — the mic button showing up
 with no visible purpose and no way to make its feedback leave was a fair
 complaint about the control as it shipped, not a request to remove it.
+
+## Badges
+
+A real milestone system, not a decorative sticker sheet: every badge in
+`js/features/badges/badge-definitions.ts` reads a number this app
+already has stored — most of it via a computation another mini-app's own
+screen already shows (Sleep/Meditate/Vitals/Steps/Hydration's own
+logging streaks, Run's own PR badges, Steps'/Hydration's "best day
+ever"). Badges just gives all of it a second, cross-app home plus a
+permanent record of when it was first reached. Apple Health's own
+Activity awards are a handful of streak/perfect-month badges scoped to
+one ring; this reaches every mini-app with a real logging habit or a
+real cumulative total — 32 tiers across 12 metrics at time of writing,
+deliberately excluding anything that would require inventing a number
+(a calorie streak, a "perfect week" score) rather than reading one that
+already exists.
+
+**One badge group per real metric, evaluated at increasing thresholds.**
+`evaluateBadgeGroup` (pure, unit-tested, no I/O) takes a group — Sleep's
+streak, Steps' lifetime total, Run's cumulative distance, and so on —
+and a real current value, and returns every tier's earned state.
+`badge-engine.ts`'s `evaluateAllBadges` is the only place that actually
+touches the database: it pulls the one number each group needs from the
+repository that already owns it (an explicit 60–400-row window on every
+"recent" query — generous margin over this catalog's longest streak
+tier, 30, but never the true unbounded history, which is what each
+feature's own `listAll*` is for on the lifetime-total groups), evaluates
+the whole catalog, and persists any tier newly crossed since the last
+evaluation.
+
+**Once earned, always earned.** A new `earnedBadges` store (schema v14)
+holds one row per badge id actually earned, written once — a real medal
+stays earned even if the streak that unlocked it later breaks, the same
+"stays true" contract a lifetime personal best already has everywhere
+else in this app. `earnedAt` is when the app first *noticed*, not
+necessarily the exact instant the real underlying data crossed the
+threshold — an honest limit of a client with no background service,
+evaluated on Hub load and whenever the Badges screen itself opens
+(`js/lib/router.ts`'s new `onScreenShown` hook re-evaluates the Hub
+tile's own "X earned" count every time the Hub becomes visible again
+too, not only at first load — logging a milestone in Steps and going
+straight back to the Hub without ever opening Badges still updates the
+count live).
+
+**One shared streak algorithm, not six.** Sleep, Meditate, Vitals, Steps,
+and Hydration had each grown their own copy of the exact same
+"consecutive days ending today" date-gap walk, every one of them
+commenting that it matched the others. `js/lib/streak.ts`'s
+`calculateStreak` is that algorithm extracted for real this time — the
+same "shared primitive, not another duplicate" call `calendar-grid.ts`
+already made for Sleep's and the Cycle Tracker's calendars — and all
+five call sites now delegate to it instead of carrying their own copy.
+
+The screen groups tiers into **Earned** (with a real earned date, most
+recent first) and **In Progress** (with a real progress number — "4 of 7
+consecutive nights logged" — never a vague "almost there"), reusing the
+app's shared `.card` markup on a new gold/bronze night-surface identity,
+the same "own palette, shared mechanics" pattern every other mini-app
+already carries. It's the grid's 9th tile and the first whose own data
+comes from every other mini-app at once rather than owning a store of
+its own.

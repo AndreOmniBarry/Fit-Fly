@@ -1,5 +1,6 @@
 // Real insight from logged drinks, not just today's total — same
 // principle as every other mini-app this session shipped.
+import { calculateStreak } from '../../lib/streak.js';
 /** Several logs a day add up to one real daily total — this is the one
  *  place that grouping happens, so streak/average math never has to
  *  re-derive it. */
@@ -10,26 +11,12 @@ export function groupHydrationByDate(entries) {
     }
     return totals;
 }
-/** Consecutive days ending at the most recent logged day, same
- *  UTC-day-string comparison as Sleep's calculateLoggingStreak — a day
- *  with at least one real logged drink, any gap breaks it. */
+/** Consecutive days ending at the most recent logged day — a day with at
+ *  least one real logged drink, any gap breaks it. Delegates to the same
+ *  shared js/lib/streak.ts every other mini-app's streak does. */
 export function calculateHydrationStreak(entries) {
     const totals = groupHydrationByDate(entries);
-    const dates = [...totals.keys()].sort().reverse();
-    if (dates.length === 0)
-        return 0;
-    let streak = 1;
-    for (let i = 1; i < dates.length; i++) {
-        const current = dates[i - 1];
-        const prior = dates[i];
-        if (current == null || prior == null)
-            break;
-        const dayGap = (Date.parse(`${current}T00:00:00Z`) - Date.parse(`${prior}T00:00:00Z`)) / 86_400_000;
-        if (dayGap !== 1)
-            break;
-        streak++;
-    }
-    return streak;
+    return calculateStreak([...totals.keys()]);
 }
 /** The single highest daily total across a person's whole logged history
  *  — a real personal best, never scoped to a recent window (see

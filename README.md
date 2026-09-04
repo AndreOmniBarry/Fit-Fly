@@ -507,8 +507,15 @@ its BLE strap parser stopped discarding real RR-interval data the
 standard characteristic already carries, now surfacing a genuine
 session HRV (RMSSD) reading on straps that report it. Camera-PPG capture
 also stops waiting out a doomed 15-second reading once the live signal
-has shown no pulse at all for a sustained 5 seconds.
-685 Vitest unit tests and 470 Playwright end-to-end tests
+has shown no pulse at all for a sustained 5 seconds. A real cross-app
+**Badges** system (see "Badges" above) followed — 32 tiers across 12
+real metrics, backed by a new `earnedBadges` store and a shared
+`js/lib/streak.ts` extracted from the five mini-apps that had each grown
+their own copy of the same streak algorithm — and then **Hearing
+health** (see "Hearing health" above), a real ambient-noise check-in
+from the phone's own microphone, honestly labeled an estimate against
+real NIOSH/WHO exposure guidance, the tenth Hub tile.
+750 Vitest unit tests and 490 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -585,15 +592,16 @@ It's an **equal-weight grid** — every mini-app is the same size tile, none
 made a hero at the expense of the others — deliberately, because it's the
 pattern every future mini-app has to slot into without the grid needing a
 rework or something ending up buried under "more tools." Sleep, Focus,
-Meditate, Vitals, Steps, Hydration, Run, and Badges each get their own
-gradient identity per tile; Fitness Toolkit uses the app's existing
-neutral surface, since it isn't a mini-app with its own visual identity.
-**Every tile on the grid is real now** — Steps (see below) was the last
-"coming soon" placeholder. Run is the grid's 8th tile and its only one
-promoted out of the Fitness Toolkit after the fact rather than built here
-from the start — see "Run mode" below for why. Badges (see "Badges"
-below) is the 9th, the first tile whose own data comes from every other
-mini-app at once rather than owning a store of its own.
+Meditate, Vitals, Steps, Hydration, Run, Badges, and Hearing each get
+their own gradient identity per tile; Fitness Toolkit uses the app's
+existing neutral surface, since it isn't a mini-app with its own visual
+identity. **Every tile on the grid is real now** — Steps (see below) was
+the last "coming soon" placeholder. Run is the grid's 8th tile and its
+only one promoted out of the Fitness Toolkit after the fact rather than
+built here from the start — see "Run mode" below for why. Badges (see
+"Badges" below) is the 9th, the first tile whose own data comes from
+every other mini-app at once rather than owning a store of its own.
+Hearing (see "Hearing health" below) is the 10th.
 
 **No emoji anywhere in the app** — `js/lib/icons.ts` plus a sprite of real
 inline SVG `<symbol>` definitions at the top of `index.html` (search it for
@@ -608,8 +616,8 @@ always pixel-identical.
 
 **Onboarding is optional.** "Skip for now" on the splash screen lands
 straight in the Hub — Sleep, Focus, Meditate, Vitals, Steps, Hydration,
-Run, and Badges need zero profile data, so nothing about them requires
-registering first (Run's own calorie estimate is the one exception that
+Run, Badges, and Hearing need zero profile data, so nothing about them
+requires registering first (Run's own calorie estimate is the one exception that
 wants a profile weight, and simply skips showing that one row without it
 — see "Run mode" below). Skipping
 is remembered
@@ -2104,3 +2112,68 @@ the same "own palette, shared mechanics" pattern every other mini-app
 already carries. It's the grid's 9th tile and the first whose own data
 comes from every other mini-app at once rather than owning a store of
 its own.
+
+## Hearing health
+
+Apple Health's own hearing-related tracking is really two features: the
+Watch's built-in microphone measuring *environmental* sound levels, and
+iPhone/Watch reading *headphone* audio levels sent to connected
+headphones. A browser has no access to system-wide headphone audio at
+all — there's no API for "how loud is whatever's currently playing
+through this person's headphones" — so faking that would mean either
+fabricating a number or quietly limiting it to only this app's own
+Focus/Meditate playback (thin: ambient relaxation sounds rarely
+approach a real exposure risk, so almost every reading would just say
+"safe"). The other half — real environmental sound measurement from the
+phone's own microphone — is genuinely buildable with zero paid APIs and
+is what this ships: `js/features/hearing/`.
+
+**Real signal processing on a genuinely uncalibrated sensor.**
+`noise-level.js` computes RMS from raw Web Audio time-domain samples,
+converts to dBFS (decibels relative to full digital scale — the same
+real math heart-rate's HRV/PPG modules use elsewhere in this app), then
+to an estimated real-world dB reading via a documented reference
+calibration (typical smartphone electret-mic sensitivity, roughly -42
+dBFS at 94 dB SPL unprocessed — the same rough figure several
+open-source phone-mic sound-level-meter projects use in the absence of
+per-device calibration). This is not a certified sound level meter — a
+browser has no way to calibrate against a reference source, and mic
+sensitivity varies by device — so every reading is labeled `ESTIMATED`,
+the same honesty contract camera-PPG heart rate readings already carry,
+and the in-app copy says so plainly rather than only in fine print.
+`noise-capture.js` explicitly disables the browser's automatic gain
+control, noise suppression, and echo cancellation on the microphone
+stream — all three exist to normalize *voice* audio for calls, and left
+on would silently renormalize whatever level is actually present,
+making a level reading meaningless.
+
+**A real 5-second check-in, not a background listener.** Same "explicit
+gesture, not silent collection" ethic as every other sensor this app
+touches (the camera for heart rate, Bluetooth for straps) — there is no
+passive/always-on microphone listening anywhere in this app. A capture
+polls real `AnalyserNode` samples for 5 seconds, showing a live
+in-progress readout the whole time (the same "something to react to
+while it's happening" fix camera-PPG's own signal-quality feedback
+made), then computes a real **Leq (equivalent continuous level)** —
+acoustic levels have to be averaged in the power domain, not the log
+(dB) domain, or a genuinely loud moment gets diluted the same as a
+naive average of dB numbers would dilute it. `estimateEquivalentSoundLevel`
+does this correctly: mean of the squared RMS readings (mean *power*),
+converted back to dB once at the end.
+
+**Category thresholds cited from real published exposure guidance**, not
+invented cutoffs: NIOSH's permissible occupational noise exposure limits
+(85 dB = 8 hours, the "3 dB exchange rate" halving safe duration every 3
+dB above that — 88 dB = 4h, 91 dB = 2h, 94 dB = 1h) and the WHO's "Make
+Listening Safe" guidance (100 dB safe for at most 15 minutes a week).
+<60/60–70/70–80 dB reference points (a quiet room, conversation, city
+traffic) are standard acoustics-textbook environmental benchmarks.
+
+**Real insight, not just a check-in log.** `hearing-trend.js` gives the
+screen a latest/average/loudest card, a real day-streak (delegating to
+the same shared `js/lib/streak.ts` every other mini-app's streak uses),
+and — more useful for hearing-health awareness than an average that a
+single quiet reading can hide a loud one behind — a real count of how
+many check-ins this week actually crossed a real exposure-risk
+threshold (`very-loud` or worse), not just a number that got averaged
+away. It's the grid's 10th tile.

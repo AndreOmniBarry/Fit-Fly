@@ -20,6 +20,7 @@ describe('schema', () => {
         'profile',
         'heartRateSamples',
         'meditationSessions',
+        'noiseCheckIns',
         'nutritionEntries',
         'programs',
         'readinessCheckins',

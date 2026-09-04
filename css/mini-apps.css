@@ -111,6 +111,18 @@
   --badges-accent-2:#e8935a;
   --badges-accent-soft:rgba(240,180,41,0.16);
 
+  /* ---------- Hearing: a violet/indigo "soundwave" palette, its own identity again ---------- */
+  --hearing-bg-start:#241b52;
+  --hearing-bg-mid:#161033;
+  --hearing-bg-end:#0c081d;
+  --hearing-ink:#f0eefc;
+  --hearing-ink-muted:rgba(240,238,252,0.55);
+  --hearing-card-bg:rgba(240,238,252,0.06);
+  --hearing-card-border:rgba(240,238,252,0.1);
+  --hearing-accent:#8f7cf8;
+  --hearing-accent-2:#5ec8e8;
+  --hearing-accent-soft:rgba(143,124,248,0.16);
+
   /* The breathing pacer (Sleep's Wind Down, and every guided session) is
      shared markup across both night surfaces — this is what lets its
      glow/ring color follow whichever theme it's actually drawn on
@@ -155,6 +167,7 @@
 .theme-hydration .muted, .theme-hydration .field label, .theme-hydration .field-hint{ color:var(--hydration-ink-muted); }
 .theme-run .muted, .theme-run .field label, .theme-run .field-hint{ color:var(--run-ink-muted); }
 .theme-badges .muted, .theme-badges .field label, .theme-badges .field-hint{ color:var(--badges-ink-muted); }
+.theme-hearing .muted, .theme-hearing .field label, .theme-hearing .field-hint{ color:var(--hearing-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -204,6 +217,12 @@
 .theme-badges .chip[aria-pressed="true"]{
   background:var(--badges-accent-soft); border-color:rgba(240,180,41,0.4); color:var(--badges-accent); font-weight:700;
 }
+.theme-hearing .chip{
+  background:rgba(240,238,252,0.06); border:1px solid rgba(240,238,252,0.12); color:var(--hearing-ink-muted);
+}
+.theme-hearing .chip[aria-pressed="true"]{
+  background:var(--hearing-accent-soft); border-color:rgba(143,124,248,0.4); color:var(--hearing-accent); font-weight:700;
+}
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
@@ -215,6 +234,7 @@
 .theme-hydration .btn-ghost{ color:var(--hydration-ink); border-color:var(--hydration-card-border); }
 .theme-run .btn-ghost{ color:var(--run-ink); border-color:var(--run-card-border); }
 .theme-badges .btn-ghost{ color:var(--badges-ink); border-color:var(--badges-card-border); }
+.theme-hearing .btn-ghost{ color:var(--hearing-ink); border-color:var(--hearing-card-border); }
 
 /* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
    readable enough on the app's light/dark surfaces, but noticeably lower
@@ -230,6 +250,7 @@
 .theme-hydration :focus-visible{ outline-color:var(--hydration-accent); }
 .theme-run :focus-visible{ outline-color:var(--run-accent); }
 .theme-badges :focus-visible{ outline-color:var(--badges-accent); }
+.theme-hearing :focus-visible{ outline-color:var(--hearing-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
@@ -277,6 +298,20 @@
 }
 .theme-badges .card-accent{
   border-color:var(--badges-accent); background:var(--badges-accent-soft);
+}
+.theme-hearing{
+  background:radial-gradient(120% 70% at 25% -10%, var(--hearing-bg-start) 0%, var(--hearing-bg-mid) 45%, var(--hearing-bg-end) 100%);
+  color:var(--hearing-ink);
+  --pacer-accent-rgb:143,124,248;
+}
+/* Hearing reuses the shared .card/.card-accent/.safety-flag markup
+   directly, like Run and Badges — see the comment on .theme-run .card
+   above for why this override exists. */
+.theme-hearing .card{
+  background:var(--hearing-card-bg); border-color:var(--hearing-card-border); box-shadow:none;
+}
+.theme-hearing .card-accent{
+  border-color:var(--hearing-accent); background:var(--hearing-accent-soft);
 }
 /* Run's screens reuse the Fitness Toolkit's shared .card/.card-accent
    markup directly (every other mini-app instead has its own dedicated
@@ -541,6 +576,14 @@
 }
 .hub-tile--badges .hub-tile-icon{ background:var(--badges-accent-soft); }
 .hub-tile--badges .hub-tile-sub{ color:var(--badges-accent); }
+
+.hub-tile--hearing{
+  background:linear-gradient(150deg, var(--hearing-bg-mid) 0%, var(--hearing-bg-start) 55%, #241b52 100%);
+  box-shadow:0 14px 30px -16px rgba(22,16,51,0.5);
+  color:var(--hearing-ink);
+}
+.hub-tile--hearing .hub-tile-icon{ background:var(--hearing-accent-soft); }
+.hub-tile--hearing .hub-tile-sub{ color:var(--hearing-accent); }
 
 .hub-tile--neutral{
   background:var(--surface);

@@ -31,13 +31,13 @@ test.describe('meditate', () => {
 
     for (const id of [
       'quiet-mind', 'sadness', 'anger', 'grief', 'change', 'anxiety',
-      'self-compassion', 'gratitude', 'resilience', 'quick-reset',
+      'self-compassion', 'loving-kindness', 'gratitude', 'resilience', 'quick-reset',
     ]) {
       const tile = page.locator(`#btn-meditate-${id}`);
       await expect(tile).toBeVisible();
       await expect(tile.locator('svg use')).toHaveCount(1);
     }
-    for (const id of ['four-seven-eight', 'physiological-sigh']) {
+    for (const id of ['four-seven-eight', 'physiological-sigh', 'box-breathing']) {
       await expect(page.locator(`#btn-meditate-${id}`)).toBeVisible();
     }
 

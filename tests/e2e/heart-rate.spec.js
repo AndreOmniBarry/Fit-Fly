@@ -70,6 +70,8 @@ test.describe('heart rate', () => {
     await expect(page.locator('#hr-trend-latest')).toHaveText('60 bpm');
     await expect(page.locator('#hr-trend-avg')).toHaveText('60 bpm');
     await expect(page.locator('#hr-trend-delta')).toHaveText(''); // nothing prior to compare against
+    // the hero number itself says measured, not just the history row below it
+    await expect(page.locator('#hr-trend-latest-badge')).toHaveText('measured');
 
     await page.locator('#hr-manual-bpm').fill('80');
     await page.locator('#btn-hr-manual-save').click();
@@ -78,6 +80,30 @@ test.describe('heart rate', () => {
     await expect(page.locator('#hr-trend-range')).toHaveText('60–80 bpm');
     await expect(page.locator('#hr-trend-delta')).toHaveText('+20 bpm since last');
     await expect(page.locator('#hr-trend-bars .hr-trend-bar')).toHaveCount(2);
+  });
+
+  test('the "Latest reading" hero number switches from measured to estimated as a camera reading becomes the newest one', async ({
+    page,
+  }) => {
+    await page.locator('#hr-manual-bpm').fill('65');
+    await page.locator('#btn-hr-manual-save').click();
+    await expect(page.locator('#hr-trend-latest-badge')).toHaveClass(/measured/);
+    await expect(page.locator('#hr-trend-latest-badge')).toHaveText('measured');
+
+    await page.locator('#btn-hr-camera-start').click();
+    await expect(page.locator('#btn-hr-camera-start')).toBeEnabled({ timeout: 25000 });
+
+    const resultVisible = await page.locator('#hr-camera-result').isVisible();
+    if (resultVisible) {
+      // a successful camera reading is now the newest sample — the hero
+      // card's own badge has to switch with it, not keep saying measured
+      await expect(page.locator('#hr-trend-latest-badge')).toHaveClass(/estimated/);
+      await expect(page.locator('#hr-trend-latest-badge')).toContainText('estimated');
+    } else {
+      // the fake device's synthetic pattern didn't produce a usable
+      // reading — the manual entry is still honestly the latest one
+      await expect(page.locator('#hr-trend-latest-badge')).toHaveText('measured');
+    }
   });
 
   test('reacts to tilt, same spatial language as the rest of the Fitness Toolkit', async ({ page }) => {

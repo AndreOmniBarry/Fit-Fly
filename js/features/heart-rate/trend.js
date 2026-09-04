@@ -8,10 +8,11 @@
 const DEFAULT_WINDOW_SIZE = 10;
 
 /**
- * @param {{bpm:number}[]} samplesNewestFirst
+ * @param {{bpm:number, source?:string, confidence?:string|null}[]} samplesNewestFirst
  * @param {number} [windowSize]
- * @returns {{latest:number, average:number, min:number, max:number,
- *   deltaFromPrevious:number|null, sampleCount:number,
+ * @returns {{latest:number, latestSource:string|undefined,
+ *   latestConfidence:string|null|undefined, average:number, min:number,
+ *   max:number, deltaFromPrevious:number|null, sampleCount:number,
  *   sparklineOldestFirst:number[]}|null} null with no readings at all.
  */
 export function summarizeHeartRateTrend(samplesNewestFirst, windowSize = DEFAULT_WINDOW_SIZE) {
@@ -23,6 +24,13 @@ export function summarizeHeartRateTrend(samplesNewestFirst, windowSize = DEFAULT
 
   return {
     latest: window[0].bpm,
+    // The single biggest number on the whole screen still needs to say
+    // whether it's a measured reading or a camera estimate — the same
+    // "never let the most prominent figure be silently ambiguous" rule
+    // every other measured-vs-estimated badge in this app already
+    // follows, just applied to this card's own hero number too.
+    latestSource: window[0].source,
+    latestConfidence: window[0].confidence,
     average,
     min: Math.min(...bpms),
     max: Math.max(...bpms),

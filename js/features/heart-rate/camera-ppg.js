@@ -1,5 +1,5 @@
 import { estimateHeartRateFromSamples } from './ppg-signal.js';
-import { assessSignalQuality } from './signal-quality.js';
+import { assessSignalQuality, SIGNAL_QUALITY } from './signal-quality.js';
 
 const SAMPLE_DURATION_MS = 15000;
 // How often to recompute/report live signal quality — every animation
@@ -10,6 +10,14 @@ const QUALITY_UPDATE_MS = 300;
 // real pulse's periodicity, short enough to react quickly to a finger
 // that's just been repositioned.
 const QUALITY_WINDOW_MS = 3000;
+// A real reliability fix, not just a UX one: waiting out the full 15s
+// once the signal has shown no pulse at all for this long is waiting on
+// a reading that's already doomed — nothing found in the next few
+// seconds is going to fix a finger that isn't actually covering the
+// sensor. Ending the capture here instead saves real time and reuses
+// the exact same "couldn't get a clear enough reading" message the
+// after-the-fact failure already shows.
+const NO_PULSE_ABORT_MS = 5000;
 
 /**
  * Drives a getUserMedia camera stream through a tiny offscreen canvas,
@@ -39,6 +47,7 @@ export function createCameraPpgSession({ onProgress, onQuality, onTorchStatus, o
   let startTMs = null;
   let stopped = false;
   let lastQualityUpdateMs = -Infinity;
+  let noPulseStartMs = null; // when the current unbroken no-pulse streak began; null while not in one
 
   /** Best-effort — torch control is a non-standard MediaTrackConstraint
    *  Chrome/Android exposes and nothing else does. A stronger, more even
@@ -96,6 +105,7 @@ export function createCameraPpgSession({ onProgress, onQuality, onTorchStatus, o
     samples = [];
     stopped = false;
     lastQualityUpdateMs = -Infinity;
+    noPulseStartMs = null;
     startTMs = performance.now();
     tick();
     return true;
@@ -114,13 +124,23 @@ export function createCameraPpgSession({ onProgress, onQuality, onTorchStatus, o
 
     onProgress?.({ elapsedMs, durationMs: SAMPLE_DURATION_MS });
 
-    if (onQuality && elapsedMs - lastQualityUpdateMs >= QUALITY_UPDATE_MS) {
+    let quality = null;
+    if (elapsedMs - lastQualityUpdateMs >= QUALITY_UPDATE_MS) {
       lastQualityUpdateMs = elapsedMs;
       const recent = samples.filter((s) => elapsedMs - s.tMs <= QUALITY_WINDOW_MS);
-      onQuality(assessSignalQuality(recent));
+      quality = assessSignalQuality(recent);
+      onQuality?.(quality);
     }
 
-    if (elapsedMs >= SAMPLE_DURATION_MS) {
+    if (quality?.level === SIGNAL_QUALITY.NO_PULSE) {
+      if (noPulseStartMs == null) noPulseStartMs = elapsedMs;
+    } else if (quality != null) {
+      noPulseStartMs = null; // any real reading (or still-settling) breaks the streak
+    }
+
+    if (noPulseStartMs != null && elapsedMs - noPulseStartMs >= NO_PULSE_ABORT_MS) {
+      finish(); // estimateHeartRateFromSamples will honestly return null on this thin a signal
+    } else if (elapsedMs >= SAMPLE_DURATION_MS) {
       finish();
     } else {
       rafHandle = requestAnimationFrame(tick);

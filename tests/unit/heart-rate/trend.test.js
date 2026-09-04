@@ -42,4 +42,22 @@ describe('summarizeHeartRateTrend', () => {
     expect(result.max).toBe(100);
     expect(result.average).toBe(90); // (100+90+80)/3, not including 999
   });
+
+  it('carries the latest reading\'s own source and confidence — the hero number must stay honest about itself', () => {
+    const camera = summarizeHeartRateTrend([{ bpm: 72, source: 'camera-ppg', confidence: 'medium' }]);
+    expect(camera.latestSource).toBe('camera-ppg');
+    expect(camera.latestConfidence).toBe('medium');
+
+    const ble = summarizeHeartRateTrend([{ bpm: 72, source: 'ble', confidence: null }]);
+    expect(ble.latestSource).toBe('ble');
+    expect(ble.latestConfidence).toBeNull();
+  });
+
+  it('a newer BLE reading\'s source overrides an older camera reading\'s, not the other way around', () => {
+    const result = summarizeHeartRateTrend([
+      { bpm: 70, source: 'ble', confidence: null },
+      { bpm: 75, source: 'camera-ppg', confidence: 'high' },
+    ]);
+    expect(result.latestSource).toBe('ble');
+  });
 });

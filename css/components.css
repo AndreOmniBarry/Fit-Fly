@@ -214,3 +214,69 @@ textarea.input{
 @media (prefers-reduced-motion: reduce){
   .goal-progress-fill{ animation:none; }
 }
+
+/* ---------- Cycle Tracker calendar ---------- */
+/* The same month-grid shape Sleep's own calendar uses (js/lib/calendar-
+   grid.ts computes the day math both share) — but Cycle Tracker isn't a
+   night-surface mini-app, so this reuses the app-wide light/dark tokens
+   instead of Sleep's fixed night palette. Future days stay real: unlike
+   Sleep (where a future day is meaningless and fully dimmed), a future
+   day here can carry an estimated period or fertile window — dimming it
+   away would hide the one thing a prediction is for. */
+.whealth-calendar-weekdays{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+  text-align:center; font-size:11px; font-weight:700; color:var(--ink-muted);
+}
+.whealth-calendar-grid{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+  gap:4px; margin-top:8px;
+}
+.whealth-calendar-day{
+  aspect-ratio:1; border-radius:12px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  font-size:12.5px; font-weight:600; color:var(--ink-0);
+  background:var(--surface); border:1px solid var(--border);
+}
+.whealth-calendar-day--out-of-month{ opacity:.3; }
+.whealth-calendar-day--future{ background:transparent; }
+.whealth-calendar-day--today{ border-color:var(--accent); border-width:2px; }
+.whealth-calendar-day-dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+
+/* A real logged flow day — filled, not just dotted, and the same
+   --danger hue at four opacity steps for the four intensities (spotting
+   lightest, heavy solid) rather than four different colors — the same
+   "one hue, stepped intensity, never a second color for status" rule
+   the trend-chart's own highlighted bars already use
+   (.trend-chart-bar-fill / --highlighted in mini-apps.css). */
+.whealth-calendar-day--period{ background:var(--danger); border-color:transparent; color:var(--accent-ink,#fff); }
+.whealth-calendar-day--period[data-flow="spotting"]{ opacity:.4; }
+.whealth-calendar-day--period[data-flow="light"]{ opacity:.6; }
+.whealth-calendar-day--period[data-flow="medium"]{ opacity:.82; }
+.whealth-calendar-day--period[data-flow="heavy"]{ opacity:1; }
+.whealth-calendar-day--period .whealth-calendar-day-dot{ display:none; }
+
+/* The estimated fertile window — a distinct hue (not the period's red)
+   so the two kinds of "highlighted day" are never visually confusable,
+   and a lighter/soft fill throughout since every day in it carries the
+   same estimate, not a graded intensity like real flow does. */
+.whealth-calendar-day--fertile{ background:var(--success-soft); border-color:var(--success); }
+.whealth-calendar-day--fertile .whealth-calendar-day-dot{ background:var(--success); }
+
+/* The single estimated next-period-start day — dashed, unfilled, so it
+   reads as a guess about the future, never mistaken for a real logged
+   period (which is always solid). */
+.whealth-calendar-day--predicted-period{
+  background:transparent; border-color:var(--danger); border-style:dashed; border-width:2px;
+}
+.whealth-calendar-day--predicted-period .whealth-calendar-day-dot{ background:var(--danger); }
+
+.whealth-calendar-legend{
+  display:flex; flex-wrap:wrap; gap:14px; margin-top:8px;
+  font-size:11.5px; color:var(--ink-muted);
+}
+.whealth-calendar-legend span{ display:flex; align-items:center; gap:5px; }
+.whealth-calendar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; font-style:normal; }
+.whealth-calendar-dot[data-kind="period"]{ background:var(--danger); }
+.whealth-calendar-dot[data-kind="fertile"]{ background:var(--success); }
+.whealth-calendar-dot[data-kind="predicted"]{ background:transparent; border:2px dashed var(--danger); }
+.whealth-calendar-dot[data-kind="logged"]{ background:var(--accent); }

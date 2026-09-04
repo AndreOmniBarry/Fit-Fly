@@ -7,7 +7,7 @@ const DEFAULT_WINDOW_DAYS = 7;
 /** The [startDate, endDate] ('YYYY-MM-DD', both inclusive) for the last
  *  `days` calendar days ending today — `today` is injectable so this is
  *  testable without a real clock, same pattern as
- *  js/features/sleep/sleep-calendar.js's todayDate parameter. */
+ *  js/lib/calendar-grid.js's todayDate parameter. */
 export function lastNDaysRange(days = DEFAULT_WINDOW_DAYS, today = new Date()) {
   const endDate = today.toISOString().slice(0, 10);
   const start = new Date(today);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMonthLabel, getMonthGridDays, monthDateRange } from '../../../js/features/sleep/sleep-calendar.js';
+import { formatMonthLabel, getMonthGridDays, monthDateRange } from '../../../js/lib/calendar-grid.js';
 
 describe('getMonthGridDays', () => {
   it('every row is a full week — total cells is a multiple of 7', () => {

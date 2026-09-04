@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   averageCycleLengthDays,
+  currentCyclePhase,
   predictFertileWindow,
   predictionConfidence,
   predictNextPeriodStart,
@@ -71,5 +72,66 @@ describe('predictFertileWindow', () => {
     expect(window.ovulationDate).toBe('2026-09-04');
     expect(window.start).toBe('2026-08-30');
     expect(window.end).toBe('2026-09-05');
+  });
+});
+
+describe('currentCyclePhase', () => {
+  // REGULAR_28_DAY_HISTORY: last start 2026-08-21, predicted next start
+  // 2026-09-18, fertile window 2026-08-30 to 2026-09-05.
+
+  it('is null with no history at all', () => {
+    expect(currentCyclePhase([], '2026-08-25')).toBeNull();
+  });
+
+  it('is null for a date before the most recent logged period start', () => {
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-08-20')).toBeNull();
+  });
+
+  it('day 1 is the period start date itself', () => {
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-08-21')).toEqual({
+      cycleDayNumber: 1,
+      phase: 'follicular',
+    });
+  });
+
+  it('is follicular between the period and the fertile window', () => {
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-08-25')).toEqual({
+      cycleDayNumber: 5,
+      phase: 'follicular',
+    });
+  });
+
+  it('is fertile across the whole estimated fertile window, inclusive both ends', () => {
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-08-30')).toEqual({
+      cycleDayNumber: 10,
+      phase: 'fertile',
+    });
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-09-05')).toEqual({
+      cycleDayNumber: 16,
+      phase: 'fertile',
+    });
+  });
+
+  it('is luteal after the fertile window, before the next predicted period', () => {
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-09-06')).toEqual({
+      cycleDayNumber: 17,
+      phase: 'luteal',
+    });
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-09-17')).toEqual({
+      cycleDayNumber: 28,
+      phase: 'luteal',
+    });
+  });
+
+  it('is null once at or past the predicted next period start — genuinely uncertain, not guessed', () => {
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-09-18')).toBeNull();
+    expect(currentCyclePhase(REGULAR_28_DAY_HISTORY, '2026-10-01')).toBeNull();
+  });
+
+  it('still gives a real phase off a single logged period, using the default assumed cycle length', () => {
+    expect(currentCyclePhase(['2026-08-01'], '2026-08-03')).toEqual({
+      cycleDayNumber: 3,
+      phase: 'follicular',
+    });
   });
 });

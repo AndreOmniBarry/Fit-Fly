@@ -1669,7 +1669,7 @@
     <div class="card card-accent stack tilt-card tilt-enter" id="whealth-prediction" hidden>
       <span class="tilt-press stack">
         <div class="row-between">
-          <strong>Next period (estimated)</strong>
+          <strong id="whealth-cycle-day-label">Next period (estimated)</strong>
           <span class="data-badge estimated" id="whealth-prediction-confidence">estimated</span>
         </div>
         <p id="whealth-prediction-date">—</p>
@@ -1677,9 +1677,12 @@
       </span>
     </div>
 
-    <div class="card stack tilt-card tilt-enter">
+    <div class="card stack tilt-card tilt-enter" id="whealth-log-card">
       <span class="tilt-press stack">
-        <h3>Log Today</h3>
+        <div class="row-between">
+          <h3 id="whealth-log-heading">Log Today</h3>
+          <button class="btn btn-ghost" id="btn-whealth-editing-today" hidden style="padding:4px 10px; font-size:var(--fs-xs);">Back to Today</button>
+        </div>
         <div class="field">
           <label id="lbl-whealth-flow">Flow</label>
           <div class="chip-group" id="whealth-flow" role="group" aria-labelledby="lbl-whealth-flow">
@@ -1702,13 +1705,29 @@
           <label for="whealth-notes">Notes (optional)</label>
           <textarea class="input" id="whealth-notes" rows="2"></textarea>
         </div>
-        <button class="btn btn-primary btn-block" id="btn-whealth-save">Save Today's Entry</button>
+        <button class="btn btn-primary btn-block" id="btn-whealth-save">Save Entry</button>
       </span>
     </div>
 
     <div class="stack">
-      <h3>History</h3>
-      <div class="stack tilt-stagger" id="whealth-history-list"></div>
+      <div class="row-between">
+        <h3>Calendar</h3>
+      </div>
+      <div class="row-between">
+        <button class="icon-btn" id="btn-whealth-prev-month" aria-label="Previous month"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-arrow-left"></use></svg></button>
+        <strong id="whealth-calendar-month-label" style="font-size:15px;">—</strong>
+        <button class="icon-btn" id="btn-whealth-next-month" aria-label="Next month"><svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-chevron-right"></use></svg></button>
+      </div>
+      <div class="whealth-calendar-weekdays" aria-hidden="true">
+        <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+      </div>
+      <div class="whealth-calendar-grid" id="whealth-calendar-grid" role="grid" aria-label="Cycle days, logged and estimated"></div>
+      <div class="whealth-calendar-legend">
+        <span><i class="whealth-calendar-dot" data-kind="period"></i> Period logged</span>
+        <span><i class="whealth-calendar-dot" data-kind="fertile"></i> Fertile window (estimated)</span>
+        <span><i class="whealth-calendar-dot" data-kind="predicted"></i> Next period (estimated)</span>
+        <span><i class="whealth-calendar-dot" data-kind="logged"></i> Logged, no flow</span>
+      </div>
     </div>
   </section>
 

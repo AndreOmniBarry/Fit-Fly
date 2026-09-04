@@ -78,8 +78,9 @@ test.describe('women\'s health / cycle tracker', () => {
     await page.locator('#whealth-mood button[data-value="okay"]').click();
     await page.locator('#btn-whealth-save').click();
 
-    await expect(page.locator('#whealth-history-list .card').first()).toContainText('medium');
-    await expect(page.locator('#whealth-history-list .card').first()).toContainText('Cramps');
+    const todayCell = page.locator('.whealth-calendar-day--today');
+    await expect(todayCell).toHaveClass(/whealth-calendar-day--period/);
+    await expect(todayCell).toHaveAttribute('data-flow', 'medium');
 
     await page.locator('#btn-whealth-lock').click();
     await expect(page.getByRole('heading', { name: 'Fitness Toolkit' })).toBeVisible();
@@ -90,7 +91,9 @@ test.describe('women\'s health / cycle tracker', () => {
 
     await page.locator('#whealth-pin-unlock').fill('4242');
     await page.locator('#btn-whealth-pin-unlock').click();
-    await expect(page.locator('#whealth-history-list .card').first()).toContainText('medium');
+    await expect(page.locator('.whealth-calendar-day--today')).toHaveAttribute('data-flow', 'medium');
+    // symptoms/mood round-trip through the same decrypted entry, not just flow
+    await expect(page.locator('#whealth-symptoms button[data-value="cramps"]')).toHaveAttribute('aria-pressed', 'true');
   });
 
   test('an incorrect PIN is rejected', async ({ page }) => {
@@ -125,7 +128,8 @@ test.describe('women\'s health / cycle tracker', () => {
     await page.locator('#whealth-pin-new').fill('1111');
     await page.locator('#whealth-pin-confirm').fill('1111');
     await page.locator('#btn-whealth-pin-set').click();
-    await expect(page.locator('#whealth-history-list')).toContainText('No entries logged yet');
+    await expect(page.locator('.whealth-calendar-day--period')).toHaveCount(0);
+    await expect(page.locator('.whealth-calendar-day--logged')).toHaveCount(0);
   });
 
   test('reloading re-locks the session (the key lives only in memory)', async ({ page }) => {
@@ -140,6 +144,71 @@ test.describe('women\'s health / cycle tracker', () => {
     await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
     await page.locator('#btn-home-womens-health').click();
     await expect(page.locator('#whealth-unlock-pane')).toBeVisible();
+  });
+
+  test('a real calendar replaces the flat history list, and month navigation moves it', async ({ page }) => {
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+
+    await expect(page.locator('#whealth-calendar-grid .whealth-calendar-day')).not.toHaveCount(0);
+    const monthLabel = await page.locator('#whealth-calendar-month-label').textContent();
+
+    await page.locator('#btn-whealth-prev-month').click();
+    await expect(page.locator('#whealth-calendar-month-label')).not.toHaveText(monthLabel);
+
+    await page.locator('#btn-whealth-next-month').click();
+    await expect(page.locator('#whealth-calendar-month-label')).toHaveText(monthLabel);
+  });
+
+  test('tapping a past calendar day edits that date, not today — a real retroactive log', async ({ page }) => {
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+
+    // Log today first, so there's a real "today" entry to prove untouched later.
+    await page.locator('#whealth-flow button[data-value="light"]').click();
+    await page.locator('#btn-whealth-save').click();
+    await expect(page.locator('.whealth-calendar-day--today')).toHaveAttribute('data-flow', 'light');
+
+    const pastDay = page
+      .locator(
+        '.whealth-calendar-day:not(.whealth-calendar-day--out-of-month):not(.whealth-calendar-day--future):not(.whealth-calendar-day--today)'
+      )
+      .first();
+    const pastDate = await pastDay.getAttribute('data-date');
+    await pastDay.click();
+
+    await expect(page.locator('#whealth-log-heading')).not.toHaveText('Log Today');
+    await expect(page.locator('#btn-whealth-editing-today')).toBeVisible();
+    // editing a different date starts from a blank form, not today's leftovers
+    await expect(page.locator('#whealth-flow button[aria-pressed="true"]')).toHaveAttribute('data-value', 'none');
+
+    await page.locator('#whealth-flow button[data-value="heavy"]').click();
+    await page.locator('#whealth-symptoms button[data-value="bloating"]').click();
+    await page.locator('#btn-whealth-save').click();
+
+    await expect(page.locator(`.whealth-calendar-day[data-date="${pastDate}"]`)).toHaveAttribute('data-flow', 'heavy');
+    // today's own entry is untouched by logging a different date
+    await expect(page.locator('.whealth-calendar-day--today')).toHaveAttribute('data-flow', 'light');
+
+    await page.locator('#btn-whealth-editing-today').click();
+    await expect(page.locator('#whealth-log-heading')).toHaveText('Log Today');
+    await expect(page.locator('#whealth-flow button[data-value="light"]')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('logging a period shows a real "Day N · Period" label, not a generic message', async ({ page }) => {
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+    await expect(page.locator('#whealth-prediction')).toBeHidden(); // nothing logged yet
+
+    await page.locator('#whealth-flow button[data-value="medium"]').click();
+    await page.locator('#btn-whealth-save').click();
+
+    await expect(page.locator('#whealth-prediction')).toBeVisible();
+    await expect(page.locator('#whealth-cycle-day-label')).toHaveText('Day 1 · Period');
+    await expect(page.locator('#whealth-prediction-date')).toContainText('Next period estimated');
   });
 
   test('both the lock screen and the main tracker react to tilt, same spatial language as the rest of the Fitness Toolkit', async ({

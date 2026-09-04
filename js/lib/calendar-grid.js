@@ -1,8 +1,11 @@
-// Pure calendar-grid math for the History screen — building the
-// Sunday-first month grid (leading/trailing days from neighboring months
-// so every row is a full week) and today/future classification. No I/O,
-// no rendering — sleep-view.ts fetches the month's logs separately and
-// joins them onto whatever this returns.
+// Pure month-calendar-grid math — building a Sunday-first month grid
+// (leading/trailing days from neighboring months so every row is a full
+// week) and today/future classification. No I/O, no rendering — each
+// caller fetches its own month's data separately and joins it onto
+// whatever this returns. Pulled out of Sleep's own sleep-calendar.ts
+// (its first user) once the Cycle Tracker needed the exact same day-grid
+// math for its own calendar — same "shared primitive, not a second copy"
+// discipline as js/lib/guided-session.ts.
 function pad2(n) {
     return String(n).padStart(2, '0');
 }
@@ -51,4 +54,4 @@ export function monthDateRange(year, monthIndex0) {
         end: toDateString(year, monthIndex0, daysInMonth),
     };
 }
-//# sourceMappingURL=sleep-calendar.js.map
+//# sourceMappingURL=calendar-grid.js.map

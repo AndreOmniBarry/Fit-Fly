@@ -87,3 +87,40 @@ export function predictFertileWindow(periodStartDates, options) {
     ovulationDate,
   };
 }
+
+/** Where a given day sits in the cycle — a real, derived "Day N" count
+ *  plus a non-menstrual phase bucket (follicular/fertile/luteal), from
+ *  the same fertile-window estimate above. Deliberately does NOT try to
+ *  detect "menstrual" here: this only ever sees period *start* dates,
+ *  not which days actually had logged flow, so it can't honestly say a
+ *  given day was bleeding — the caller (which has the real per-day logs)
+ *  decides that by checking that day's own entry, and treats this
+ *  phase as the fallback for every day that isn't.
+ * @returns {{cycleDayNumber: number, phase: 'follicular'|'fertile'|'luteal'}|null}
+ *   null with no history, or if `onDate` is somehow before the most
+ *   recent logged period start (a clock/data inconsistency, not a real
+ *   state this should ever render for).
+ */
+export function currentCyclePhase(periodStartDates, onDate, options) {
+  if (periodStartDates.length === 0) return null;
+  const sorted = [...periodStartDates].sort();
+  const lastStart = sorted[sorted.length - 1];
+  const cycleDayNumber = daysBetween(lastStart, onDate) + 1; // day 1 = the period's own start date
+  if (cycleDayNumber < 1) return null;
+
+  const nextStart = predictNextPeriodStart(periodStartDates, options);
+  // Past the estimated next start with nothing newly logged — genuinely
+  // uncertain territory (a new period may already be running late, or
+  // just hasn't been logged yet). Rather than keep calling that
+  // "luteal" indefinitely, this says so isn't known instead of guessing.
+  if (nextStart && onDate >= nextStart) return null;
+
+  const fertileWindow = predictFertileWindow(periodStartDates, options);
+  let phase = 'follicular';
+  if (fertileWindow && onDate >= fertileWindow.start && onDate <= fertileWindow.end) {
+    phase = 'fertile';
+  } else if (fertileWindow && onDate > fertileWindow.end) {
+    phase = 'luteal';
+  }
+  return { cycleDayNumber, phase };
+}

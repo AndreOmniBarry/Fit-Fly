@@ -500,8 +500,15 @@ of text: a real month calendar (`js/lib/calendar-grid.ts`, shared with
 Sleep's own history calendar) replaces the flat entry list, a "Day N ·
 phase" card replaces the bare "next period" label, and tapping any past
 day now opens *that* date to log or edit, the same retroactive capability
-Sleep History already had.
-673 Vitest unit tests and 468 Playwright end-to-end tests
+Sleep History already had. Heart Rate's own "Latest reading" card now
+carries the same measured/estimated badge every other reading already
+gets — the biggest number on the screen no longer goes unmarked — and
+its BLE strap parser stopped discarding real RR-interval data the
+standard characteristic already carries, now surfacing a genuine
+session HRV (RMSSD) reading on straps that report it. Camera-PPG capture
+also stops waiting out a doomed 15-second reading once the live signal
+has shown no pulse at all for a sustained 5 seconds.
+685 Vitest unit tests and 470 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1662,7 +1669,37 @@ picking 8- vs 16-bit encoding) is pure and unit-tested from a raw
 Every reading gets exactly one badge: camera-PPG is always `ESTIMATED`
 with its confidence; manual entry and a BLE strap are both `MEASURED` —
 a typed-in number and a dedicated sensor are both real data, just not
-data this app derived through a model.
+data this app derived through a model. **The screen's own biggest
+number now honors that too** — the "Latest reading" card's hero BPM
+used to carry no source indicator at all, silently the one place on
+this screen where a rough camera guess and a precise BLE reading looked
+identical. It now shows the exact same measured/estimated badge every
+other reading already gets, switching correctly the moment a newer
+reading of a different source lands.
+
+**The BLE strap parser now reads real data it was throwing away.** The
+standard Heart Rate Measurement characteristic can carry RR-intervals
+(exact beat-to-beat timing) in the same notification as the BPM value —
+`parseHeartRateMeasurement` used to read only the BPM and ignore
+everything else in the packet. It now extracts RR-intervals when a
+strap includes them (correctly skipping past the optional Energy
+Expended field first, when present, rather than misreading it as
+RR-interval data), and a new `js/features/heart-rate/hrv.js` computes a
+real RMSSD (root mean square of successive differences) — the standard,
+most short-recording-tolerant time-domain HRV metric — from RR-intervals
+accumulated across the live BLE session. Shown only once enough
+intervals have actually accumulated (never from one noisy pair), and
+only ever appears at all on a strap that reports RR-intervals in the
+first place — most optical wrist straps never do, and the HRV card just
+stays honestly hidden there rather than showing a number derived from
+nothing.
+
+**Camera-PPG stops waiting out a doomed reading.** If the live signal-
+quality read stays `NO_PULSE` for a sustained 5 seconds, the capture now
+ends right there instead of running out the full 15 — nothing found in
+the next 10 seconds is going to fix a finger that isn't actually
+covering the sensor, and the same honest "couldn't get a clear enough
+reading" message already covers this case.
 
 **Camera-PPG's real gap wasn't the technique — a fingertip-over-camera
 pulse read is genuinely how commercial phone apps do this — it was

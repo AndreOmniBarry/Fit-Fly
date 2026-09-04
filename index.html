@@ -1555,7 +1555,10 @@
           </span>
           <span class="muted" style="font-size:var(--fs-sm);" id="hr-trend-delta"></span>
         </div>
-        <strong style="font-size:var(--fs-xl);" id="hr-trend-latest">— bpm</strong>
+        <div class="row" style="align-items:baseline; gap:var(--space-2);">
+          <strong style="font-size:var(--fs-xl);" id="hr-trend-latest">— bpm</strong>
+          <span class="data-badge measured" id="hr-trend-latest-badge">measured</span>
+        </div>
         <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
           <span>Avg (last <span id="hr-trend-count">—</span>): <strong id="hr-trend-avg">—</strong></span>
           <span>Range: <strong id="hr-trend-range">—</strong></span>
@@ -1607,6 +1610,10 @@
         <h3>Bluetooth Strap</h3>
         <p class="muted" id="hr-ble-status" style="font-size:var(--fs-sm);">Checking availability…</p>
         <button class="btn btn-secondary btn-block" id="btn-hr-ble-connect">Connect Heart Rate Monitor</button>
+        <div class="row-between" id="hr-ble-hrv" hidden>
+          <span class="muted" style="font-size:var(--fs-sm);">HRV (RMSSD), this session</span>
+          <span class="data-badge measured" id="hr-ble-hrv-value">—</span>
+        </div>
       </span>
     </div>
 

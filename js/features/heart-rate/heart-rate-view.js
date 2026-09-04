@@ -4,6 +4,7 @@ import { animateCountUp } from '../../lib/count-up.js';
 import { createCameraPpgSession } from './camera-ppg.js';
 import { connectHeartRateMonitor, isBluetoothAvailable } from './ble-heart-rate.js';
 import { summarizeHeartRateTrend } from './trend.js';
+import { calculateRmssd } from './hrv.js';
 import {
   HR_SOURCE,
   listRecentHeartRateSamples,
@@ -112,17 +113,40 @@ export function initHeartRateFeature() {
     byId('btn-hr-ble-connect').disabled = true;
   }
 
+  // RR-intervals accumulated across the whole live BLE connection, in
+  // chronological order — a real HRV number needs several successive
+  // beats, not just whatever one notification happened to carry. Reset
+  // on every new connect, same lifecycle as bleConnection itself.
+  let sessionRrIntervalsMs = [];
+
   byId('btn-hr-ble-connect').addEventListener('click', async () => {
     byId('hr-ble-status').textContent = 'Connecting…';
+    byId('hr-ble-hrv').hidden = true;
+    sessionRrIntervalsMs = [];
     bleConnection = await connectHeartRateMonitor({
-      onReading: async (bpm) => {
+      onReading: async (bpm, rrIntervalsMs) => {
         byId('hr-ble-status').textContent = `Connected — last reading ${bpm} bpm`;
         await recordHeartRateSample({ bpm, source: HR_SOURCE.BLE });
+
+        // Only some straps report RR-intervals at all (see
+        // ble-heart-rate.js) — the HRV card stays honestly hidden on one
+        // that never does, rather than showing a number derived from
+        // nothing.
+        if (rrIntervalsMs.length > 0) {
+          sessionRrIntervalsMs.push(...rrIntervalsMs);
+          const rmssd = calculateRmssd(sessionRrIntervalsMs);
+          if (rmssd != null) {
+            byId('hr-ble-hrv-value').textContent = `${rmssd} ms`;
+            byId('hr-ble-hrv').hidden = false;
+          }
+        }
+
         await renderHistory();
       },
       onDisconnect: () => {
         byId('hr-ble-status').textContent = 'Disconnected.';
         bleConnection = null;
+        byId('hr-ble-hrv').hidden = true;
       },
       onError: (error) => {
         byId('hr-ble-status').textContent = error.message;
@@ -185,6 +209,10 @@ function renderTrend(samplesNewestFirst) {
   if (!trend) return;
 
   animateCountUp(byId('hr-trend-latest'), trend.latest, { formatter: (n) => `${Math.round(n)} bpm` });
+  const isCameraLatest = trend.latestSource === HR_SOURCE.CAMERA_PPG;
+  const latestBadge = byId('hr-trend-latest-badge');
+  latestBadge.className = `data-badge ${isCameraLatest ? 'estimated' : 'measured'}`;
+  latestBadge.textContent = isCameraLatest ? `estimated · ${trend.latestConfidence}` : 'measured';
   byId('hr-trend-count').textContent = String(trend.sampleCount);
   byId('hr-trend-avg').textContent = `${trend.average} bpm`;
   byId('hr-trend-range').textContent = trend.min === trend.max ? `${trend.min} bpm` : `${trend.min}–${trend.max} bpm`;

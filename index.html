@@ -467,6 +467,71 @@
       <button class="icon-btn" id="btn-settings-back" aria-label="Back">←</button>
     </div>
 
+    <!-- PROFILE: the same real biometric fields onboarding collects once
+         (js/features/onboarding/wizard.js), editable any time after —
+         every screen that reads a profile weight/height/age/sex already
+         fetches it live on each render, so a save here ripples through
+         calorie estimates, BMR/TDEE, and BMI everywhere immediately,
+         with no separate "refresh" step needed. Goal/experience/injury
+         stay out of scope here on purpose — "Change Goal" inside
+         Programs already owns re-running the category engine, and a
+         plain biometric edit shouldn't silently trigger that too. -->
+    <div class="card stack tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <h3>Your profile</h3>
+        <div class="field">
+          <label for="profile-birthdate">Birthdate</label>
+          <input class="input" type="date" id="profile-birthdate">
+          <span class="field-hint" id="profile-age-hint"></span>
+          <span class="field-error" id="err-profile-birthdate" hidden>Enter a real birthdate.</span>
+        </div>
+
+        <div class="field">
+          <label id="lbl-profile-sex">Sex assigned at birth</label>
+          <div class="chip-group" id="profile-sex" role="group" aria-labelledby="lbl-profile-sex">
+            <button type="button" class="chip" data-value="female" aria-pressed="false">Female</button>
+            <button type="button" class="chip" data-value="male" aria-pressed="false">Male</button>
+            <button type="button" class="chip" data-value="prefer-not-to-say" aria-pressed="false">Prefer not to say</button>
+          </div>
+          <span class="field-error" id="err-profile-sex" hidden>Pick one — "prefer not to say" is fine.</span>
+        </div>
+
+        <div class="field">
+          <label id="lbl-profile-units">Units</label>
+          <div class="chip-group" id="profile-units" role="group" aria-labelledby="lbl-profile-units">
+            <button type="button" class="chip" data-value="metric" aria-pressed="true">Metric (cm / kg)</button>
+            <button type="button" class="chip" data-value="imperial" aria-pressed="false">Imperial (ft·in / lb)</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="profile-height-cm" id="lbl-profile-height">Height</label>
+          <div id="profile-height-metric">
+            <input class="input" type="number" id="profile-height-cm" min="60" max="260" placeholder="cm">
+          </div>
+          <div id="profile-height-imperial" hidden class="row">
+            <input class="input" type="number" id="profile-height-ft" min="1" max="8" placeholder="ft">
+            <input class="input" type="number" id="profile-height-in" min="0" max="11" placeholder="in">
+          </div>
+          <span class="field-error" id="err-profile-height" hidden>Enter a valid height.</span>
+        </div>
+
+        <div class="field">
+          <label for="profile-weight-kg" id="lbl-profile-weight">Weight</label>
+          <div id="profile-weight-metric">
+            <input class="input" type="number" id="profile-weight-kg" min="25" max="400" step="0.1" placeholder="kg">
+          </div>
+          <div id="profile-weight-imperial" hidden>
+            <input class="input" type="number" id="profile-weight-lb" min="55" max="880" step="0.1" placeholder="lb">
+          </div>
+          <span class="field-error" id="err-profile-weight" hidden>Enter a valid weight.</span>
+        </div>
+
+        <button class="btn btn-primary btn-block" id="btn-profile-save">Save Profile</button>
+        <span class="muted" id="profile-save-status" style="font-size:var(--fs-sm);"></span>
+      </span>
+    </div>
+
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <h3>Backup &amp; restore</h3>

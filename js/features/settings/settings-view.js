@@ -7,11 +7,18 @@
 // "forgot PIN" reset already uses.
 import { showScreen } from '../../lib/router.js';
 import { exportBackup, importBackup } from '../../db/backup.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '../../lib/units.js';
+import { calculateAge } from '../onboarding/age.js';
+import { getProfile, saveProfile } from '../../db/repositories/profile.js';
 function byId(id) {
     const el = document.getElementById(id);
     if (!el)
         throw new Error(`settings-view: missing #${id}`);
     return el;
+}
+function showError(id, show) {
+    byId(id).hidden = !show;
 }
 function todayFilenameStamp() {
     return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
@@ -21,7 +28,90 @@ function countRows(backup) {
 }
 export function initSettingsFeature() {
     let pendingImport = null;
-    byId('btn-hub-settings').addEventListener('click', () => showScreen('screen-settings'));
+    // ---------- profile ----------
+    // Canonical metric values the form is currently editing — kept
+    // separately from whatever's on screen so switching the units toggle
+    // can re-render the other unit system's fields from the same real
+    // numbers, instead of losing them or showing stale blanks.
+    let currentHeightCm = null;
+    let currentWeightKg = null;
+    const profileSexChips = initChipGroup(byId('profile-sex'));
+    const profileUnitsChips = initChipGroup(byId('profile-units'), {
+        initial: 'metric',
+        onChange: (value) => {
+            byId('profile-height-metric').hidden = value !== 'metric';
+            byId('profile-height-imperial').hidden = value === 'metric';
+            byId('profile-weight-metric').hidden = value !== 'metric';
+            byId('profile-weight-imperial').hidden = value === 'metric';
+            populateHeightWeightFields();
+        },
+    });
+    function populateHeightWeightFields() {
+        if (profileUnitsChips.getValue() === 'metric') {
+            byId('profile-height-cm').value = currentHeightCm != null ? String(Math.round(currentHeightCm)) : '';
+            byId('profile-weight-kg').value = currentWeightKg != null ? currentWeightKg.toFixed(1) : '';
+        }
+        else {
+            if (currentHeightCm != null) {
+                const { feet, inches } = cmToFeetInches(currentHeightCm);
+                byId('profile-height-ft').value = String(feet);
+                byId('profile-height-in').value = String(Math.round(inches));
+            }
+            else {
+                byId('profile-height-ft').value = '';
+                byId('profile-height-in').value = '';
+            }
+            byId('profile-weight-lb').value = currentWeightKg != null ? kgToLb(currentWeightKg).toFixed(1) : '';
+        }
+    }
+    async function loadProfileForm() {
+        const profile = await getProfile();
+        byId('profile-birthdate').value = profile?.birthdate ?? '';
+        byId('profile-age-hint').textContent = profile?.birthdate
+            ? `${calculateAge(profile.birthdate)} years old`
+            : '';
+        profileSexChips.setValue(profile?.sex ?? null);
+        currentHeightCm = profile?.heightCm ?? null;
+        currentWeightKg = profile?.weightKg ?? null;
+        populateHeightWeightFields();
+        byId('profile-save-status').textContent = '';
+    }
+    byId('profile-birthdate').addEventListener('change', () => {
+        const birthdate = byId('profile-birthdate').value;
+        byId('profile-age-hint').textContent = birthdate ? `${calculateAge(birthdate)} years old` : '';
+    });
+    byId('btn-profile-save').addEventListener('click', async () => {
+        const birthdate = byId('profile-birthdate').value;
+        const sex = profileSexChips.getValue();
+        let heightCm = null;
+        let weightKg = null;
+        if (profileUnitsChips.getValue() === 'metric') {
+            heightCm = Number(byId('profile-height-cm').value) || null;
+            weightKg = Number(byId('profile-weight-kg').value) || null;
+        }
+        else {
+            const ft = Number(byId('profile-height-ft').value);
+            const inches = Number(byId('profile-height-in').value) || 0;
+            heightCm = ft ? feetInchesToCm(ft, inches) : null;
+            const lb = Number(byId('profile-weight-lb').value) || null;
+            weightKg = lb ? lbToKg(lb) : null;
+        }
+        showError('err-profile-birthdate', !birthdate);
+        showError('err-profile-sex', !sex);
+        showError('err-profile-height', !heightCm || heightCm <= 0);
+        showError('err-profile-weight', !weightKg || weightKg <= 0);
+        if (!birthdate || !sex || !heightCm || !weightKg)
+            return;
+        await saveProfile({ birthdate, sex, heightCm, weightKg });
+        currentHeightCm = heightCm;
+        currentWeightKg = weightKg;
+        byId('profile-age-hint').textContent = `${calculateAge(birthdate)} years old`;
+        byId('profile-save-status').textContent = 'Saved.';
+    });
+    byId('btn-hub-settings').addEventListener('click', async () => {
+        await loadProfileForm();
+        showScreen('screen-settings');
+    });
     byId('btn-settings-back').addEventListener('click', () => showScreen('screen-hub'));
     // ---------- export ----------
     byId('btn-settings-export').addEventListener('click', async () => {

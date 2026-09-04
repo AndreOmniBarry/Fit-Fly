@@ -525,8 +525,13 @@ rounded out this phase of Apple-Health-parity work — a real mode switch
 under the same PIN Cycle Tracking already protects, with real Naegele's-
 rule due-date math, cited week-by-week development info, a real kick
 counter, and a daily symptom/mood/weight log sharing cycle logs' own
-encrypted-payload shape.
-803 Vitest unit tests and 512 Playwright end-to-end tests
+encrypted-payload shape. A real, editable **Profile** (see "Profile"
+above) closed a real gap right after — onboarding wrote birthdate/sex/
+height/weight once with no way back in to fix or update them; Settings
+now edits the same fields with the same unit-conversion UI, scoped
+deliberately to biometrics alone so a weight update can't silently
+trigger the "Change Goal" re-planning Programs already owns.
+803 Vitest unit tests and 524 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -594,6 +599,40 @@ table exists for) to IndexedDB. `js/lib/router.js` is the generic
 show/hide screen router every later phase's navigation builds on, and
 `js/lib/chip-group.js` is the single/multi-select control used throughout
 the wizard.
+
+## Profile
+
+Onboarding wrote these fields once and there was never a way back in to
+change them — a real gap once a birthday passes, weight changes, or
+someone just entered something wrong the first time. A **Your profile**
+card in Settings (reachable from the Hub's own settings icon) now edits
+the exact same birthdate/sex/height/weight fields onboarding collects,
+reusing the same real utilities rather than a second copy: `js/lib/
+units.js`'s metric↔imperial conversions (with the same toggle UI),
+`js/features/onboarding/age.js`'s real age-from-birthdate math for a
+live "N years old" hint, and `saveProfile`'s existing merge-patch
+contract — a save here only ever touches the fields this form actually
+shows, so it can't accidentally clear onboarding-only fields like goal
+or experience level that this screen never asks about.
+
+**Deliberately scoped to biometrics, not goals.** Editing weight or
+height here has no side effects beyond the numbers themselves — every
+screen that reads a profile weight (Nutrition's BMR/TDEE, Active
+Energy's calorie estimates, Run's own calorie badge, ...) already
+fetches it fresh on each render, so a save ripples through immediately,
+with no separate "refresh" step. Changing a training *goal* stays
+exclusively Programs' own "Change Goal" action's job (see "Tailored
+programs + periodization" below) — a plain biometric edit here
+deliberately never re-runs the category engine on its own, since doing
+that silently as a side effect of "I gained two pounds" would be a
+surprising, unrequested program change.
+
+Switching the units toggle mid-edit re-converts whatever's already
+loaded (168 cm → 5'6", 64 kg → 141.1 lb) from the same real stored
+values, rather than clearing the fields blank until something new is
+typed — the same round-trip-safe conversions (`cmToFeetInches`/
+`kgToLb`) onboarding's own reverse direction never needed but Profile,
+editing already-real data, does.
 
 ## The Hub
 

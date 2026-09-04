@@ -8,10 +8,10 @@ import {
 import { totalDurationSeconds } from '../../../js/lib/guided-session.js';
 
 describe('MEDITATIONS + BREATHWORK catalog', () => {
-  it('has a genuinely broad library — 10 meditations, 2 breathwork techniques', () => {
-    expect(MEDITATIONS).toHaveLength(10);
-    expect(BREATHWORK).toHaveLength(2);
-    expect(ALL_MEDITATE_SESSIONS).toHaveLength(12);
+  it('has a genuinely broad library — 11 meditations, 3 breathwork techniques', () => {
+    expect(MEDITATIONS).toHaveLength(11);
+    expect(BREATHWORK).toHaveLength(3);
+    expect(ALL_MEDITATE_SESSIONS).toHaveLength(14);
   });
 
   it('every id is unique across the whole library', () => {
@@ -109,6 +109,46 @@ describe('Physiological Sigh: real double-inhale structure', () => {
       expect(breathingBeats[i + 1].breathPhase).toBe('in'); // the second, shorter top-up inhale
       expect(breathingBeats[i + 2].breathPhase).toBe('out');
       expect(breathingBeats[i + 2].durationSeconds).toBeGreaterThan(breathingBeats[i].durationSeconds); // exhale is the long part
+    }
+  });
+});
+
+describe('Loving-Kindness: distinct from self-compassion — directed outward, in stages', () => {
+  const session = getMeditateSession('loving-kindness');
+
+  it('exists and cites the metta tradition plus its own evidence base', () => {
+    expect(session).toBeDefined();
+    expect(session.basis).toMatch(/metta/i);
+    expect(session.basis).toMatch(/Fredrickson/);
+  });
+
+  it('progresses through all four traditional stages: self, loved one, neutral person, everyone', () => {
+    const text = session.beats.map((b) => b.text).join(' ').toLowerCase();
+    expect(text).toContain('may i be safe'); // self
+    expect(text).toContain('someone you care about'); // loved one
+    expect(text).toContain('neutral'); // neutral person
+    expect(text).toContain('all beings'); // everyone
+  });
+});
+
+describe('Box Breathing: real 4-4-4-4 structure', () => {
+  const session = getMeditateSession('box-breathing');
+
+  it('has five full cycles of four equal-length phases', () => {
+    const breathingBeats = session.beats.filter((b) => b.breathPhase);
+    expect(breathingBeats).toHaveLength(20); // 5 cycles x 4 beats
+    for (const beat of breathingBeats) {
+      expect(beat.durationSeconds).toBe(4);
+    }
+  });
+
+  it('each cycle runs in / hold / out / holdEmpty, in order', () => {
+    const breathingBeats = session.beats.filter((b) => b.breathPhase);
+    for (let i = 0; i < breathingBeats.length; i += 4) {
+      expect(breathingBeats[i].breathPhase).toBe('in');
+      expect(breathingBeats[i + 1].breathPhase).toBe('hold');
+      expect(breathingBeats[i + 2].breathPhase).toBe('out');
+      expect(breathingBeats[i + 3].breathPhase).toBe('holdEmpty');
     }
   });
 });

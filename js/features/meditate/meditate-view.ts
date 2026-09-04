@@ -27,11 +27,13 @@ const SESSION_ICON: Record<string, IconName> = {
   change: 'wind',
   anxiety: 'lungs',
   'self-compassion': 'heart-pulse',
+  'loving-kindness': 'waves',
   gratitude: 'sparkle',
   resilience: 'target',
   'quick-reset': 'check',
   'four-seven-eight': 'lungs',
   'physiological-sigh': 'wind',
+  'box-breathing': 'grid',
 };
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {

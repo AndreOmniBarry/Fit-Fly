@@ -488,8 +488,13 @@ too: a real "why this target" reasoning (the same transparency Programs
 already gives its own plan), fiber tracking end to end (Open Food Facts
 already returned it; it used to be silently discarded), and a real
 "kcal remaining today" comparison instead of a total floating with
-nothing to measure it against.
-661 Vitest unit tests and 462 Playwright end-to-end tests
+nothing to measure it against. Meditate's library — already built on
+real, cited techniques from its first round rather than filler copy —
+picked up two genuinely distinct additions rather than a rewrite:
+Loving-Kindness (metta), the traditional other-directed counterpart to
+the self-compassion break already there, and Box Breathing, a tactical
+equal-phase pattern distinct from 4-7-8's longer, sedating exhale.
+665 Vitest unit tests and 462 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -897,7 +902,7 @@ A third sibling mini-app, not a Focus sub-feature — an expert-led library
 of guided meditations and breathwork, built for real emotional moments
 (sadness, anger, grief, adapting to change) as well as calmer everyday
 practice, rather than one generic "relax" track. Deliberately not
-"hundreds" of interchangeable sessions padded out for a big number: 12
+"hundreds" of interchangeable sessions padded out for a big number: 14
 sessions, each built on one specific, named, cited technique — the same
 discipline Focus's own guided sessions hold, just applied at real scope.
 
@@ -932,6 +937,12 @@ an early exit, so an abandoned session is never logged as a real one.
 - **A Self-Compassion Break** — Kristin Neff's three-part structure
   (mindfulness, common humanity, self-kindness), one of the most
   widely-studied self-compassion practices.
+- **Loving-Kindness** — metta, traditional phrases of goodwill offered in
+  stages (self, a loved one, a neutral person, everyone). Distinct from
+  the self-compassion break above, which is self-directed only — metta
+  specifically builds warmth toward others, with its own separate
+  evidence base: Fredrickson et al. (2008) found sustained practice
+  increased positive emotion and social connection over weeks of use.
 - **A Gratitude Practice** — specific, not generic, reflection; research
   on gratitude consistently finds specificity matters more than quantity.
 - **Building Resilience** — strengths-recall, recalling real evidence of
@@ -949,6 +960,11 @@ an early exit, so an abandoned session is never logged as a real one.
   practice, and reduced breathing rate more than the other techniques
   tested — a genuinely differentiated, evidence-backed addition, not just
   another breathing pattern for its own sake.
+- **Box Breathing** — four equal counts (in 4, hold 4, out 4, hold 4), the
+  tactical breathing pattern used in military and first-responder stress-
+  inoculation training. Distinct from 4-7-8's longer, sedating exhale-
+  dominant pattern: box breathing's equal phases are built to be
+  sustainable under real, active stress rather than for winding down.
 
 Every session's `basis` field in `meditations.ts` cites its real technique
 — documentation for maintainers, never shown in the product UI — and
@@ -957,9 +973,11 @@ banned-clinical-vocabulary check (disorder, therapy, patient, diagnosis,
 treatment, overthink, depress — deliberately *not* plain emotion words
 like "sadness" or "anxiety," which these sessions name openly, matched
 against every beat's actual text and each `description`), a citation-length
-sanity check, and structural checks on the two breathwork techniques'
-exact cycle timing (4-7-8's real 4/7/8-second beats; cyclic sighing's
-two-inhale-then-one-longer-exhale shape).
+sanity check, a check that Loving-Kindness actually progresses through
+all four traditional metta stages, and structural checks on all three
+breathwork techniques' exact cycle timing (4-7-8's real 4/7/8-second
+beats; cyclic sighing's two-inhale-then-one-longer-exhale shape; box
+breathing's four equal 4-second phases including the post-exhale hold).
 
 ### A real streak, not just a session log
 

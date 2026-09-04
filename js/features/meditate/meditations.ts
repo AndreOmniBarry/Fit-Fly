@@ -172,6 +172,39 @@ function buildSelfCompassion(): GuidedSession {
   };
 }
 
+/** Loving-kindness (metta) — traditional phrases of goodwill, offered in
+ *  stages outward from yourself. Distinct from the self-compassion break
+ *  above (which is self-directed only): metta specifically builds warmth
+ *  toward others, with its own separate evidence base — Fredrickson et
+ *  al. (2008) found sustained loving-kindness practice increased positive
+ *  emotion and social connection over weeks of daily use. */
+function buildLovingKindness(): GuidedSession {
+  const beats: SessionBeat[] = [
+    proseBeat('Settle in, and let your breathing find its own natural rhythm.', 2),
+    proseBeat("We'll offer a few simple phrases of goodwill — first to yourself, then outward.", 2.5),
+    proseBeat('Start with yourself. Silently, or quietly: may I be safe.', 3),
+    proseBeat('May I be healthy.', 2),
+    proseBeat('May I be at ease.', 2),
+    proseBeat("However that feels — easy, awkward, anything — that's fine. Keep going.", 3),
+    proseBeat('Now bring to mind someone you care about easily. Picture them clearly.', 3),
+    proseBeat('Offer them the same: may you be safe.', 2.5),
+    proseBeat('May you be healthy.', 2),
+    proseBeat('May you be at ease.', 2),
+    proseBeat('Now think of someone neutral — someone you neither like nor dislike much. A cashier, a neighbor.', 3.5),
+    proseBeat('Offer them the same three: safe, healthy, at ease.', 3),
+    proseBeat("This is the harder step, and that's exactly the point — warmth that only reaches people you already love isn't the whole practice.", 3.5),
+    proseBeat('Finally, widen it out. May all beings be safe, healthy, and at ease.', 3.5),
+    proseBeat("You don't have to feel it perfectly. Offering it at all is the practice.", 2.5),
+  ];
+  return {
+    id: 'loving-kindness',
+    name: 'Loving-Kindness',
+    description: 'Traditional phrases of goodwill, offered outward from yourself to everyone.',
+    basis: 'Metta (loving-kindness meditation) — a traditional practice with its own distinct evidence base; Fredrickson et al. (2008) found sustained practice increased positive emotion and social connection.',
+    beats,
+  };
+}
+
 /** A structured gratitude reflection — specific, not generic, which the
  *  research on gratitude practice consistently finds matters more than
  *  the quantity of things named. */
@@ -315,6 +348,31 @@ function buildPhysiologicalSigh(): GuidedSession {
   };
 }
 
+/** Box (square) breathing — inhale 4, hold 4, exhale 4, hold 4. A
+ *  tactical breathing pattern used in military and first-responder
+ *  stress-inoculation training — distinct from 4-7-8's longer, more
+ *  sedating exhale-dominant pattern: box breathing's four equal phases
+ *  make it easier to sustain under real, active stress, which is exactly
+ *  the context it was designed for. */
+function buildBoxBreathing(): GuidedSession {
+  const cycle = [
+    breathBeat('Breathe in', 'in', 4),
+    breathBeat('Hold', 'hold', 4),
+    breathBeat('Breathe out', 'out', 4),
+    breathBeat('Hold, empty', 'holdEmpty', 4),
+  ];
+  const beats: SessionBeat[] = [proseBeat('Four equal counts: in, hold, out, hold. Follow the ring.', 2)];
+  for (let i = 0; i < 5; i++) beats.push(...cycle);
+  beats.push(proseBeat("Let your breath return to normal whenever you're ready.", 1.5));
+  return {
+    id: 'box-breathing',
+    name: 'Box Breathing',
+    description: 'Four equal counts — in, hold, out, hold — a steady pattern built for real stress.',
+    basis: 'Box (square) breathing — a tactical breathing technique used in military and first-responder stress-inoculation training for its equal, sustainable phase lengths.',
+    beats,
+  };
+}
+
 export const MEDITATIONS: readonly GuidedSession[] = Object.freeze([
   buildQuietMind(),
   buildSadness(),
@@ -323,12 +381,17 @@ export const MEDITATIONS: readonly GuidedSession[] = Object.freeze([
   buildChange(),
   buildAnxiety(),
   buildSelfCompassion(),
+  buildLovingKindness(),
   buildGratitude(),
   buildResilience(),
   buildQuickReset(),
 ]);
 
-export const BREATHWORK: readonly GuidedSession[] = Object.freeze([buildFourSevenEight(), buildPhysiologicalSigh()]);
+export const BREATHWORK: readonly GuidedSession[] = Object.freeze([
+  buildFourSevenEight(),
+  buildPhysiologicalSigh(),
+  buildBoxBreathing(),
+]);
 
 export const ALL_MEDITATE_SESSIONS: readonly GuidedSession[] = Object.freeze([...MEDITATIONS, ...BREATHWORK]);
 

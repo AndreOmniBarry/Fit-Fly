@@ -23,11 +23,13 @@ const SESSION_ICON = {
     change: 'wind',
     anxiety: 'lungs',
     'self-compassion': 'heart-pulse',
+    'loving-kindness': 'waves',
     gratitude: 'sparkle',
     resilience: 'target',
     'quick-reset': 'check',
     'four-seven-eight': 'lungs',
     'physiological-sigh': 'wind',
+    'box-breathing': 'grid',
 };
 function byId(id) {
     const el = document.getElementById(id);

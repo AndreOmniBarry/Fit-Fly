@@ -15,7 +15,9 @@ import { isMotionSensingAvailable, startStepCounting } from './motion-steps.js';
 import { getNativeStepPermission, getNativeTodayStepCount, isNativeStepCounterAvailable, onNativeStepCountChanged, requestNativeStepPermission, startNativeBackgroundStepCounting, stopNativeBackgroundStepCounting, } from './native-pedometer.js';
 import { addStepsToDate, getStepEntryForDate, listAllStepEntries, listRecentStepEntries, setStepsForDate, syncStepsFromNativePedometer, } from '../../db/repositories/steps.js';
 import { averageStepsPerLoggedDay, bestStepsDayEver, calculateStepsStreak } from './steps-trend.js';
+import { estimateStepsCalories } from './steps-calorie-estimate.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
+import { getProfile } from '../../db/repositories/profile.js';
 const DEFAULT_GOAL = 7500;
 const GOAL_PREF_KEY = 'stepsGoal';
 // Matches .steps-goal-ring-fill's r=86 in index.html/mini-apps.css.
@@ -197,17 +199,18 @@ export function initStepsFeature() {
     void refreshAll();
 }
 async function refreshAll() {
-    const [today, recent, all] = await Promise.all([
+    const [today, recent, all, profile] = await Promise.all([
         getStepEntryForDate(),
         listRecentStepEntries(30),
         listAllStepEntries(),
+        getProfile(),
     ]);
-    renderRing(today);
+    renderRing(today, profile?.weightKg);
     renderHistory(recent);
     renderStats(recent);
     renderTrend(recent, all);
 }
-function renderRing(today) {
+function renderRing(today, weightKg) {
     const steps = today?.steps ?? 0;
     const goal = getGoal();
     const fraction = Math.max(0, Math.min(1, steps / goal));
@@ -215,6 +218,15 @@ function renderRing(today) {
     animateCountUp(byId('steps-today-count'), steps);
     byId('steps-goal-ring-fill').setAttribute('stroke-dashoffset', offset.toFixed(2));
     byId('steps-goal-label').textContent = `of ${goal.toLocaleString()} goal`;
+    // Active Energy for today's steps — hidden entirely with no weight on
+    // file (nothing real to estimate from) rather than showing a
+    // fabricated number, same honesty rule as every other calorie
+    // estimate in this app.
+    const caloriesEl = byId('steps-active-energy');
+    const calories = estimateStepsCalories({ steps, weightKg });
+    caloriesEl.hidden = calories == null;
+    if (calories != null)
+        caloriesEl.textContent = `~${Math.round(calories.kcal)} kcal today`;
 }
 function renderStats(recent) {
     const streak = calculateStepsStreak(recent);

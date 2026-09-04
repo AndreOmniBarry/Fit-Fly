@@ -1,9 +1,11 @@
 // Sidecar types for profile.js (hand-written JS, untouched — see
-// tsconfig.json). Only the fields Sleep actually reads are declared —
-// the fuller shape lives in the still-JS onboarding wizard that owns it.
+// tsconfig.json). Only the fields TypeScript callers actually read are
+// declared — the fuller shape lives in the still-JS onboarding wizard
+// that owns it.
 export interface Profile {
   id: string;
   birthdate?: string;
+  weightKg?: number;
   createdAt: string;
   updatedAt: string;
 }

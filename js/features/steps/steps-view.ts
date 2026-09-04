@@ -30,7 +30,9 @@ import {
   syncStepsFromNativePedometer,
 } from '../../db/repositories/steps.js';
 import { averageStepsPerLoggedDay, bestStepsDayEver, calculateStepsStreak } from './steps-trend.js';
+import { estimateStepsCalories } from './steps-calorie-estimate.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
+import { getProfile } from '../../db/repositories/profile.js';
 import type { StepEntry } from '../../db/repositories/steps.js';
 
 const DEFAULT_GOAL = 7500;
@@ -229,19 +231,20 @@ export function initStepsFeature(): void {
 }
 
 async function refreshAll(): Promise<void> {
-  const [today, recent, all] = await Promise.all([
+  const [today, recent, all, profile] = await Promise.all([
     getStepEntryForDate(),
     listRecentStepEntries(30),
     listAllStepEntries(),
+    getProfile(),
   ]);
 
-  renderRing(today);
+  renderRing(today, profile?.weightKg);
   renderHistory(recent);
   renderStats(recent);
   renderTrend(recent, all);
 }
 
-function renderRing(today: StepEntry | undefined): void {
+function renderRing(today: StepEntry | undefined, weightKg: number | undefined): void {
   const steps = today?.steps ?? 0;
   const goal = getGoal();
   const fraction = Math.max(0, Math.min(1, steps / goal));
@@ -250,6 +253,15 @@ function renderRing(today: StepEntry | undefined): void {
   animateCountUp(byId('steps-today-count'), steps);
   byId('steps-goal-ring-fill').setAttribute('stroke-dashoffset', offset.toFixed(2));
   byId('steps-goal-label').textContent = `of ${goal.toLocaleString()} goal`;
+
+  // Active Energy for today's steps — hidden entirely with no weight on
+  // file (nothing real to estimate from) rather than showing a
+  // fabricated number, same honesty rule as every other calorie
+  // estimate in this app.
+  const caloriesEl = byId('steps-active-energy');
+  const calories = estimateStepsCalories({ steps, weightKg });
+  caloriesEl.hidden = calories == null;
+  if (calories != null) caloriesEl.textContent = `~${Math.round(calories.kcal)} kcal today`;
 }
 
 function renderStats(recent: StepEntry[]): void {

@@ -310,6 +310,11 @@
         <svg class="icon" width="20" height="20" viewBox="0 0 24 24"><use href="#icon-settings"></use></svg>
       </button>
     </div>
+    <!-- Active Energy: a real cross-app rollup (Steps + Run + Activity +
+         Strength sessions, js/features/activity/active-energy-view.js) —
+         hidden entirely until a real number exists (no profile weight
+         on file, or nothing logged yet today), never a fabricated 0. -->
+    <p class="muted" id="hub-active-energy" style="font-size:var(--fs-sm); margin-top:2px;" hidden></p>
     <p class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">
       Your apps
     </p>
@@ -1266,6 +1271,11 @@
         <span class="label" id="steps-goal-label">of 7,500 goal</span>
       </div>
     </div>
+
+    <!-- Active Energy for today's steps (js/features/steps/steps-
+         calorie-estimate.js) — hidden entirely with no profile weight on
+         file, never a fabricated number. -->
+    <p class="muted center-text" id="steps-active-energy" style="font-size:var(--fs-sm);" hidden></p>
 
     <div class="steps-stat-row" style="margin-top:var(--space-4);">
       <div class="steps-stat-tile tilt-card tilt-enter">

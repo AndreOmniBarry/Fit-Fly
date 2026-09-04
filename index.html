@@ -1811,6 +1811,15 @@
       <button class="icon-btn" id="btn-whealth-lock" aria-label="Lock"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-lock"></use></svg></button>
     </div>
 
+    <!-- Same PIN/encryption as Cycle Tracking (js/features/womens-health/
+         pin.js) protects Pregnancy mode too — one PIN, one section, real
+         reproductive-health data either way. -->
+    <div class="chip-group" id="whealth-mode-toggle" role="group" aria-label="Mode" style="margin-top:var(--space-3);">
+      <button type="button" class="chip" data-value="cycle" aria-pressed="true">Cycle</button>
+      <button type="button" class="chip" data-value="pregnancy" aria-pressed="false">Pregnant</button>
+    </div>
+
+    <div id="whealth-cycle-mode">
     <div class="card card-accent stack tilt-card tilt-enter" id="whealth-prediction" hidden>
       <span class="tilt-press stack">
         <div class="row-between">
@@ -1872,6 +1881,102 @@
         <span><i class="whealth-calendar-dot" data-kind="fertile"></i> Fertile window (estimated)</span>
         <span><i class="whealth-calendar-dot" data-kind="predicted"></i> Next period (estimated)</span>
         <span><i class="whealth-calendar-dot" data-kind="logged"></i> Logged, no flow</span>
+      </div>
+    </div>
+    </div>
+
+    <!-- PREGNANCY MODE: same PIN/encryption, real Naegele's-rule due-date
+         math (js/features/womens-health/pregnancy.js), real cited
+         week-by-week development info (pregnancy-content.js), and a real
+         kick counter (kick-counter.js) — see the README's "Pregnancy
+         mode" section for why gait-style fabricated precision isn't
+         attempted anywhere in this app, this included. -->
+    <div id="whealth-pregnancy-mode" hidden>
+      <div class="card stack tilt-card tilt-enter" id="whealth-pregnancy-setup" hidden>
+        <span class="tilt-press stack">
+          <h3>Set up your due date</h3>
+          <p class="muted" style="font-size:var(--fs-sm);">
+            Enter either one — the other is calculated from it using Naegele's rule (LMP + 280 days), the standard estimate used in prenatal care.
+          </p>
+          <div class="field">
+            <label for="whealth-pregnancy-lmp">First day of last period</label>
+            <input class="input" type="date" id="whealth-pregnancy-lmp">
+          </div>
+          <div class="field">
+            <label for="whealth-pregnancy-due-date">Or your estimated due date</label>
+            <input class="input" type="date" id="whealth-pregnancy-due-date">
+          </div>
+          <span class="field-error" id="err-whealth-pregnancy-setup" hidden>Enter one real date to continue.</span>
+          <button class="btn btn-primary btn-block" id="btn-whealth-pregnancy-setup-save">Save</button>
+        </span>
+      </div>
+
+      <div class="card card-accent stack tilt-card tilt-enter" id="whealth-pregnancy-overview" hidden>
+        <span class="tilt-press stack">
+          <div class="row-between">
+            <strong id="whealth-pregnancy-week-label">Week —</strong>
+            <span class="data-badge estimated">estimated</span>
+          </div>
+          <p id="whealth-pregnancy-due-label">—</p>
+          <p class="muted" id="whealth-pregnancy-trimester-label" style="font-size:var(--fs-sm);"></p>
+          <button class="btn btn-ghost" id="btn-whealth-pregnancy-change-date" style="padding:4px 10px; font-size:var(--fs-xs); align-self:flex-start;">Change due date</button>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pregnancy-milestone" hidden>
+        <span class="tilt-press stack">
+          <h3 id="whealth-pregnancy-milestone-title">—</h3>
+          <p id="whealth-pregnancy-milestone-text" style="font-size:var(--fs-sm);"></p>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-kick-counter" hidden>
+        <span class="tilt-press stack">
+          <h3>Kick Counter</h3>
+          <p class="muted" style="font-size:var(--fs-sm);" id="whealth-kick-idle-text">
+            Many care providers recommend counting until you feel 10 movements — commonly under two hours. If it takes much longer or the pattern changes, it's worth mentioning to your real care provider.
+          </p>
+          <div id="whealth-kick-active" hidden class="stack" style="align-items:center; gap:4px;">
+            <strong style="font-size:var(--fs-xl);" id="whealth-kick-count">0</strong>
+            <span class="muted" id="whealth-kick-elapsed" style="font-size:var(--fs-sm);">0:00</span>
+          </div>
+          <button class="btn btn-secondary btn-block" id="btn-whealth-kick-tap" hidden>I felt one</button>
+          <button class="btn btn-primary btn-block" id="btn-whealth-kick-start">Start Counting</button>
+          <button class="btn btn-ghost btn-block" id="btn-whealth-kick-finish" hidden>Finish</button>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pregnancy-log-card" hidden>
+        <span class="tilt-press stack">
+          <div class="row-between">
+            <h3 id="whealth-pregnancy-log-heading">Log Today</h3>
+            <button class="btn btn-ghost" id="btn-whealth-pregnancy-editing-today" hidden style="padding:4px 10px; font-size:var(--fs-xs);">Back to Today</button>
+          </div>
+          <div class="field">
+            <label id="lbl-whealth-pregnancy-symptoms">Symptoms</label>
+            <div class="chip-group" id="whealth-pregnancy-symptoms" role="group" aria-labelledby="lbl-whealth-pregnancy-symptoms"></div>
+          </div>
+          <div class="field">
+            <label id="lbl-whealth-pregnancy-mood">Mood</label>
+            <div class="chip-group" id="whealth-pregnancy-mood" role="group" aria-labelledby="lbl-whealth-pregnancy-mood"></div>
+          </div>
+          <div class="field">
+            <label for="whealth-pregnancy-weight">Weight (kg, optional)</label>
+            <input class="input" type="number" id="whealth-pregnancy-weight" min="30" max="250" step="0.1">
+          </div>
+          <div class="field">
+            <label for="whealth-pregnancy-notes">Notes (optional)</label>
+            <textarea class="input" id="whealth-pregnancy-notes" rows="2"></textarea>
+          </div>
+          <button class="btn btn-primary btn-block" id="btn-whealth-pregnancy-save">Save Entry</button>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pregnancy-weight-trend" hidden>
+        <span class="tilt-press stack">
+          <h3>Weight Trend</h3>
+          <div id="whealth-pregnancy-weight-chart" role="img" aria-label="Logged weight over time"></div>
+        </span>
       </div>
     </div>
   </section>

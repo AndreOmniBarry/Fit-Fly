@@ -22,6 +22,8 @@ describe('schema', () => {
         'meditationSessions',
         'noiseCheckIns',
         'nutritionEntries',
+        'pregnancyLogs',
+        'pregnancySetup',
         'programs',
         'readinessCheckins',
         'runs',

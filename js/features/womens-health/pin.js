@@ -9,6 +9,7 @@ import { createPinVerifier, verifyPin } from '../../lib/crypto.js';
 import { getDb } from '../../db/client.js';
 import { deleteSetting, getSetting, setSetting } from '../../db/repositories/settings.js';
 import { deleteAllCycleLogs } from '../../db/repositories/cycle-logs.js';
+import { deleteAllPregnancyData } from '../../db/repositories/pregnancy.js';
 
 const SETTINGS_KEY = 'womensHealthPin';
 
@@ -46,11 +47,13 @@ export function lock() {
   sessionKey = null;
 }
 
-/** The only way out of a forgotten PIN — the cycle data it protected is
- *  genuinely unrecoverable without it, so "reset" here means deleting
- *  the PIN *and* every log it encrypted, never a backdoor around it. */
+/** The only way out of a forgotten PIN — the cycle *and* pregnancy data
+ *  it protected are genuinely unrecoverable without it, so "reset" here
+ *  means deleting the PIN *and* everything it encrypted, never a
+ *  backdoor around it. */
 export async function resetForgottenPin(db = getDb()) {
   await deleteSetting(SETTINGS_KEY, db);
   await deleteAllCycleLogs(db);
+  await deleteAllPregnancyData(db);
   sessionKey = null;
 }

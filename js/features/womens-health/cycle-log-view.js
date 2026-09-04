@@ -3,6 +3,7 @@ import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { decryptJson, encryptJson, generateIv } from '../../lib/crypto.js';
 import { formatMonthLabel, getMonthGridDays } from '../../lib/calendar-grid.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
 import {
   getSessionKey,
   hasPinSet,
@@ -14,11 +15,20 @@ import {
 } from './pin.js';
 import { derivePeriodStartDates, MOODS, SYMPTOMS } from './constants.js';
 import { currentCyclePhase, predictFertileWindow, predictionConfidence, predictNextPeriodStart } from './cycle-prediction.js';
+import { dueDateFromLmp, gestationalAge, daysUntilDue, trimesterForWeek } from './pregnancy.js';
+import { milestoneForWeek, PREGNANCY_SYMPTOMS } from './pregnancy-content.js';
+import { summarizeKickSession } from './kick-counter.js';
 import {
   getEncryptedCycleLog,
   listAllEncryptedCycleLogs,
   saveEncryptedCycleLog,
 } from '../../db/repositories/cycle-logs.js';
+import {
+  getEncryptedPregnancySetup,
+  listAllEncryptedPregnancyLogs,
+  saveEncryptedPregnancyLog,
+  saveEncryptedPregnancySetup,
+} from '../../db/repositories/pregnancy.js';
 
 function byId(id) {
   return document.getElementById(id);
@@ -57,6 +67,11 @@ export function initWomensHealthFeature() {
   const moodChips = initChipGroup(populateChips('whealth-mood', MOODS));
   const flowChips = initChipGroup(byId('whealth-flow'), { initial: 'none' });
 
+  const pregnancySymptomsChips = initChipGroup(populateChips('whealth-pregnancy-symptoms', PREGNANCY_SYMPTOMS), {
+    multi: true,
+  });
+  const pregnancyMoodChips = initChipGroup(populateChips('whealth-pregnancy-mood', MOODS));
+
   // The date the log form is currently reading/writing — defaults to
   // today every time the screen is (re-)entered, and changes only when
   // a non-future calendar day is tapped. Every decrypted log this
@@ -66,6 +81,24 @@ export function initWomensHealthFeature() {
   let calendarYear;
   let calendarMonth;
   let allLogs = [];
+
+  // Pregnancy mode's own equivalent state — a second, independent set of
+  // real encrypted data under the exact same PIN, never mixed into
+  // `allLogs` above (a person could plausibly have historical cycle logs
+  // and a current pregnancy at once).
+  let pregnancyEditingDate = todayIsoDate();
+  let pregnancyDueDate = null; // null until real setup data exists
+  let pregnancyLogs = [];
+  let kickTaps = [];
+  let kickIntervalHandle = null;
+
+  const modeToggle = initChipGroup(byId('whealth-mode-toggle'), {
+    initial: 'cycle',
+    onChange: (mode) => {
+      byId('whealth-cycle-mode').hidden = mode !== 'cycle';
+      byId('whealth-pregnancy-mode').hidden = mode !== 'pregnancy';
+    },
+  });
 
   byId('btn-home-womens-health').addEventListener('click', async () => {
     if (isUnlocked()) {
@@ -96,6 +129,13 @@ export function initWomensHealthFeature() {
     calendarYear = today.getFullYear();
     calendarMonth = today.getMonth();
     editingDate = todayIsoDate();
+    pregnancyEditingDate = todayIsoDate();
+
+    // Always reopen on Cycle — same "reset to a known default every
+    // (re-)entry" rule editingDate itself already follows.
+    modeToggle.setValue('cycle');
+    byId('whealth-cycle-mode').hidden = false;
+    byId('whealth-pregnancy-mode').hidden = true;
 
     await refreshAll();
     showScreen('screen-whealth-main');
@@ -105,12 +145,19 @@ export function initWomensHealthFeature() {
    *  the prediction/phase card, the calendar, and the log form for
    *  whatever date is currently being edited — same "one decrypt, three
    *  renders" shape whether this runs after unlocking, saving, or
-   *  navigating a calendar month. */
+   *  navigating a calendar month. Pregnancy mode gets the exact same
+   *  treatment alongside it, decrypted every time too — cheap, and it
+   *  means switching modes never shows stale data from before a save. */
   async function refreshAll() {
     allLogs = await decryptAllLogs();
     renderPrediction();
     renderCalendar();
     loadFormForDate(editingDate);
+
+    const setup = await decryptPregnancySetup();
+    pregnancyDueDate = setup?.dueDate ?? null;
+    pregnancyLogs = await decryptAllPregnancyLogs();
+    renderPregnancy();
   }
 
   function loadFormForDate(date) {
@@ -174,6 +221,115 @@ export function initWomensHealthFeature() {
     const iv = generateIv();
     const cipherBytes = await encryptJson(getSessionKey(), iv, payload);
     await saveEncryptedCycleLog({ date: editingDate, iv, cipherBytes });
+
+    await refreshAll();
+  });
+
+  // ---------- pregnancy: due-date setup ----------
+  byId('btn-whealth-pregnancy-setup-save').addEventListener('click', async () => {
+    const lmp = byId('whealth-pregnancy-lmp').value;
+    const directDueDate = byId('whealth-pregnancy-due-date').value;
+    const dueDate = lmp ? dueDateFromLmp(lmp) : directDueDate || null;
+
+    byId('err-whealth-pregnancy-setup').hidden = dueDate != null;
+    if (!dueDate) return;
+
+    const iv = generateIv();
+    const cipherBytes = await encryptJson(getSessionKey(), iv, { dueDate });
+    await saveEncryptedPregnancySetup({ iv, cipherBytes });
+
+    byId('whealth-pregnancy-lmp').value = '';
+    byId('whealth-pregnancy-due-date').value = '';
+    await refreshAll();
+  });
+
+  byId('btn-whealth-pregnancy-change-date').addEventListener('click', () => {
+    byId('whealth-pregnancy-due-date').value = pregnancyDueDate ?? '';
+    byId('whealth-pregnancy-lmp').value = '';
+    byId('whealth-pregnancy-setup').hidden = false;
+    byId('whealth-pregnancy-setup').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  // ---------- pregnancy: daily log ----------
+  byId('btn-whealth-pregnancy-editing-today').addEventListener('click', () => {
+    loadPregnancyFormForDate(todayIsoDate());
+  });
+
+  byId('btn-whealth-pregnancy-save').addEventListener('click', async () => {
+    const weightRaw = byId('whealth-pregnancy-weight').value;
+    // A save here must never silently drop a kick session already
+    // logged for this same date — merge onto whatever's already there,
+    // the same real reason renderTrend-style saves elsewhere in this app
+    // always read-then-write rather than blindly overwrite.
+    const existing = pregnancyLogs.find((l) => l.date === pregnancyEditingDate);
+    const payload = {
+      symptoms: pregnancySymptomsChips.getValue(),
+      mood: pregnancyMoodChips.getValue(),
+      weightKg: weightRaw ? Number(weightRaw) : null,
+      notes: byId('whealth-pregnancy-notes').value.trim(),
+      kickSessions: existing?.kickSessions ?? [],
+    };
+    const iv = generateIv();
+    const cipherBytes = await encryptJson(getSessionKey(), iv, payload);
+    await saveEncryptedPregnancyLog({ date: pregnancyEditingDate, iv, cipherBytes });
+
+    await refreshAll();
+  });
+
+  // ---------- pregnancy: kick counter ----------
+  byId('btn-whealth-kick-start').addEventListener('click', () => {
+    kickTaps = [];
+    byId('whealth-kick-idle-text').hidden = true;
+    byId('whealth-kick-active').hidden = false;
+    byId('btn-whealth-kick-start').hidden = true;
+    byId('btn-whealth-kick-tap').hidden = false;
+    byId('btn-whealth-kick-finish').hidden = false;
+    byId('whealth-kick-count').textContent = '0';
+    byId('whealth-kick-elapsed').textContent = '0:00';
+
+    const startMs = Date.now();
+    kickIntervalHandle = setInterval(() => {
+      const elapsedSec = Math.floor((Date.now() - startMs) / 1000);
+      const mm = Math.floor(elapsedSec / 60);
+      const ss = String(elapsedSec % 60).padStart(2, '0');
+      byId('whealth-kick-elapsed').textContent = `${mm}:${ss}`;
+    }, 1000);
+  });
+
+  byId('btn-whealth-kick-tap').addEventListener('click', () => {
+    kickTaps.push(Date.now());
+    byId('whealth-kick-count').textContent = String(kickTaps.length);
+  });
+
+  byId('btn-whealth-kick-finish').addEventListener('click', async () => {
+    clearInterval(kickIntervalHandle);
+    kickIntervalHandle = null;
+
+    const summary = summarizeKickSession(kickTaps);
+    if (summary.count > 0) {
+      const today = todayIsoDate();
+      const existing = pregnancyLogs.find((l) => l.date === today);
+      const payload = {
+        symptoms: existing?.symptoms ?? [],
+        mood: existing?.mood ?? null,
+        weightKg: existing?.weightKg ?? null,
+        notes: existing?.notes ?? '',
+        kickSessions: [
+          ...(existing?.kickSessions ?? []),
+          { count: summary.count, durationMs: summary.durationMs, recordedAt: new Date().toISOString() },
+        ],
+      };
+      const iv = generateIv();
+      const cipherBytes = await encryptJson(getSessionKey(), iv, payload);
+      await saveEncryptedPregnancyLog({ date: today, iv, cipherBytes });
+    }
+
+    kickTaps = [];
+    byId('whealth-kick-idle-text').hidden = false;
+    byId('whealth-kick-active').hidden = true;
+    byId('btn-whealth-kick-start').hidden = false;
+    byId('btn-whealth-kick-tap').hidden = true;
+    byId('btn-whealth-kick-finish').hidden = true;
 
     await refreshAll();
   });
@@ -304,6 +460,96 @@ export function initWomensHealthFeature() {
       decrypted.push({ date: log.date, ...payload });
     }
     return decrypted;
+  }
+
+  async function decryptPregnancySetup() {
+    const encrypted = await getEncryptedPregnancySetup();
+    if (!encrypted) return null;
+    return decryptJson(getSessionKey(), encrypted.iv, encrypted.cipherBytes);
+  }
+
+  async function decryptAllPregnancyLogs() {
+    const encrypted = await listAllEncryptedPregnancyLogs();
+    const key = getSessionKey();
+    const decrypted = [];
+    for (const log of encrypted) {
+      const payload = await decryptJson(key, log.iv, log.cipherBytes);
+      decrypted.push({ date: log.date, ...payload });
+    }
+    return decrypted;
+  }
+
+  function loadPregnancyFormForDate(date) {
+    pregnancyEditingDate = date;
+    const isToday = date === todayIsoDate();
+    byId('whealth-pregnancy-log-heading').textContent = isToday ? 'Log Today' : `Log ${formatDayLabel(date)}`;
+    byId('btn-whealth-pregnancy-editing-today').hidden = isToday;
+
+    const existing = pregnancyLogs.find((l) => l.date === date);
+    pregnancySymptomsChips.setValue(existing?.symptoms ?? []);
+    pregnancyMoodChips.setValue(existing?.mood ?? null);
+    byId('whealth-pregnancy-weight').value = existing?.weightKg ?? '';
+    byId('whealth-pregnancy-notes').value = existing?.notes ?? '';
+  }
+
+  /** Real due-date math throughout — no fabricated precision. With no
+   *  due date set yet, only the setup card shows; every other pregnancy
+   *  card stays hidden rather than rendering around a number that
+   *  doesn't exist. */
+  function renderPregnancy() {
+    byId('whealth-pregnancy-setup').hidden = pregnancyDueDate != null;
+    const hasDueDate = pregnancyDueDate != null;
+    for (const id of [
+      'whealth-pregnancy-overview',
+      'whealth-pregnancy-milestone',
+      'whealth-kick-counter',
+      'whealth-pregnancy-log-card',
+    ]) {
+      byId(id).hidden = !hasDueDate;
+    }
+    if (!hasDueDate) {
+      byId('whealth-pregnancy-weight-trend').hidden = true;
+      return;
+    }
+
+    const today = todayIsoDate();
+    const age = gestationalAge(pregnancyDueDate, today);
+    const daysLeft = daysUntilDue(pregnancyDueDate, today);
+    const trimester = trimesterForWeek(age.weeks);
+    const TRIMESTER_LABEL = { 1: 'First trimester', 2: 'Second trimester', 3: 'Third trimester' };
+
+    byId('whealth-pregnancy-week-label').textContent = `Week ${age.weeks}, day ${age.days}`;
+    byId('whealth-pregnancy-due-label').textContent =
+      daysLeft >= 0
+        ? `Estimated due ${formatDayLabel(pregnancyDueDate, { withYear: true })} (${daysLeft} day${daysLeft === 1 ? '' : 's'} to go)`
+        : `Estimated due date has passed (${formatDayLabel(pregnancyDueDate, { withYear: true })}) — many pregnancies go past their estimate`;
+    byId('whealth-pregnancy-trimester-label').textContent = TRIMESTER_LABEL[trimester];
+
+    const milestone = milestoneForWeek(age.weeks);
+    byId('whealth-pregnancy-milestone-title').textContent = `Week ${milestone.week}: ${milestone.title}`;
+    byId('whealth-pregnancy-milestone-text').textContent = milestone.text;
+
+    loadPregnancyFormForDate(pregnancyEditingDate);
+
+    const weightPoints = pregnancyLogs
+      .filter((l) => l.weightKg != null)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((l) => ({
+        key: l.date,
+        value: l.weightKg,
+        axisLabel: l.date.slice(8),
+        tooltipValue: `${l.weightKg} kg`,
+        tooltipDetail: formatDayLabel(l.date),
+      }));
+    const weightCard = byId('whealth-pregnancy-weight-trend');
+    weightCard.hidden = weightPoints.length < 2;
+    if (weightPoints.length >= 2) {
+      renderTrendChart(byId('whealth-pregnancy-weight-chart'), {
+        points: weightPoints,
+        accentVar: '--accent',
+        emptyMessage: 'Log a weight to start a trend.',
+      });
+    }
   }
 }
 

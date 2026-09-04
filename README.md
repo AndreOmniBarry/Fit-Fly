@@ -520,8 +520,13 @@ on the Hub itself, closing the gap between three already-real per-
 feature calorie estimates that had never once been added together, with
 Steps and Strength sessions each getting a real estimate for the first
 time. Gait metrics were deliberately left out rather than faked — see
-that section for why.
-768 Vitest unit tests and 498 Playwright end-to-end tests
+that section for why. **Pregnancy mode** (see "Pregnancy mode" above)
+rounded out this phase of Apple-Health-parity work — a real mode switch
+under the same PIN Cycle Tracking already protects, with real Naegele's-
+rule due-date math, cited week-by-week development info, a real kick
+counter, and a daily symptom/mood/weight log sharing cycle logs' own
+encrypted-payload shape.
+803 Vitest unit tests and 512 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1846,6 +1851,61 @@ the estimate can still support it.
 Tapping any non-future calendar day now opens *that* date's entry to log
 or edit — a real retroactive log, the same capability Sleep History
 already has, instead of the form only ever reading and writing today.
+
+## Pregnancy mode
+
+A real mode switch inside the same protected section — one PIN
+(`js/features/womens-health/pin.js`, unchanged) now unlocks both Cycle
+Tracking and Pregnancy, since they're the same class of sensitive
+reproductive-health data and a person could plausibly have historical
+cycle logs and a current pregnancy at once. `resetForgottenPin` wipes
+both on a reset, never just the mode you happened to be in when you
+forgot the PIN.
+
+**Real due-date math, not a fabricated countdown.**
+`js/features/womens-health/pregnancy.js` implements Naegele's rule (due
+date = last menstrual period + 280 days) — the standard obstetric
+estimate cited in prenatal care, entered either as a last-period date or
+directly as a known due date. Gestational age (`gestationalAge`) is a
+real week/day split derived from that same date, clamped so a stale or
+incorrect due date can't render an absurd age. Every readout stays
+worded as an estimate — only a small share of pregnancies deliver on the
+exact predicted date, and `daysUntilDue` goes honestly negative past it
+rather than freezing at zero.
+
+**Real, cited week-by-week development info**, not filler copy —
+`pregnancy-content.js`'s dozen milestones (implantation, a first
+heartbeat, the end of the embryonic period, viability, full term, ...)
+are standard facts from real prenatal patient-education material (the
+kind found in ACOG/Mayo Clinic guides), worded cautiously ("typically",
+"often") rather than as a personal guarantee — enforced by a unit test
+that every entry actually hedges, the same discipline Meditate's own
+banned-vocabulary test holds its content to.
+
+**A real kick counter**, the standard third-trimester fetal-movement
+monitoring practice real care providers recommend: count until 10
+felt movements, note how long it took. `kick-counter.js`'s
+`summarizeKickSession` derives the real elapsed time from actual tap
+timestamps — never a fabricated duration from a single tap — and the
+in-app copy says plainly that an unusually long session is worth
+mentioning to a real care provider, without diagnosing anything itself.
+
+**A real daily log**, same encrypted-payload shape as cycle logs
+(`pregnancyLogs`, schema v16): pregnancy-specific symptoms (nausea, back
+pain, Braxton Hicks, ...), the same Mood scale cycle logs already use,
+an optional weight entry, and notes. Two or more logged weights draw a
+real trend using the exact same shared `js/lib/trend-chart.ts` every
+other mini-app's trend chart already renders with, rather than a new one
+built just for this screen. A kick-counting session merges onto whatever
+else is already logged for that day (symptoms, mood, weight) rather than
+overwriting it — saving a kick count and a symptom log for the same day
+are two real writes to the same record, not a last-write-wins race.
+
+**Deliberately not attempted here either: any fabricated precision.**
+Same reasoning as Active Energy's own gait section above — a due date
+and a kick count are both real, well-established estimates; there's no
+attempt to add a fake-precise "risk score" or diagnostic label on top of
+either.
 
 ## Nutrition
 

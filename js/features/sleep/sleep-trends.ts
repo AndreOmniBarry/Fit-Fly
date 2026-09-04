@@ -2,6 +2,7 @@
 // reshaping of whatever nights were actually logged, no interpolation for
 // nights that weren't (an unlogged night is just absent, not assumed).
 import type { SleepLog, SleepTrendNight } from './types.js';
+import { calculateStreak } from '../../lib/streak.js';
 
 /** Sorted oldest-to-newest, with the single longest night flagged
  *  `isBest` (the first one found, if there's an exact tie). */
@@ -21,17 +22,5 @@ export function buildWeeklyTrend(logs: SleepLog[]): SleepTrendNight[] {
  *  entry, counting backward by calendar day — a gap of even one night
  *  breaks it. Dates are plain YYYY-MM-DD strings compared as UTC days. */
 export function calculateLoggingStreak(logs: SleepLog[]): number {
-  if (logs.length === 0) return 0;
-  const dates = [...new Set(logs.map((log) => log.date))].sort().reverse();
-
-  let streak = 1;
-  for (let i = 1; i < dates.length; i++) {
-    const current = dates[i - 1];
-    const prior = dates[i];
-    if (current == null || prior == null) break;
-    const dayGap = (Date.parse(`${current}T00:00:00Z`) - Date.parse(`${prior}T00:00:00Z`)) / 86_400_000;
-    if (dayGap !== 1) break;
-    streak++;
-  }
-  return streak;
+  return calculateStreak(logs.map((log) => log.date));
 }

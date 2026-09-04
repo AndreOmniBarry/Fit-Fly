@@ -1,29 +1,18 @@
 // Real insight from logged days, not just today's number — same principle
 // as every other mini-app this session shipped (Sleep's streak, Heart
 // Rate's trend, Meditate's streak, Vitals' streak).
+import { calculateStreak } from '../../lib/streak.js';
 
 export interface StepEntryLike {
   date: string; // 'YYYY-MM-DD'
   steps: number;
 }
 
-/** Consecutive days ending at the most recent logged day, same
- *  UTC-day-string comparison as Sleep's calculateLoggingStreak — a day
- *  with a real logged step count (sensor or manual), any gap breaks it. */
+/** Consecutive days ending at the most recent logged day — a day with a
+ *  real logged step count (sensor or manual), any gap breaks it. Delegates
+ *  to the same shared js/lib/streak.ts every other mini-app's streak does. */
 export function calculateStepsStreak(entries: StepEntryLike[]): number {
-  if (entries.length === 0) return 0;
-  const dates = [...new Set(entries.map((e) => e.date))].sort().reverse();
-
-  let streak = 1;
-  for (let i = 1; i < dates.length; i++) {
-    const current = dates[i - 1];
-    const prior = dates[i];
-    if (current == null || prior == null) break;
-    const dayGap = (Date.parse(`${current}T00:00:00Z`) - Date.parse(`${prior}T00:00:00Z`)) / 86_400_000;
-    if (dayGap !== 1) break;
-    streak++;
-  }
-  return streak;
+  return calculateStreak(entries.map((e) => e.date));
 }
 
 /** The single highest-steps day across a person's whole logged history —

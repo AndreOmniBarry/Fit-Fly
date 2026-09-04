@@ -4,9 +4,11 @@
 // its own plain-JS repository and doesn't need a type here.
 import type { DexieTable } from './dexie-types.js';
 import type { SleepLog } from '../features/sleep/types.js';
+import type { EarnedBadge } from '../features/badges/types.js';
 
 export interface AppDb {
   sleepLogs: DexieTable<SleepLog, string>;
+  earnedBadges: DexieTable<EarnedBadge, string>;
 }
 
 export const DB_NAME: string;

@@ -99,6 +99,18 @@
   --run-accent-2:#ffb648;
   --run-accent-soft:rgba(255,107,74,0.16);
 
+  /* ---------- Badges: a gold/bronze medal palette, its own identity again ---------- */
+  --badges-bg-start:#3d2f12;
+  --badges-bg-mid:#241b0a;
+  --badges-bg-end:#140d05;
+  --badges-ink:#faf3e6;
+  --badges-ink-muted:rgba(250,243,230,0.55);
+  --badges-card-bg:rgba(250,243,230,0.06);
+  --badges-card-border:rgba(250,243,230,0.1);
+  --badges-accent:#f0b429;
+  --badges-accent-2:#e8935a;
+  --badges-accent-soft:rgba(240,180,41,0.16);
+
   /* The breathing pacer (Sleep's Wind Down, and every guided session) is
      shared markup across both night surfaces — this is what lets its
      glow/ring color follow whichever theme it's actually drawn on
@@ -142,6 +154,7 @@
 .theme-steps .muted, .theme-steps .field label, .theme-steps .field-hint{ color:var(--steps-ink-muted); }
 .theme-hydration .muted, .theme-hydration .field label, .theme-hydration .field-hint{ color:var(--hydration-ink-muted); }
 .theme-run .muted, .theme-run .field label, .theme-run .field-hint{ color:var(--run-ink-muted); }
+.theme-badges .muted, .theme-badges .field label, .theme-badges .field-hint{ color:var(--badges-ink-muted); }
 
 .theme-sleep .chip{
   background:rgba(245,243,255,0.06); border:1px solid rgba(245,243,255,0.12); color:var(--sleep-ink-muted);
@@ -185,6 +198,12 @@
 .theme-run .chip[aria-pressed="true"]{
   background:var(--run-accent-soft); border-color:rgba(255,107,74,0.4); color:var(--run-accent); font-weight:700;
 }
+.theme-badges .chip{
+  background:rgba(250,243,230,0.06); border:1px solid rgba(250,243,230,0.12); color:var(--badges-ink-muted);
+}
+.theme-badges .chip[aria-pressed="true"]{
+  background:var(--badges-accent-soft); border-color:rgba(240,180,41,0.4); color:var(--badges-accent); font-weight:700;
+}
 
 .miniapp-night input[type="time"]::-webkit-calendar-picker-indicator{ filter:invert(0.85); }
 
@@ -195,6 +214,7 @@
 .theme-steps .btn-ghost{ color:var(--steps-ink); border-color:var(--steps-card-border); }
 .theme-hydration .btn-ghost{ color:var(--hydration-ink); border-color:var(--hydration-card-border); }
 .theme-run .btn-ghost{ color:var(--run-ink); border-color:var(--run-card-border); }
+.theme-badges .btn-ghost{ color:var(--badges-ink); border-color:var(--badges-card-border); }
 
 /* base.css's :focus-visible ring uses the neutral --accent (a mid blue) —
    readable enough on the app's light/dark surfaces, but noticeably lower
@@ -209,6 +229,7 @@
 .theme-steps :focus-visible{ outline-color:var(--steps-accent); }
 .theme-hydration :focus-visible{ outline-color:var(--hydration-accent); }
 .theme-run :focus-visible{ outline-color:var(--run-accent); }
+.theme-badges :focus-visible{ outline-color:var(--badges-accent); }
 
 .theme-sleep{
   background:radial-gradient(120% 70% at 20% -10%, var(--sleep-bg-start) 0%, var(--sleep-bg-mid) 45%, var(--sleep-bg-end) 100%);
@@ -243,6 +264,19 @@
   background:radial-gradient(120% 70% at 25% -10%, var(--run-bg-start) 0%, var(--run-bg-mid) 45%, var(--run-bg-end) 100%);
   color:var(--run-ink);
   --pacer-accent-rgb:255,107,74;
+}
+.theme-badges{
+  background:radial-gradient(120% 70% at 25% -10%, var(--badges-bg-start) 0%, var(--badges-bg-mid) 45%, var(--badges-bg-end) 100%);
+  color:var(--badges-ink);
+  --pacer-accent-rgb:240,180,41;
+}
+/* Badges reuses the shared .card/.card-accent markup directly, like Run —
+   see the comment on .theme-run .card above for why this override exists. */
+.theme-badges .card{
+  background:var(--badges-card-bg); border-color:var(--badges-card-border); box-shadow:none;
+}
+.theme-badges .card-accent{
+  border-color:var(--badges-accent); background:var(--badges-accent-soft);
 }
 /* Run's screens reuse the Fitness Toolkit's shared .card/.card-accent
    markup directly (every other mini-app instead has its own dedicated
@@ -499,6 +533,14 @@
 }
 .hub-tile--run .hub-tile-icon{ background:var(--run-accent-soft); }
 .hub-tile--run .hub-tile-sub{ color:var(--run-accent); }
+
+.hub-tile--badges{
+  background:linear-gradient(150deg, var(--badges-bg-mid) 0%, var(--badges-bg-start) 55%, #3d2f12 100%);
+  box-shadow:0 14px 30px -16px rgba(36,27,10,0.5);
+  color:var(--badges-ink);
+}
+.hub-tile--badges .hub-tile-icon{ background:var(--badges-accent-soft); }
+.hub-tile--badges .hub-tile-sub{ color:var(--badges-accent); }
 
 .hub-tile--neutral{
   background:var(--surface);
@@ -1161,3 +1203,30 @@
 @media (prefers-reduced-motion: reduce){
   .trend-chart-bar-fill{ transition:none; }
 }
+
+/* ============================================================================
+   BADGES — a real grid of earned/locked tier cards. Reuses the shared
+   .card (with .theme-badges .card above giving it this surface's own
+   background/border, same as Run) rather than a dedicated wrapper class,
+   since every card here is structurally identical, just earned or not.
+   ========================================================================== */
+.badge-grid{
+  display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px;
+}
+.badge-card{
+  display:flex; flex-direction:column; align-items:center; text-align:center; gap:2px;
+  padding:var(--space-3);
+}
+.badge-card-icon{
+  width:44px; height:44px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--badges-accent-soft); color:var(--badges-accent);
+  margin-bottom:6px;
+}
+.badge-card--earned .badge-card-icon{
+  background:var(--badges-accent); color:var(--badges-bg-end);
+  box-shadow:0 0 0 3px var(--badges-accent-soft);
+}
+.badge-card-icon--locked{ opacity:0.55; }
+.badge-card:not(.badge-card--earned){ opacity:0.7; }
+.badge-card strong{ font-size:var(--fs-sm); }

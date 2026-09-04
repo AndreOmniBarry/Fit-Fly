@@ -18,4 +18,4 @@ export function recordBloodPressureSample(input: {
   source: 'manual' | 'ble';
 }): Promise<BloodPressureSampleEntry>;
 
-export function listRecentBloodPressureSamples(limit?: number): Promise<BloodPressureSampleEntry[]>;
+export function listRecentBloodPressureSamples(limit?: number, db?: unknown): Promise<BloodPressureSampleEntry[]>;

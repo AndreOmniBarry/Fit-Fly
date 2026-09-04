@@ -43,6 +43,10 @@ export function initHubFeature() {
     // stays entirely run-tracker.js's own, same reason its own click
     // handler on btn-home-run (below) is a side effect, not a navigation.
     byId('btn-home-run').addEventListener('click', () => showScreen('screen-run'));
+    // Badges' own tile/back navigation is wired in badges-view.ts, not here
+    // — same reason Heart Rate's own btn-home-heart-rate is: opening it
+    // needs a fresh evaluation of real data first, an async step every
+    // other tile above doesn't need before showing its screen.
     // Spatial tilt: one shared reading (pointer, or real device tilt once
     // granted) drives every tile's depth-layered parallax at once. iOS 13+
     // gates device-tilt behind a user gesture — asking on the Hub's own
@@ -87,6 +91,11 @@ export function setHydrationTileSubtitle(text) {
 /** Same handoff again, for Run's own most-recent-run text. */
 export function setRunTileSubtitle(text) {
     byId('hub-run-sub').textContent = text;
+}
+/** Same handoff again, for Badges' own "X earned" count — set from real
+ *  evaluated data (badges-view.ts), never a placeholder. */
+export function setBadgesTileSubtitle(text) {
+    byId('hub-badges-sub').textContent = text;
 }
 /** Draws the Sleep tile's mini ring in to a real score (0-100), or back to
  * its empty "waiting for data" state for `null` — the same honesty rule as

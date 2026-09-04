@@ -425,6 +425,18 @@
           </span>
         </span>
       </button>
+
+      <button class="hub-tile hub-tile--badges tilt-card tilt-enter" id="btn-home-badges">
+        <span class="hub-tile-face tilt-press">
+          <span class="hub-tile-top">
+            <span class="hub-tile-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-trophy"></use></svg></span>
+          </span>
+          <span>
+            <span class="hub-tile-title display">Badges</span>
+            <p class="hub-tile-sub" id="hub-badges-sub">Real milestones, not stickers</p>
+          </span>
+        </span>
+      </button>
     </div>
   </section>
 
@@ -1102,6 +1114,29 @@
       <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       Every reading here is measured — a real cuff/oximeter or a number you typed in — never estimated from a camera: a phone can't measure blood pressure at all, and honest SpO2 needs calibrated red+infrared light a phone camera doesn't have. Categories shown are real published reference ranges, not a diagnosis — always follow up with a real device and a clinician for anything concerning.
     </p>
+  </section>
+
+  <!-- BADGES: every mini-app's real streaks and lifetime totals in one
+       place, each with a permanent earned date (js/features/badges/). No
+       fabricated numbers — every badge reads a real count another
+       screen already shows or could show. -->
+  <section class="screen miniapp-night theme-badges" id="screen-badges" hidden>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-badges-back" aria-label="Back to your apps">←</button>
+      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Badges</span>
+      <span style="width:36px;"></span>
+    </div>
+
+    <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Real milestones</h2>
+    <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;" id="badges-summary">
+      <span id="badges-earned-count">0</span> of <span id="badges-total-count">0</span> earned — every one reads a real streak or lifetime total already logged.
+    </p>
+
+    <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">EARNED</span>
+    <div class="badge-grid tilt-stagger" id="badges-earned-grid" style="margin-top:var(--space-3);"></div>
+
+    <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">IN PROGRESS</span>
+    <div class="badge-grid tilt-stagger" id="badges-locked-grid" style="margin-top:var(--space-3);"></div>
   </section>
 
   <!-- STEPS: a real, live-counted walk (Generic Sensor API motion

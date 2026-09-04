@@ -15,4 +15,4 @@ export function recordMeditationSession(input: {
   durationSeconds: number;
 }): Promise<MeditationSessionEntry>;
 
-export function listRecentMeditationSessions(limit?: number): Promise<MeditationSessionEntry[]>;
+export function listRecentMeditationSessions(limit?: number, db?: unknown): Promise<MeditationSessionEntry[]>;

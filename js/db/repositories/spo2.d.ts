@@ -16,4 +16,4 @@ export function recordSpo2Sample(input: {
   source: 'manual' | 'ble';
 }): Promise<Spo2SampleEntry>;
 
-export function listRecentSpo2Samples(limit?: number): Promise<Spo2SampleEntry[]>;
+export function listRecentSpo2Samples(limit?: number, db?: unknown): Promise<Spo2SampleEntry[]>;

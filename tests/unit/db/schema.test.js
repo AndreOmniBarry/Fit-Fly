@@ -11,6 +11,7 @@ describe('schema', () => {
         'bloodPressureSamples',
         'categoryAssignments',
         'cycleLogs',
+        'earnedBadges',
         'exercises',
         'favoriteFoods',
         'goals',

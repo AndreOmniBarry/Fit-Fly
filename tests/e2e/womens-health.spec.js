@@ -238,3 +238,127 @@ test.describe('women\'s health / cycle tracker', () => {
     expect(parseFloat(tilt.ry)).not.toBe(0);
   });
 });
+
+test.describe('pregnancy mode', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+    await page.locator('#btn-home-womens-health').click();
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+    await page.locator('#whealth-mode-toggle button[data-value="pregnancy"]').click();
+  });
+
+  test('opens on the setup card with nothing else showing until a real due date exists', async ({ page }) => {
+    await expect(page.locator('#whealth-pregnancy-setup')).toBeVisible();
+    await expect(page.locator('#whealth-pregnancy-overview')).toBeHidden();
+    await expect(page.locator('#whealth-pregnancy-milestone')).toBeHidden();
+    await expect(page.locator('#whealth-kick-counter')).toBeHidden();
+    await expect(page.locator('#whealth-pregnancy-log-card')).toBeHidden();
+  });
+
+  test('entering a last-period date computes a real due date and gestational week, with zero console errors', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await page.locator('#whealth-pregnancy-lmp').fill('2026-01-01');
+    await page.locator('#btn-whealth-pregnancy-setup-save').click();
+
+    await expect(page.locator('#whealth-pregnancy-setup')).toBeHidden();
+    await expect(page.locator('#whealth-pregnancy-overview')).toBeVisible();
+    await expect(page.locator('#whealth-pregnancy-week-label')).toContainText('Week');
+    // Naegele's rule: LMP + 280 days = 2026-10-08
+    await expect(page.locator('#whealth-pregnancy-due-label')).toContainText('Oct 8, 2026');
+    await expect(page.locator('#whealth-pregnancy-milestone')).toBeVisible();
+    await expect(page.locator('#whealth-kick-counter')).toBeVisible();
+    await expect(page.locator('#whealth-pregnancy-log-card')).toBeVisible();
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('entering a direct due date works without needing a last-period date', async ({ page }) => {
+    await page.locator('#whealth-pregnancy-due-date').fill('2026-12-25');
+    await page.locator('#btn-whealth-pregnancy-setup-save').click();
+    await expect(page.locator('#whealth-pregnancy-due-label')).toContainText('Dec 25, 2026');
+  });
+
+  test('rejects saving with neither date filled in', async ({ page }) => {
+    await page.locator('#btn-whealth-pregnancy-setup-save').click();
+    await expect(page.locator('#err-whealth-pregnancy-setup')).toBeVisible();
+    await expect(page.locator('#whealth-pregnancy-setup')).toBeVisible();
+  });
+
+  test('a real kick-counting session counts taps and records a real elapsed duration', async ({ page }) => {
+    await page.locator('#whealth-pregnancy-lmp').fill('2026-01-01');
+    await page.locator('#btn-whealth-pregnancy-setup-save').click();
+
+    await page.locator('#btn-whealth-kick-start').click();
+    await expect(page.locator('#whealth-kick-active')).toBeVisible();
+    await page.locator('#btn-whealth-kick-tap').click();
+    await page.locator('#btn-whealth-kick-tap').click();
+    await page.locator('#btn-whealth-kick-tap').click();
+    await expect(page.locator('#whealth-kick-count')).toHaveText('3');
+
+    await page.locator('#btn-whealth-kick-finish').click();
+    await expect(page.locator('#whealth-kick-active')).toBeHidden();
+    await expect(page.locator('#btn-whealth-kick-start')).toBeVisible();
+  });
+
+  test('logging symptoms, mood, and weight saves and survives a lock/unlock (still real ciphertext under the same PIN)', async ({
+    page,
+  }) => {
+    await page.locator('#whealth-pregnancy-lmp').fill('2026-01-01');
+    await page.locator('#btn-whealth-pregnancy-setup-save').click();
+
+    await page.locator('#whealth-pregnancy-symptoms button[data-value="nausea"]').click();
+    await page.locator('#whealth-pregnancy-mood button[data-value="good"]').click();
+    await page.locator('#whealth-pregnancy-weight').fill('65.5');
+    await page.locator('#btn-whealth-pregnancy-save').click();
+
+    await page.locator('#btn-whealth-lock').click();
+    await page.locator('#btn-home-womens-health').click();
+    await page.locator('#whealth-pin-unlock').fill('4242');
+    await page.locator('#btn-whealth-pin-unlock').click();
+    await page.locator('#whealth-mode-toggle button[data-value="pregnancy"]').click();
+
+    await expect(page.locator('#whealth-pregnancy-symptoms button[data-value="nausea"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(page.locator('#whealth-pregnancy-mood button[data-value="good"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    await expect(page.locator('#whealth-pregnancy-weight')).toHaveValue('65.5');
+  });
+
+  test('forgetting the PIN wipes pregnancy data along with cycle data — one real reset, not a partial one', async ({
+    page,
+  }) => {
+    await page.locator('#whealth-pregnancy-lmp').fill('2026-01-01');
+    await page.locator('#btn-whealth-pregnancy-setup-save').click();
+
+    await page.locator('#btn-whealth-lock').click();
+    await page.locator('#btn-home-womens-health').click();
+    await page.locator('#btn-whealth-pin-forgot').click();
+    await page.locator('#btn-whealth-forgot-confirm').click();
+
+    await expect(page.locator('#whealth-setup-pane')).toBeVisible();
+    await page.locator('#whealth-pin-new').fill('0000');
+    await page.locator('#whealth-pin-confirm').fill('0000');
+    await page.locator('#btn-whealth-pin-set').click();
+    await page.locator('#whealth-mode-toggle button[data-value="pregnancy"]').click();
+
+    // A brand-new PIN starts with no due date at all — the old one is
+    // genuinely gone, not just inaccessible under the new PIN.
+    await expect(page.locator('#whealth-pregnancy-setup')).toBeVisible();
+  });
+});

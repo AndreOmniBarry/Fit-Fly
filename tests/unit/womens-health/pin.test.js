@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../../../js/db/client.js';
 import { saveEncryptedCycleLog, listAllEncryptedCycleLogs } from '../../../js/db/repositories/cycle-logs.js';
 import {
+  saveEncryptedPregnancySetup,
+  getEncryptedPregnancySetup,
+  saveEncryptedPregnancyLog,
+  listAllEncryptedPregnancyLogs,
+} from '../../../js/db/repositories/pregnancy.js';
+import {
   getSessionKey,
   hasPinSet,
   isUnlocked,
@@ -65,5 +71,16 @@ describe('pin', () => {
     expect(await hasPinSet(db)).toBe(false);
     expect(isUnlocked()).toBe(false);
     expect(await listAllEncryptedCycleLogs(db)).toHaveLength(0);
+  });
+
+  it('resetForgottenPin also deletes every pregnancy log and the pregnancy setup — one PIN, one real wipe', async () => {
+    await setUpPin('4242', db);
+    await saveEncryptedPregnancySetup({ iv: new Uint8Array(), cipherBytes: new Uint8Array() }, db);
+    await saveEncryptedPregnancyLog({ date: '2026-08-01', iv: new Uint8Array(), cipherBytes: new Uint8Array() }, db);
+
+    await resetForgottenPin(db);
+
+    expect(await getEncryptedPregnancySetup(db)).toBeUndefined();
+    expect(await listAllEncryptedPregnancyLogs(db)).toHaveLength(0);
   });
 });

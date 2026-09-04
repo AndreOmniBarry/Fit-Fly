@@ -395,4 +395,39 @@ export function defineSchema(db) {
 
     noiseCheckIns: '++id, recordedAt',
   });
+
+  // v16 — Pregnancy mode, under the same Women's Health PIN protection
+  // as cycleLogs: pregnancySetup is a single encrypted row (like
+  // profile's own single-row shape) holding the due date; pregnancyLogs
+  // is the exact same per-day encrypted-payload shape cycleLogs already
+  // uses (see js/db/repositories/pregnancy.js) — same reason: at most
+  // one real entry per day, keyed by the date itself.
+  db.version(16).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+  });
 }

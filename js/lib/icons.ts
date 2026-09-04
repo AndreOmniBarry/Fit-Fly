@@ -44,7 +44,8 @@ export type IconName =
   | 'meditate'
   | 'gauge'
   | 'footprints'
-  | 'glass-water';
+  | 'glass-water'
+  | 'ear';
 
 /** Inline SVG markup for one icon — safe to drop straight into innerHTML.
  *  `size` sets both width/height (default 20). Always carries class="icon"

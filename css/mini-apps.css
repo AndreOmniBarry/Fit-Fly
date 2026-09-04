@@ -847,9 +847,17 @@
    the point is "how's this week looking at a glance", not "read exact
    values off individual bars" — that finer detail already lives on
    Insights' full trend chart. */
+/* A real button now (see index.html), not a dead div — the same tap
+   target as #btn-sleep-insights, sized so the whole card invites a tap
+   rather than only its small header-icon twin. .sleep-week-strip is the
+   .tilt-card (chrome: background/border/radius); -face is its .tilt-press
+   (the flex row + press-spring), same split as .hub-tile/.hub-tile-face. */
 .sleep-week-strip{
+  display:block; width:100%; text-align:left;
   background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
   border-radius:16px; padding:12px 14px;
+}
+.sleep-week-strip-face{
   display:flex; align-items:center; justify-content:space-between; gap:12px;
 }
 .sleep-week-strip-label strong{ font-size:13px; display:block; }

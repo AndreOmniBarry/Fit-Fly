@@ -482,6 +482,13 @@ export function initSleepFeature(): void {
     renderInsights();
     showScreen('screen-sleep-insights');
   });
+  // The "This week" strip itself is a second, larger door to the same
+  // Insights screen as the header icon — same handler, just a bigger,
+  // more inviting tap target now that it's a real button (see index.html).
+  byId('btn-sleep-week-strip').addEventListener('click', () => {
+    renderInsights();
+    showScreen('screen-sleep-insights');
+  });
   byId('btn-sleep-insights-back').addEventListener('click', () => showScreen('screen-sleep-dashboard'));
 
   byId('btn-sleep-dashboard-date').addEventListener('click', openHistory);

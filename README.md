@@ -530,8 +530,13 @@ above) closed a real gap right after — onboarding wrote birthdate/sex/
 height/weight once with no way back in to fix or update them; Settings
 now edits the same fields with the same unit-conversion UI, scoped
 deliberately to biometrics alone so a weight update can't silently
-trigger the "Change Goal" re-planning Programs already owns.
-803 Vitest unit tests and 524 Playwright end-to-end tests
+trigger the "Change Goal" re-planning Programs already owns. Sleep's own
+**"This week" strip** (see "Sleep" above) closed a small but real gap —
+it looked tappable but wasn't, with the actual door to Insights hiding
+in a small header icon beside it; it's now a genuine button sharing that
+same handler, styled with the app's own established `.tilt-card`/
+`.tilt-press` press-affordance rather than a bespoke hover state.
+803 Vitest unit tests and 525 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -817,6 +822,18 @@ detail already lives on Insights' full trend chart). Per-day letters
 came off the bars for it — the sparkline carries one summary
 `aria-label` instead, and each bar keeps a real hover `title` for
 anyone using a mouse.
+
+**The week strip is a real button, not a dead-looking card.** It was a
+plain, non-interactive `<div>` even though it visually implied "tap me
+for more" (a summary strip sitting right above a real Insights screen)
+— the only actual entry point was a small header icon nobody would
+necessarily connect to it. It's now `#btn-sleep-week-strip`, a genuine
+`<button>` that opens the exact same Insights screen as that header
+icon, built with the same two-layer `.tilt-card`/`.tilt-press` split as
+the Hub's own tiles (chrome + rotation on the outer button, the press-
+spring and flex layout on its `-face` span) — so it gets the app's
+established press-affordance for free instead of a bespoke hover state,
+and reads as tappable because it now actually is.
 
 ## Focus
 

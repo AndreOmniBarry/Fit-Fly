@@ -127,6 +127,70 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
   });
 
+  test('the Insights chart is a real per-night area/scatter with tap-to-reveal, range switching, and zero console errors', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.locator('#sleep-log-quality button[data-value="5"]').click();
+    await page.getByRole('button', { name: 'Save last night' }).click();
+    await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
+
+    // A single logged night is an honest empty chart, not a fabricated
+    // one-point line — same contract as the existing empty-state test,
+    // just asserted from this same flow before adding a second night.
+    await page.locator('#btn-sleep-insights').click();
+    await expect(page.locator('#sleep-insight-chart-empty')).toBeVisible();
+    await expect(page.locator('.sleep-insight-chart-point')).toHaveCount(0);
+
+    // Log a second, different night so a real 2-point chart renders.
+    await page.locator('#btn-sleep-insights-back').click();
+    await page.locator('#btn-sleep-result-history-link').click();
+    const yesterdayCell = page.locator('.sleep-calendar-day--today').locator('xpath=preceding-sibling::button[1]');
+    await yesterdayCell.click();
+    await page.locator('#sleep-log-bedtime').fill('22:30');
+    await page.locator('#sleep-log-waketime').fill('05:30'); // 7h, a real second data point
+    await page.locator('#sleep-log-quality button[data-value="3"]').click();
+    await page.getByRole('button', { name: /^Log /i }).click();
+
+    await page.locator('#btn-sleep-insights').click();
+    await expect(page.locator('#sleep-insight-chart-empty')).toBeHidden();
+    const points = page.locator('.sleep-insight-chart-point');
+    await expect(points).toHaveCount(2);
+
+    // Tap-to-reveal: the tooltip is hidden until a point is actually
+    // tapped, and reveals that exact night's real duration + score.
+    const firstTooltip = points.nth(0).locator('.trend-chart-tooltip');
+    await expect(firstTooltip).toBeHidden();
+    await points.nth(0).click();
+    await expect(firstTooltip).toBeVisible();
+    await expect(firstTooltip).toContainText('score');
+
+    // The last point's own aria-label carries its exact real values —
+    // tonight's 8h, "great" score.
+    await expect(points.nth(1)).toHaveAttribute('aria-label', /8h.*score \d+ \(Great sleep\)/);
+
+    // Range switching: selecting a coarser range re-renders the chart and
+    // its explanatory copy without erroring, and the chip reflects the
+    // new selection.
+    const monthChip = page.locator('#sleep-insight-range button[data-value="M"]');
+    await monthChip.click();
+    await expect(monthChip).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#sleep-insight-range-copy')).toContainText('Last 30 days');
+
+    const sixMonthChip = page.locator('#sleep-insight-range button[data-value="6M"]');
+    await sixMonthChip.click();
+    await expect(sixMonthChip).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#sleep-insight-range-copy')).toContainText('grouped by week');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
   test('the "This week" strip is a real button that opens Insights too', async ({ page }) => {
     await page.getByRole('button', { name: 'Sleep' }).click();
     await page.locator('#sleep-log-bedtime').fill('23:00');

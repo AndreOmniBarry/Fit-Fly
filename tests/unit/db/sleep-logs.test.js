@@ -1,7 +1,12 @@
 import 'fake-indexeddb/auto';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../../../js/db/client.js';
-import { getSleepLogForDate, listRecentSleepLogs, saveSleepLog } from '../../../js/db/repositories/sleep-logs.js';
+import {
+  getSleepLogForDate,
+  listAllSleepLogs,
+  listRecentSleepLogs,
+  saveSleepLog,
+} from '../../../js/db/repositories/sleep-logs.js';
 
 describe('sleep-logs repository', () => {
   let db;
@@ -33,5 +38,16 @@ describe('sleep-logs repository', () => {
 
   it('is undefined for a date with no log', async () => {
     expect(await getSleepLogForDate('2026-08-01', db)).toBeUndefined();
+  });
+
+  it('listAllSleepLogs returns every logged night, not just a recent window', async () => {
+    await saveSleepLog({ date: '2026-01-01', bedTime: null, wakeTime: null, durationMinutes: 400, quality: null, notes: '' }, db);
+    await saveSleepLog({ date: '2026-08-03', bedTime: null, wakeTime: null, durationMinutes: 460, quality: null, notes: '' }, db);
+    const all = await listAllSleepLogs(db);
+    expect(all.map((r) => r.date).sort()).toEqual(['2026-01-01', '2026-08-03']);
+  });
+
+  it('listAllSleepLogs is empty with nothing logged', async () => {
+    expect(await listAllSleepLogs(db)).toEqual([]);
   });
 });

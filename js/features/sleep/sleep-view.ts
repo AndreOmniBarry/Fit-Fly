@@ -8,6 +8,7 @@ import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import {
   getSleepLogForDate,
+  listAllSleepLogs,
   listRecentSleepLogs,
   listSleepLogsInRange,
   saveSleepLog,
@@ -16,14 +17,23 @@ import { getProfile } from '../../db/repositories/profile.js';
 import { calculateAge } from '../onboarding/age.js';
 import { calculateSleepScore } from './sleep-score.js';
 import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
-import { buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
+import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
+import { bucketSleepInsightNights, buildSleepInsightAreaGeometry } from './sleep-insight-chart.js';
+import type { SleepInsightNight } from './sleep-insight-chart.js';
 import { computeSleepLogTimes } from './sleep-duration.js';
 import { formatMonthLabel, getMonthGridDays, monthDateRange } from '../../lib/calendar-grid.js';
 import { formatClockTime, formatDurationHM, formatTimeInputValue } from './format.js';
 import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import type { FocusAudioState } from '../focus/audio-engine.js';
+import {
+  formatBucketAxisLabel,
+  formatBucketDetailLabel,
+  timeRangeBounds,
+  timeRangeDescription,
+} from '../../lib/time-range.js';
+import type { TimeRangeKey } from '../../lib/time-range.js';
 import type { SleepCategory, SleepLog, SleepScoreResult } from './types.js';
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
@@ -82,6 +92,14 @@ export function initSleepFeature(): void {
   let historyYear = 0;
   let historyMonth = 0; // 0-11
   let historyLogs: SleepLog[] = [];
+
+  // The Insights chart's own state — a module-scoped cache of every
+  // logged night (so switching W/M/6M/Y re-renders instantly from data
+  // already fetched, same "cache the whole history, re-render on chip
+  // change" contract as Steps/Hydration's own trend range) and which
+  // range is currently selected. 'W' is the same default they use.
+  let sleepInsightRange: TimeRangeKey = 'W';
+  let cachedAllSleepLogs: SleepLog[] = [];
 
   const qualityChips = initChipGroup<string | null>(byId('sleep-log-quality'), { initial: null });
 
@@ -231,60 +249,189 @@ export function initSleepFeature(): void {
     else animateCountUp(debtEl, debt.debtMinutes, { formatter: formatDurationHM });
     debtEl.title = describeSleepDebt(debt);
 
-    renderInsightChart();
     renderInsightFactors();
 
     byId('sleep-insight-empty').hidden = recentLogs.length > 0;
+
+    void loadInsightChart();
   }
 
+  /** The chart's own data fetch — every logged night ever, not just the
+   *  14-night window `recentLogs` caps at, since a 6M/Y view has to reach
+   *  further back than that (same "whole history, not a recent-window
+   *  illusion" reasoning as Hydration/Steps' own best-day-ever badge). Runs
+   *  once per Insights visit; switching W/M/6M/Y afterward just re-renders
+   *  from this same cache. */
+  async function loadInsightChart(): Promise<void> {
+    cachedAllSleepLogs = await listAllSleepLogs();
+    renderInsightChart();
+  }
+
+  /** This night's score using only logs on-or-before it drawn from the
+   *  *whole* history — same "no future data, no hindsight" windowing rule
+   *  as scoreLogInContext, just able to reach back further than
+   *  recentLogs' own 14-night cap so a 6M/Y chart's older nights still get
+   *  a real trailing consistency window instead of an empty one. */
+  function scoreNightForChart(sortedLogs: SleepLog[], index: number): number {
+    const log = sortedLogs[index] as SleepLog;
+    const window = sortedLogs.slice(Math.max(0, index - 13), index + 1);
+    return calculateSleepScore({ durationMinutes: log.durationMinutes, quality: log.quality }, window, profileAge).score;
+  }
+
+  const CATEGORY_DOT_COLOR: Record<SleepCategory, string> = {
+    poor: 'var(--danger)',
+    fair: 'var(--warning)',
+    good: 'var(--sleep-accent)',
+    great: 'var(--success)',
+  };
+
+  /** The real per-night visualization: a smooth area of duration (the
+   *  shape) with every point/bucket colored by its own sleep score
+   *  category (the color) — two of Sleep's own logged metrics in one
+   *  picture, not a fabricated third. Bucketing follows the selected
+   *  D/W/M/6M/Y range exactly like Hydration/Steps' own trend chart (see
+   *  js/lib/time-range.js); tapping/hovering/focusing a point reveals its
+   *  exact value, same reveal pattern as js/lib/trend-chart.ts. */
   function renderInsightChart(): void {
     const svg = bySvgId<SVGSVGElement>('sleep-insight-chart');
+    const pointsLayer = byId('sleep-insight-chart-points');
     const labelsRow = byId('sleep-insight-chart-labels');
     svg.innerHTML = '';
+    pointsLayer.innerHTML = '';
     labelsRow.innerHTML = '';
 
-    const nights = [...recentLogs].sort((a, b) => a.date.localeCompare(b.date)).slice(-8);
-    byId('sleep-insight-chart-empty').hidden = nights.length >= 2;
-    if (nights.length < 2) return;
+    const sortedAll = [...cachedAllSleepLogs].sort((a, b) => a.date.localeCompare(b.date));
+    const bounds = timeRangeBounds(sleepInsightRange, todayDateString());
 
-    const scores = nights.map(
-      (log) => scoreLogInContext({ durationMinutes: log.durationMinutes, quality: log.quality }, log.date).score
+    renderBestNightBadge(sortedAll);
+
+    const nightsInRange = sortedAll
+      .map((log, index) => ({ log, index }))
+      .filter(({ log }) => log.date >= bounds.start && log.date <= bounds.end);
+    const insightNights: SleepInsightNight[] = nightsInRange.map(({ log, index }) => ({
+      date: log.date,
+      durationMinutes: log.durationMinutes,
+      score: scoreNightForChart(sortedAll, index),
+      quality: log.quality,
+    }));
+
+    const buckets = bucketSleepInsightNights(insightNights, bounds.bucket);
+    const isBucketed = bounds.bucket !== 'day';
+
+    byId('sleep-insight-range-copy').textContent = isBucketed
+      ? `${timeRangeDescription(sleepInsightRange)} Each point averages every logged night in that period — line height is duration, color is sleep score.`
+      : `${timeRangeDescription(sleepInsightRange)} Line height is each night's duration; color is that night's sleep score.`;
+
+    byId('sleep-insight-chart-empty').hidden = buckets.length >= 2;
+    if (buckets.length < 2) return;
+
+    const width = 320;
+    const height = 140;
+    const geometry = buildSleepInsightAreaGeometry(
+      buckets.map((bucket) => bucket.durationMinutes),
+      { width, height }
     );
-
-    const w = 320;
-    const h = 120;
-    const stepX = w / (nights.length - 1);
-    const points = scores.map((score, i) => `${i * stepX},${h - (score / 100) * h}`).join(' ');
-    const areaPoints = `${points} ${w},${h} 0,${h}`;
 
     const ns = 'http://www.w3.org/2000/svg';
     const defs = document.createElementNS(ns, 'defs');
     defs.innerHTML =
-      '<linearGradient id="sleepInsightLineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="var(--sleep-accent)"/><stop offset="100%" stop-color="var(--sleep-accent-2)"/></linearGradient>' +
-      '<linearGradient id="sleepInsightAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.35"/><stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/></linearGradient>';
+      '<linearGradient id="sleepInsightAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.4"/><stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/></linearGradient>';
     svg.append(defs);
 
-    const area = document.createElementNS(ns, 'polyline');
-    area.setAttribute('points', areaPoints);
+    const area = document.createElementNS(ns, 'path');
+    area.setAttribute('d', geometry.areaPath);
     area.setAttribute('fill', 'url(#sleepInsightAreaGrad)');
     area.setAttribute('stroke', 'none');
-    area.setAttribute('opacity', '0.5');
     svg.append(area);
 
-    const line = document.createElementNS(ns, 'polyline');
-    line.setAttribute('points', points);
+    const line = document.createElementNS(ns, 'path');
+    line.setAttribute('d', geometry.linePath);
     line.setAttribute('fill', 'none');
-    line.setAttribute('stroke', 'url(#sleepInsightLineGrad)');
-    line.setAttribute('stroke-width', '3');
+    line.setAttribute('stroke', 'var(--sleep-accent)');
+    line.setAttribute('stroke-width', '2.5');
     line.setAttribute('stroke-linecap', 'round');
     line.setAttribute('stroke-linejoin', 'round');
     svg.append(line);
 
+    buckets.forEach((bucket, i) => {
+      const point = geometry.points[i];
+      if (!point) return;
+      const dotColor = CATEGORY_DOT_COLOR[bucket.category];
+
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', String(point.x));
+      dot.setAttribute('cy', String(point.y));
+      dot.setAttribute('r', '4.5');
+      dot.setAttribute('fill', dotColor);
+      dot.setAttribute('stroke', 'rgba(6,10,8,0.55)');
+      dot.setAttribute('stroke-width', '1.5');
+      svg.append(dot);
+
+      // A real, natively-focusable/tappable <button> laid over each SVG
+      // point — same tap/hover/focus-reveals, blur/leave-hides tooltip
+      // contract as js/lib/trend-chart.ts's own bars, just positioned over
+      // a curve instead of stacked in a flex row (duration *and* score
+      // together don't fit a bar chart's one-value-per-bar shape).
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sleep-insight-chart-point';
+      btn.style.left = `${(point.x / width) * 100}%`;
+      btn.style.top = `${(point.y / height) * 100}%`;
+      btn.style.setProperty('--sleep-insight-point-color', dotColor);
+
+      const detailLabel = formatBucketDetailLabel(bucket.key, bounds.bucket);
+      const nightsPart = isBucketed ? `, avg over ${bucket.nightsLogged} night${bucket.nightsLogged === 1 ? '' : 's'}` : '';
+      const qualityPart = bucket.quality != null ? ` · felt ${bucket.quality}/5` : '';
+      const summary = `${formatDurationHM(bucket.durationMinutes)}${nightsPart}, score ${bucket.score} (${CATEGORY_LABEL[bucket.category]})`;
+      btn.setAttribute('aria-label', `${summary}, ${detailLabel}${qualityPart}`);
+
+      const tooltip = document.createElement('span');
+      tooltip.className = 'trend-chart-tooltip sleep-insight-chart-tooltip';
+      tooltip.hidden = true;
+      const tooltipValue = document.createElement('strong');
+      tooltipValue.textContent = `${formatDurationHM(bucket.durationMinutes)}${nightsPart}`;
+      const tooltipDetail = document.createElement('span');
+      tooltipDetail.textContent = `${detailLabel} · ${bucket.score} score, ${CATEGORY_LABEL[bucket.category]}${qualityPart}`;
+      tooltip.append(tooltipValue, tooltipDetail);
+      btn.append(tooltip);
+
+      const showTooltip = () => {
+        for (const other of pointsLayer.querySelectorAll<HTMLElement>('.trend-chart-tooltip')) other.hidden = true;
+        tooltip.hidden = false;
+      };
+      const hideTooltip = () => {
+        tooltip.hidden = true;
+      };
+      btn.addEventListener('click', showTooltip);
+      btn.addEventListener('focus', showTooltip);
+      btn.addEventListener('blur', hideTooltip);
+      btn.addEventListener('pointerenter', showTooltip);
+      btn.addEventListener('pointerleave', hideTooltip);
+
+      pointsLayer.append(btn);
+    });
+
+    const firstBucket = buckets[0];
+    const lastBucket = buckets[buckets.length - 1];
     const first = document.createElement('span');
-    first.textContent = nights[0]?.date ?? '';
+    first.textContent = firstBucket ? formatBucketAxisLabel(firstBucket.key, bounds.bucket) : '';
     const last = document.createElement('span');
-    last.textContent = nights[nights.length - 1]?.date ?? '';
+    last.textContent = lastBucket ? formatBucketAxisLabel(lastBucket.key, bounds.bucket) : '';
     labelsRow.append(first, last);
+  }
+
+  /** A real "longest night ever" record, drawn from the whole logged
+   *  history (never just the visible chart window) — the exact same
+   *  honesty contract as Hydration/Steps' own best-day-ever badge. */
+  function renderBestNightBadge(sortedAllLogs: SleepLog[]): void {
+    const badge = byId('sleep-insight-best-night-badge');
+    const best = bestSleepNightEver(sortedAllLogs);
+    if (!best) {
+      badge.hidden = true;
+      return;
+    }
+    byId('sleep-insight-best-night-text').textContent = `Best: ${formatDurationHM(best.durationMinutes)} on ${formatHeaderDate(best.date)}`;
+    badge.hidden = false;
   }
 
   function renderInsightFactors(): void {
@@ -477,6 +624,15 @@ export function initSleepFeature(): void {
   byId('btn-sleep-start-wind-down').addEventListener('click', () => showScreen('screen-sleep-wind-down'));
   byId('btn-wind-down-back').addEventListener('click', () => showScreen('screen-sleep-dashboard'));
   wireWindDown();
+
+  // ---------- Insights chart range ----------
+  initChipGroup<TimeRangeKey>(byId('sleep-insight-range'), {
+    initial: sleepInsightRange,
+    onChange: (value) => {
+      sleepInsightRange = value;
+      renderInsightChart();
+    },
+  });
 
   byId('btn-sleep-insights').addEventListener('click', () => {
     renderInsights();

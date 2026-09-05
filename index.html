@@ -802,13 +802,15 @@
         </div>
       </div>
 
-      <div class="sleep-week-strip tilt-enter" style="margin-top:var(--space-4);">
-        <div class="sleep-week-strip-label">
-          <strong>This week</strong>
-          <span class="muted" id="sleep-week-avg"></span>
-        </div>
-        <div class="sleep-week-bars" id="sleep-week-bars" role="img" aria-label="Sleep duration trend, this week"></div>
-      </div>
+      <button type="button" class="sleep-week-strip tilt-card tilt-enter" id="btn-sleep-week-strip" aria-label="This week's sleep — view insights" style="margin-top:var(--space-4);">
+        <span class="sleep-week-strip-face tilt-press">
+          <span class="sleep-week-strip-label">
+            <strong>This week</strong>
+            <span class="muted" id="sleep-week-avg"></span>
+          </span>
+          <span class="sleep-week-bars" id="sleep-week-bars" role="img" aria-label="Sleep duration trend, this week"></span>
+        </span>
+      </button>
 
       <button class="btn btn-ghost btn-block" id="btn-sleep-edit-log" style="margin-top:var(--space-3);">Edit tonight's log</button>
       <button class="btn btn-ghost btn-block" id="btn-sleep-result-history-link" style="margin-top:var(--space-2);">

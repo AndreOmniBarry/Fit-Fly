@@ -127,6 +127,20 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
   });
 
+  test('the "This week" strip is a real button that opens Insights too', async ({ page }) => {
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.locator('#sleep-log-quality button[data-value="5"]').click();
+    await page.getByRole('button', { name: 'Save last night' }).click();
+    await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
+
+    await expect(page.locator('#btn-sleep-week-strip')).toBeVisible();
+    await page.locator('#btn-sleep-week-strip').click();
+    await expect(page.getByRole('heading', { name: 'Insights' })).toBeVisible();
+    await expect(page.locator('#sleep-insight-streak')).toHaveText('1');
+  });
+
   test('Start Wind-Down navigates to the Wind Down screen', async ({ page }) => {
     await page.getByRole('button', { name: 'Sleep' }).click();
     await page.locator('#sleep-log-bedtime').fill('23:00');

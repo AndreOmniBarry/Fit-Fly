@@ -82,6 +82,26 @@ test.describe('heart rate', () => {
     await expect(page.locator('#hr-trend-bars .hr-trend-bar')).toHaveCount(2);
   });
 
+  test('shows which sensing method produced the latest reading, and a resting/elevated/high zone', async ({
+    page,
+  }) => {
+    // A calm 60bpm reads as "resting" for any real adult age, so this
+    // doesn't depend on onboarding's exact fixture birthdate.
+    await page.locator('#hr-manual-bpm').fill('60');
+    await page.locator('#btn-hr-manual-save').click();
+    await expect(page.locator('#hr-trend-source-badge')).toHaveText('Manual');
+    await expect(page.locator('#hr-trend-zone-badge')).toBeVisible();
+    await expect(page.locator('#hr-trend-zone-badge')).toHaveText('Resting zone');
+    await expect(page.locator('#hr-trend-zone-badge')).not.toHaveClass(/is-concerning/);
+
+    // A very high reading (still inside manual entry's valid 30-250
+    // range) reads as "high" regardless of age, and gets flagged.
+    await page.locator('#hr-manual-bpm').fill('220');
+    await page.locator('#btn-hr-manual-save').click();
+    await expect(page.locator('#hr-trend-zone-badge')).toHaveText('High zone');
+    await expect(page.locator('#hr-trend-zone-badge')).toHaveClass(/is-concerning/);
+  });
+
   test('the "Latest reading" hero number switches from measured to estimated as a camera reading becomes the newest one', async ({
     page,
   }) => {
@@ -99,6 +119,7 @@ test.describe('heart rate', () => {
       // card's own badge has to switch with it, not keep saying measured
       await expect(page.locator('#hr-trend-latest-badge')).toHaveClass(/estimated/);
       await expect(page.locator('#hr-trend-latest-badge')).toContainText('estimated');
+      await expect(page.locator('#hr-trend-source-badge')).toHaveText('Camera');
     } else {
       // the fake device's synthetic pattern didn't produce a usable
       // reading — the manual entry is still honestly the latest one

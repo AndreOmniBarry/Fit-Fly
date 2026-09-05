@@ -6,6 +6,18 @@
 // as an ESTIMATE with a confidence, never presented as a fact. See
 // js/features/heart-rate/camera-ppg.js for the getUserMedia/canvas
 // sampling loop that produces the sample buffer this consumes.
+//
+// A durable, honest limit on how well this can ever do: camera-PPG
+// accuracy is fundamentally bounded by peripheral perfusion (cold
+// fingers, poor circulation), ambient/flash lighting, and motion — this
+// is true of every camera-PPG implementation, phone app or otherwise, not
+// a bug specific to this codebase. No amount of filtering tuning here
+// will make a cold, poorly-perfused fingertip in bad light produce a
+// clean pulse; the right fix for that case is signal-quality.js honestly
+// reporting "no pulse"/"unsteady" and letting the person retry with a
+// better grip and more light, not a smarter estimator squeezing a real
+// number out of a signal that isn't there. Don't chase 100% success here
+// — chase "never returns a number it can't back up."
 
 const MIN_SAMPLES = 30;
 const MIN_PEAKS_FOR_ESTIMATE = 5;

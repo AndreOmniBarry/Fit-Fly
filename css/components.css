@@ -208,6 +208,31 @@ textarea.input{
   .hr-trend-bar{ animation:none; }
 }
 
+/* ---------- heart rate: sensing-method + zone badges ---------- */
+/* Neutral by design — unlike .data-badge's measured/estimated (a trust
+   signal) this says *which* sensor produced the number, not how much to
+   trust it, so it deliberately doesn't compete for attention with that
+   badge's color. */
+.hr-source-badge{
+  display:inline-flex; align-items:center;
+  font-size:var(--fs-xs); font-weight:600;
+  padding:2px 8px; border-radius:var(--radius-pill);
+  background:var(--surface); color:var(--ink-2); border:1px solid var(--border);
+}
+/* Resting/elevated/high — see js/features/heart-rate/hr-zone.js. Reuses
+   the app's own success/warning/danger tokens directly (same substance as
+   Vitals' .vitals-category-badge, just heart-rate's own class so this
+   file doesn't reach into mini-apps.css for it). */
+.hr-zone-badge{
+  display:inline-flex; align-items:center;
+  font-size:var(--fs-xs); font-weight:700;
+  padding:3px 10px; border-radius:var(--radius-pill);
+  text-transform:uppercase; letter-spacing:.04em;
+}
+.hr-zone-badge.resting{ background:var(--success-soft); color:var(--success); }
+.hr-zone-badge.elevated{ background:var(--warning-soft); color:var(--warning); }
+.hr-zone-badge.high{ background:var(--danger-soft); color:var(--danger); }
+
 /* ---------- goal progress bar ---------- */
 /* Same real-data-as-motion language, generalized once more: width is
    already set to the real percent, scaleX(0)->1 grows it in from the

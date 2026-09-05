@@ -555,7 +555,12 @@ monitor** (a NIOSH-formula noise dose, spike detection, and an
 exposure-over-time chart, all foreground-only and consent-gated) plus a
 real **pure-tone screening test** (see "Hearing health" above) — both
 explicit about being screening tools built on an uncalibrated
-microphone/speaker, never a diagnostic instrument.
+microphone/speaker, never a diagnostic instrument. Earned badges then
+picked up a real embossed-medal presentation (see "Badges" above) — a
+metallic conic-gradient face, a specular highlight and shadow that both
+track the shared screen-tilt reading, an idle shimmer, and real
+per-medal rotation variance — in place of the flat tinted circle every
+medal used to share.
 884 Vitest unit tests and 283 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
@@ -2359,6 +2364,34 @@ the same "own palette, shared mechanics" pattern every other mini-app
 already carries. It's the grid's 9th tile and the first whose own data
 comes from every other mini-app at once rather than owning a store of
 its own.
+
+**A real embossed medal, not a flat tinted circle.** Earned badges used
+to reuse the exact same flat `.tilt-card` treatment as a Hub tile — one
+shared screen-wide tilt reading, every card rotating in perfect
+lockstep, no sense that a badge is a distinct, prized object rather
+than a rectangle. `.badge-card--earned .badge-card-icon` is now a real
+metallic medal: a conic gradient in the same gold/bronze accent pair
+every other Badges surface already uses, a beveled rim built from
+layered inset shadows (a light catching the top edge, a shadow pooling
+at the bottom — the classic CSS bevel), and two reactive layers on top
+— a specular highlight and a drop-shadow that both track the shared
+screen-tilt reading (via the same `--tilt-tx`/`-ty` pixel offsets Hub
+tiles already use for depth parallax, kept carefully separate from the
+`-rx`/`-ry` *angle* values `calc()` can't combine with a length in one
+expression) — plus a slow idle shimmer sweep so a medal reads as a real
+object sitting under a light even with no tilt input at all, a mouse
+that never moves. `prefers-reduced-motion` turns the shimmer off, the
+same as everywhere else motion happens in this app.
+
+**Real per-medal variance, not one shared reading moved four times.**
+A grid of earned medals used to all rotate by the exact same angle
+every frame, since they all inherit the one tilt reading `tilt.ts` sets
+on the screen. `--card-seed` — a deterministic 0.85–1.15 multiplier
+hashed from each badge's own tier id, set once at render time in
+`badges-view.ts` — scales that shared reading per card, so a grid of
+medals now reads as several real objects each catching the light a
+little differently, not one flat plane. Deterministic on purpose: a
+freshly-random seed on every re-render would look glitchy, not alive.
 
 ## Hearing health
 

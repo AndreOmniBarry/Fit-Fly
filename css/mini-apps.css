@@ -1274,10 +1274,74 @@
   background:var(--badges-accent-soft); color:var(--badges-accent);
   margin-bottom:6px;
 }
+
+/* Earned badges get a real embossed medal, not a flat tinted circle —
+   a metallic conic gradient (the same gold/bronze pair every other
+   accent here already uses, --badges-accent/-2), a beveled rim via
+   layered inset shadows (light catching the top edge, shadow pooling
+   at the bottom — the classic CSS bevel trick), and two reactive
+   layers riding on top of it: a specular highlight that tracks the
+   shared screen-tilt reading via the same --tilt-tx/-ty *pixel* offsets
+   Hub tiles already use for depth parallax (never mixed with the
+   -rx/-ry *angle* values here — calc() can't combine deg with a length
+   in one expression), and a slow idle shimmer sweep so a medal still
+   reads as a real object sitting under a light even with no tilt input
+   at all (a mouse that never moves, a desktop with no device-motion). */
 .badge-card--earned .badge-card-icon{
-  background:var(--badges-accent); color:var(--badges-bg-end);
-  box-shadow:0 0 0 3px var(--badges-accent-soft);
+  position:relative;
+  width:56px; height:56px;
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255,255,255,.5), transparent 45%),
+    conic-gradient(from 210deg, var(--badges-accent-2), var(--badges-accent), var(--badges-accent-2));
+  color:var(--badges-bg-end);
+  box-shadow:
+    inset 0 2px 2px rgba(255,255,255,.6),
+    inset 0 -3px 4px rgba(0,0,0,.4),
+    0 0 0 3px var(--badges-accent-soft),
+    0 8px 16px rgba(0,0,0,.4);
+  overflow:hidden;
+  filter:drop-shadow(calc(var(--tilt-ty, 0px) * -1) var(--tilt-tx, 0px) 6px rgba(0,0,0,.35));
 }
+.badge-card--earned .badge-card-icon::before{
+  content:'';
+  position:absolute; inset:0; border-radius:50%;
+  background:radial-gradient(circle at 50% 50%, rgba(255,255,255,.85), transparent 55%);
+  background-repeat:no-repeat;
+  background-size:70% 70%;
+  background-position: calc(38% + var(--tilt-tx, 0px)) calc(32% + var(--tilt-ty, 0px));
+  mix-blend-mode:overlay;
+  pointer-events:none;
+}
+.badge-card--earned .badge-card-icon::after{
+  content:'';
+  position:absolute; inset:-40%;
+  background:linear-gradient(115deg, transparent 35%, rgba(255,255,255,.55) 48%, transparent 62%);
+  animation:badge-shimmer 3.6s ease-in-out infinite;
+  pointer-events:none;
+}
+@keyframes badge-shimmer{
+  0%, 20%{ transform:translateX(-60%); }
+  60%, 100%{ transform:translateX(60%); }
+}
+@media (prefers-reduced-motion: reduce){
+  .badge-card--earned .badge-card-icon::after{ animation:none; }
+}
+
+/* Each earned medal reacts to the shared screen-tilt reading with its
+   own slight variance (--card-seed, a deterministic 0.85-1.15
+   multiplier set per-card in badges-view.ts from a hash of the badge's
+   own id) instead of every medal in the grid rotating in perfect
+   lockstep — the same "real objects, not one flat plane" cue
+   data-tilt-depth already gives depth-layered children within one
+   card, applied here across cards instead. Two classes outranks the
+   shared .tilt-card rule above on specificity, so this wins without
+   needing !important. */
+.badge-card--earned.tilt-card{
+  transform:
+    rotateX(calc(var(--tilt-rx, 0deg) * var(--card-seed, 1)))
+    rotateY(calc(var(--tilt-ry, 0deg) * var(--card-seed, 1)));
+}
+
 .badge-card-icon--locked{ opacity:0.55; }
 .badge-card:not(.badge-card--earned){ opacity:0.7; }
 .badge-card strong{ font-size:var(--fs-sm); }

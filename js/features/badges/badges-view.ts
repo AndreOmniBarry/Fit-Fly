@@ -44,6 +44,19 @@ function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+/** A deterministic 0.85-1.15 multiplier from a badge's own tier id —
+ *  real per-card variance for the medal-grid tilt (see .badge-card--
+ *  earned.tilt-card in mini-apps.css) so a grid of earned medals
+ *  doesn't all rotate in perfect lockstep with the shared screen-tilt
+ *  reading. Deterministic, not random-per-render, so the same badge
+ *  always tilts the same way — a random reshuffle on every re-render
+ *  would read as glitchy, not alive. */
+function cardSeed(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return 0.85 + (hash % 1000) / 1000 * 0.3; // 0.85–1.15
+}
+
 /** e.g. "4 of 7 consecutive nights logged" for a locked tier — the same
  *  honest-progress-number rule Goals' own milestone copy holds to,
  *  never a vague "almost there" with no real count behind it. */
@@ -67,8 +80,8 @@ async function renderBadges(): Promise<void> {
         .sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''))
         .map(
           (b) => `
-        <div class="card badge-card badge-card--earned tilt-card tilt-enter">
-          <span class="badge-card-icon" aria-hidden="true">${iconMarkup(b.icon, { size: 22 })}</span>
+        <div class="card badge-card badge-card--earned tilt-card tilt-enter" style="--card-seed:${cardSeed(b.id).toFixed(3)};">
+          <span class="badge-card-icon" data-tilt-depth="1" aria-hidden="true">${iconMarkup(b.icon, { size: 22 })}</span>
           <strong>${b.name}</strong>
           <p class="muted" style="font-size:var(--fs-sm);">${b.category}</p>
           <p class="muted" style="font-size:var(--fs-xs);">Earned ${formatDate(b.earnedAt as string)}</p>

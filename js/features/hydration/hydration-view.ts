@@ -9,6 +9,15 @@ import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { getPref, setPref } from '../../lib/storage.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import {
+  bucketDailyPoints,
+  formatBucketAxisLabel,
+  formatBucketDetailLabel,
+  timeRangeBounds,
+  timeRangeDescription,
+} from '../../lib/time-range.js';
+import type { TimeRangeKey } from '../../lib/time-range.js';
 import { getNotificationPermission, requestNotificationPermission, showNotification } from '../../lib/notifications.js';
 import type { NotificationPermissionState } from '../../lib/notifications.js';
 import { setHydrationTileSubtitle } from '../hub/hub-view.js';
@@ -41,6 +50,11 @@ const HOUR_MS = 60 * 60 * 1000;
 // body rather than the whole 0-170 box (which includes empty margin).
 const FIGURE_TOP_Y = 8;
 const FIGURE_BOTTOM_Y = 170;
+
+// The trend chart's own state — see steps-view.ts's identical comment;
+// same reasoning, same default range.
+let hydrationTrendRange: TimeRangeKey = 'W';
+let cachedAllHydrationEntries: HydrationEntry[] = [];
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -109,6 +123,15 @@ export function initHydrationFeature(): void {
     setPref(INTERVAL_PREF_KEY, String(hours));
   });
 
+  // ---------- trend range ----------
+  initChipGroup<TimeRangeKey>(byId('hydration-trend-range'), {
+    initial: hydrationTrendRange,
+    onChange: (value) => {
+      hydrationTrendRange = value;
+      renderTrend(cachedAllHydrationEntries);
+    },
+  });
+
   byId('btn-hydration-back').addEventListener('click', () => showScreen('screen-hub'));
 
   byId('btn-home-hydration').addEventListener('click', () => {
@@ -163,10 +186,11 @@ async function refreshAll(): Promise<void> {
     listAllHydrationEntries(),
   ]);
 
+  cachedAllHydrationEntries = all;
   renderFigure(sumHydrationEntries(todayEntries));
   renderStats(recent);
   renderHistory(todayEntries);
-  renderTrend(recent, all);
+  renderTrend(all);
 }
 
 function renderFigure(todayMl: number): void {
@@ -194,28 +218,29 @@ function renderStats(recent: HydrationEntry[]): void {
   setHydrationTileSubtitle(streak > 0 ? `${streak}-day streak` : 'Log a drink');
 }
 
-/** 14-day bar trend + a real "best day ever" badge — a personal best
- *  drawn from the whole logged history (`all`), never just the visible
- *  window, same "a real record, not a recent-window illusion" contract
- *  as Run's own PR badges. */
-function renderTrend(recent: HydrationEntry[], all: HydrationEntry[]): void {
+/** A real D/W/M/6M/Y trend, bucketed appropriately for the selected
+ *  range (see js/lib/time-range.js), plus a real "best day ever" badge —
+ *  a personal best drawn from the whole logged history (`all`), never
+ *  just the visible window, same "a real record, not a recent-window
+ *  illusion" contract as Run's own PR badges. */
+function renderTrend(all: HydrationEntry[]): void {
   const goal = getGoalMl();
-  const todayIso = new Date().toISOString().slice(0, 10);
-  const windowStart = new Date();
-  windowStart.setDate(windowStart.getDate() - 13);
-  const windowStartIso = windowStart.toISOString().slice(0, 10);
+  const bounds = timeRangeBounds(hydrationTrendRange, new Date().toISOString().slice(0, 10));
+  byId('hydration-trend-range-copy').textContent = timeRangeDescription(hydrationTrendRange);
 
-  const dailyTotals = groupHydrationByDate(recent.filter((e) => e.date >= windowStartIso && e.date <= todayIso));
-  const days = [...dailyTotals.entries()].sort(([a], [b]) => a.localeCompare(b));
+  const dailyTotals = groupHydrationByDate(all.filter((e) => e.date >= bounds.start && e.date <= bounds.end));
+  const daily = [...dailyTotals.entries()].map(([date, amountMl]) => ({ date, value: amountMl }));
+  const buckets = bucketDailyPoints(daily, bounds.bucket);
+  const isBucketed = bounds.bucket !== 'day';
 
   renderTrendChart(byId('hydration-trend-chart'), {
-    points: days.map(([date, amountMl]) => ({
-      key: date,
-      value: amountMl,
-      axisLabel: new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' }),
-      highlighted: amountMl >= goal,
-      tooltipValue: `${amountMl.toLocaleString()}ml`,
-      tooltipDetail: `${new Date(`${date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${amountMl >= goal ? ' · Goal met' : ''}`,
+    points: buckets.map((bucket) => ({
+      key: bucket.key,
+      value: bucket.value,
+      axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+      highlighted: bucket.value >= goal,
+      tooltipValue: `${Math.round(bucket.value).toLocaleString()}ml${isBucketed ? '/day avg' : ''}`,
+      tooltipDetail: `${formatBucketDetailLabel(bucket.key, bounds.bucket)}${bucket.value >= goal ? ' · Goal met' : ''}`,
     })),
     accentVar: '--hydration-accent',
     referenceValue: goal,

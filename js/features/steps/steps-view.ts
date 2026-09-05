@@ -10,6 +10,15 @@ import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { getPref, setPref } from '../../lib/storage.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import {
+  bucketDailyPoints,
+  formatBucketAxisLabel,
+  formatBucketDetailLabel,
+  timeRangeBounds,
+  timeRangeDescription,
+} from '../../lib/time-range.js';
+import type { TimeRangeKey } from '../../lib/time-range.js';
 import { setStepsTileSubtitle } from '../hub/hub-view.js';
 import { isMotionSensingAvailable, startStepCounting } from './motion-steps.js';
 import {
@@ -39,6 +48,14 @@ const DEFAULT_GOAL = 7500;
 const GOAL_PREF_KEY = 'stepsGoal';
 // Matches .steps-goal-ring-fill's r=86 in index.html/mini-apps.css.
 const RING_CIRCUMFERENCE = 2 * Math.PI * 86;
+
+// The trend chart's own state — a module-level cache of the full step
+// history (so switching the D/W/M/6M/Y range re-renders instantly from
+// data already fetched, rather than a fresh DB round-trip per tap) and
+// which range is currently selected. 'W' (last 7 days) replaces what
+// used to be a hardcoded, unlabeled 14-day window.
+let stepsTrendRange: TimeRangeKey = 'W';
+let cachedAllStepEntries: StepEntry[] = [];
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
@@ -221,6 +238,15 @@ export function initStepsFeature(): void {
     void refreshAll();
   });
 
+  // ---------- trend range ----------
+  initChipGroup<TimeRangeKey>(byId('steps-trend-range'), {
+    initial: stepsTrendRange,
+    onChange: (value) => {
+      stepsTrendRange = value;
+      renderTrend(cachedAllStepEntries);
+    },
+  });
+
   byId('btn-steps-back').addEventListener('click', () => showScreen('screen-hub'));
 
   byId('btn-home-steps').addEventListener('click', () => {
@@ -238,10 +264,11 @@ async function refreshAll(): Promise<void> {
     getProfile(),
   ]);
 
+  cachedAllStepEntries = all;
   renderRing(today, profile?.weightKg);
   renderHistory(recent);
   renderStats(recent);
-  renderTrend(recent, all);
+  renderTrend(all);
 }
 
 function renderRing(today: StepEntry | undefined, weightKg: number | undefined): void {
@@ -274,22 +301,31 @@ function renderStats(recent: StepEntry[]): void {
   setStepsTileSubtitle(streak > 0 ? `${streak}-day streak` : 'Count a real walk');
 }
 
-/** 14-day bar trend + a real "best day ever" badge — a personal best
+/** A real D/W/M/6M/Y trend, bucketed appropriately for the selected
+ *  range (see js/lib/time-range.js — daily for D/W/M, weekly for 6M,
+ *  monthly for Y), plus a real "best day ever" badge — a personal best
  *  drawn from the whole logged history (`all`), never just the visible
  *  window, same "a real record, not a recent-window illusion" contract
  *  as Run's own PR badges. */
-function renderTrend(recent: StepEntry[], all: StepEntry[]): void {
+function renderTrend(all: StepEntry[]): void {
   const goal = getGoal();
-  const window = [...recent].sort((a, b) => a.date.localeCompare(b.date)).slice(-14);
+  const bounds = timeRangeBounds(stepsTrendRange, new Date().toISOString().slice(0, 10));
+  byId('steps-trend-range-copy').textContent = timeRangeDescription(stepsTrendRange);
+
+  const daily = all
+    .filter((entry) => entry.date >= bounds.start && entry.date <= bounds.end)
+    .map((entry) => ({ date: entry.date, value: entry.steps }));
+  const buckets = bucketDailyPoints(daily, bounds.bucket);
+  const isBucketed = bounds.bucket !== 'day';
 
   renderTrendChart(byId('steps-trend-chart'), {
-    points: window.map((entry) => ({
-      key: entry.date,
-      value: entry.steps,
-      axisLabel: new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'narrow' }),
-      highlighted: entry.steps >= goal,
-      tooltipValue: `${entry.steps.toLocaleString()} steps`,
-      tooltipDetail: `${new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${entry.steps >= goal ? ' · Goal met' : ''}`,
+    points: buckets.map((bucket) => ({
+      key: bucket.key,
+      value: bucket.value,
+      axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+      highlighted: bucket.value >= goal,
+      tooltipValue: `${Math.round(bucket.value).toLocaleString()} steps${isBucketed ? '/day avg' : ''}`,
+      tooltipDetail: `${formatBucketDetailLabel(bucket.key, bounds.bucket)}${bucket.value >= goal ? ' · Goal met' : ''}`,
     })),
     accentVar: '--steps-accent',
     referenceValue: goal,

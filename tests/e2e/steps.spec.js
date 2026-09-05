@@ -164,6 +164,71 @@ test.describe('steps', () => {
     await expect(page.locator('#steps-best-day-text')).toContainText('20,000');
   });
 
+  test('the trend range defaults to a real 7-day week, with no "D" chip (one total per day can never form a trend)', async ({
+    page,
+  }) => {
+    await expect(page.locator('#steps-trend-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#steps-trend-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#steps-trend-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('switching the trend range updates the explanatory copy for every real range', async ({ page }) => {
+    const ranges = [
+      ['M', 'Last 30 days.'],
+      ['6M', 'Last 6 months, grouped by week.'],
+      ['Y', 'Last 12 months, grouped by month.'],
+      ['W', 'Last 7 days.'],
+    ];
+    for (const [value, copy] of ranges) {
+      await page.locator(`#steps-trend-range button[data-value="${value}"]`).click();
+      await expect(page.locator('#steps-trend-range-copy')).toHaveText(copy);
+      await expect(page.locator(`#steps-trend-range button[data-value="${value}"]`)).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    }
+  });
+
+  test('the 6-month and 1-year ranges bucket real daily entries into week/month averages, not raw daily bars', async ({
+    page,
+  }) => {
+    await page.evaluate(async () => {
+      const { setStepsForDate } = await import('/js/db/repositories/steps.js');
+      const today = new Date();
+      // Sunday and the following Monday of the same real week, months
+      // back — guaranteed to land in one Sunday-start bucket regardless
+      // of which weekday "100 days ago" happens to be, so the average
+      // below is deterministic. A second, separate week (30 days later)
+      // gets its own single logged day, so the chart has two real
+      // buckets total — a lone averaged bucket would be only one point,
+      // and the trend chart's own honest "not enough to show a trend"
+      // empty state only ever renders with fewer than two.
+      const sunday = new Date(today);
+      sunday.setDate(sunday.getDate() - 100);
+      sunday.setDate(sunday.getDate() - sunday.getDay());
+      const monday = new Date(sunday);
+      monday.setDate(sunday.getDate() + 1);
+      const otherWeek = new Date(sunday);
+      otherWeek.setDate(sunday.getDate() + 30);
+      await setStepsForDate(4000, sunday.toISOString().slice(0, 10));
+      await setStepsForDate(6000, monday.toISOString().slice(0, 10));
+      await setStepsForDate(3000, otherWeek.toISOString().slice(0, 10));
+    });
+    await page.locator('#btn-steps-back').click();
+    await page.getByRole('button', { name: 'Steps' }).click();
+
+    await page.locator('#steps-trend-range button[data-value="6M"]').click();
+    // The first pair averages (4000 + 6000) / 2 = 5000 into one real
+    // week bucket, labeled as a real span — never presented as if it
+    // were a single day's raw count.
+    const bars = page.locator('#steps-trend-chart .trend-chart-bar');
+    await expect(bars.first()).toBeVisible();
+    await expect(bars).toHaveCount(2);
+    const labels = await bars.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
+    const averagedBarLabel = labels.find((label) => label?.includes('5,000 steps/day avg'));
+    expect(averagedBarLabel).toContain('Week of');
+  });
+
   test('the screen reacts to tilt, same spatial language as the Hub', async ({ page }) => {
     await page.mouse.move(400, 60);
     await page.waitForTimeout(500);

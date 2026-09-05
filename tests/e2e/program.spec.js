@@ -202,6 +202,97 @@ test.describe('my program', () => {
     await expect(page.locator(`#program-duration-${dayIndex}-plank`)).toHaveValue('');
   });
 
+  test('logging a set starts a real inline rest countdown matching the exercise\'s own prescribed rest', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const restSec = await logButton.getAttribute('data-rest-sec');
+    expect(Number(restSec)).toBeGreaterThan(0);
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    const restRow = page.locator(`#program-rest-row-${dayIndex}-dumbbell-bench-press`);
+    const restDisplay = page.locator(`#program-rest-display-${dayIndex}-dumbbell-bench-press`);
+
+    await expect(restRow).toBeHidden();
+
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+
+    // Starts at (within a couple of real seconds of) the exact number
+    // already printed next to the Log button — no separate trip to set it
+    // by hand. Parses the same mm:ss shape js/lib/timer.js's own
+    // formatDuration produces, rather than matching one exact tick, so a
+    // slow CI worker between the click and this assertion can't flake it.
+    await expect(restRow).toBeVisible();
+    const parseMmSs = (text) => {
+      const [minutes, seconds] = text.split(':').map(Number);
+      return minutes * 60 + seconds;
+    };
+    const initialRemaining = parseMmSs(await restDisplay.textContent());
+    expect(initialRemaining).toBeLessThanOrEqual(Number(restSec));
+    expect(initialRemaining).toBeGreaterThan(Number(restSec) - 3);
+
+    // It's a real countdown, not a static label.
+    const firstReading = await restDisplay.textContent();
+    await expect.poll(async () => restDisplay.textContent()).not.toBe(firstReading);
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('Skip immediately dismisses the rest countdown', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+
+    const restRow = page.locator(`#program-rest-row-${dayIndex}-dumbbell-bench-press`);
+    await expect(restRow).toBeVisible();
+    await restRow.locator('[data-skip-rest]').click();
+    await expect(restRow).toBeHidden();
+  });
+
+  test('only one rest countdown shows at a time — logging a different exercise\'s set replaces it', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const firstLogButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const firstDayIndex = await firstLogButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${firstDayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${firstDayIndex}-dumbbell-bench-press`).fill('40');
+    await firstLogButton.click();
+
+    const firstRestRow = page.locator(`#program-rest-row-${firstDayIndex}-dumbbell-bench-press`);
+    await expect(firstRestRow).toBeVisible();
+
+    const secondLogButton = page.locator('button[data-log-set]').nth(1);
+    const secondDayIndex = await secondLogButton.getAttribute('data-day-index');
+    const secondExerciseId = await secondLogButton.getAttribute('data-exercise-id');
+    const secondMetric = await secondLogButton.getAttribute('data-log-metric');
+    if (secondMetric === 'reps-weight') {
+      await page.locator(`#program-reps-${secondDayIndex}-${secondExerciseId}`).fill('8');
+      await page.locator(`#program-weight-${secondDayIndex}-${secondExerciseId}`).fill('20');
+    } else if (secondMetric === 'time') {
+      await page.locator(`#program-duration-${secondDayIndex}-${secondExerciseId}`).fill('20');
+    } else {
+      await page.locator(`#program-reps-${secondDayIndex}-${secondExerciseId}`).fill('12');
+    }
+    await secondLogButton.click();
+
+    await expect(firstRestRow).toBeHidden();
+    await expect(page.locator(`#program-rest-row-${secondDayIndex}-${secondExerciseId}`)).toBeVisible();
+  });
+
   test('with no readiness check-in logged today, the readiness banner stays hidden', async ({ page }) => {
     await completeOnboarding(page, { goal: 'build-muscle' });
     await page.getByRole('button', { name: 'My Program' }).click();

@@ -535,8 +535,14 @@ trigger the "Change Goal" re-planning Programs already owns. Sleep's own
 it looked tappable but wasn't, with the actual door to Insights hiding
 in a small header icon beside it; it's now a genuine button sharing that
 same handler, styled with the app's own established `.tilt-card`/
-`.tilt-press` press-affordance rather than a bespoke hover state.
-803 Vitest unit tests and 525 Playwright end-to-end tests
+`.tilt-press` press-affordance rather than a bespoke hover state. The
+**Rest Timer** (see "Tailored programs + periodization" above) got its
+real justification next — every generated exercise already prescribed
+its own rest and printed the number, but logging a set never did
+anything with it; it now starts that exact countdown inline, in place,
+reusing the same timer/audio primitives the standalone screen (kept for
+everything a program doesn't prescribe a number for) already had.
+803 Vitest unit tests and 528 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1485,7 +1491,11 @@ The Rest Timer (a new home-dashboard card) is the first thing built on
 top of this — presets or a custom duration, start/pause/reset, and a
 synthesized completion beep (`js/lib/audio-cue.js`, Web Audio, no audio
 file) plus best-effort device vibration, both wrapped so a missing or
-blocked API never throws.
+blocked API never throws. It's still there, reachable from the Fitness
+Toolkit home list, for anything a real program doesn't already prescribe
+a number for — but see "Tailored programs + periodization" below for
+where the actual rest-timing need in a tracked workout turned out to
+live, and why a bare standalone timer wasn't the redesign.
 
 ## Tailored programs + periodization
 
@@ -1516,6 +1526,26 @@ them. The Programs screen (`js/features/programs/program-view.js`)
 renders a different prescription line and log form per `logMetric`
 rather than the same reps+kg pair regardless of what the exercise
 actually is.
+
+**Logging a set now actually starts the rest it just prescribed —
+the Rest Timer's real justification.** Every generated exercise already
+printed its own prescribed rest right next to the Log button (`rest
+90s`, `rest 180s`, ...) — but that number went nowhere. Resting for the
+right amount of time meant remembering it and leaving the program screen
+entirely for the standalone Rest Timer (see "Wall-clock timers, real
+audio/vibration cues" above), typing that same number back in by hand.
+Tapping Log now starts a real countdown inline, right under that same
+exercise, pre-set to its own `restSec` with zero extra taps —
+`program-view.js`'s `startInlineRestTimer` reuses the exact same
+`createCountdown`/`formatDuration` (`js/lib/timer.js`) and completion
+beep/vibrate (`js/lib/audio-cue.js`) the standalone screen already used,
+not a second implementation. Only one shows at a time — a real lifter
+rests from one lift before starting the next, not several at once — so
+logging a different exercise's set replaces whichever countdown was
+already showing rather than stacking a second one. The standalone Rest
+Timer stays, deliberately, for what a generated program's own prescription
+can't cover: an ad hoc rest outside a tracked session, or a custom
+duration.
 
 `js/features/programs/periodization.js` is a standard 4-week mesocycle:
 three weeks of progressive load, then a deload week at reduced volume.

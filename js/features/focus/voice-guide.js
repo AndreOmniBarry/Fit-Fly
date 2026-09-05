@@ -7,6 +7,20 @@
 // blocked implementation degrades to silence, never a thrown error — the
 // on-screen caption (see guided-session-view.ts) carries the session
 // either way, so voice guidance is a real enhancement, not a dependency.
+//
+// A second, optional engine sits behind the same speak()/stopSpeaking()
+// surface: Kokoro-82M, a real neural TTS model run on-device (see
+// kokoro-voice.ts for what that actually costs and why it's opt-in).
+// Selecting it is a Settings-screen decision (settings-view.ts) persisted
+// via getPref/setPref; everything below still ends up calling this
+// module's own speak()/stopSpeaking(), so guided-session-view.ts and
+// every other caller never needs to know which engine actually spoke.
+import { getPref } from '../../lib/storage.js';
+import { didKokoroLoadFail, ensureKokoroLoaded, getSavedKokoroVoice, isKokoroReady, speakWithKokoro, stopKokoroSpeaking, } from './kokoro-voice.js';
+export const VOICE_ENGINE_PREF_KEY = 'voice-engine';
+export function getVoiceEngine() {
+    return getPref(VOICE_ENGINE_PREF_KEY) === 'kokoro' ? 'kokoro' : 'system';
+}
 function getSpeechSynthesis() {
     return typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 }
@@ -81,7 +95,7 @@ let chainToken = 0;
  *  a short breath-length pause between them, is a genuine cadence
  *  improvement available from the free on-device API — not a different
  *  engine, just not asking one flat utterance to do a sentence's job. */
-export function speak(text, { rate = 0.92, pitch = 1 } = {}) {
+function speakWithSystemVoice(text, { rate = 0.92, pitch = 1 } = {}) {
     try {
         const synth = getSpeechSynthesis();
         if (!synth)
@@ -115,6 +129,31 @@ export function speak(text, { rate = 0.92, pitch = 1 } = {}) {
         // best-effort only — see module doc comment
     }
 }
+/** Speaks one line, on whichever engine Settings has picked (see
+ *  getVoiceEngine()). Kokoro needs its model already loaded to speak
+ *  synchronously the way this API's callers (guided-session-view.ts)
+ *  expect — a guided-breathing beat can't wait seconds mid-cue for a
+ *  cold model load — so a call that lands before Settings' own
+ *  ensureKokoroLoaded() has finished honestly falls back to the system
+ *  voice for *this* line rather than staying silent, while kicking off
+ *  the load in the background so the next line has a real chance of
+ *  using it. A load that has genuinely failed (cache cleared, offline)
+ *  isn't retried on every single line — see didKokoroLoadFail(). */
+export function speak(text, { rate = 0.92, pitch = 1, kokoroVoice } = {}) {
+    if (getVoiceEngine() === 'kokoro') {
+        if (isKokoroReady()) {
+            void speakWithKokoro(text, { voice: kokoroVoice ?? getSavedKokoroVoice(), speed: rate }).catch(() => {
+                // A load that was ready a moment ago can still fail mid-generation
+                // (e.g. the tab reclaimed memory) — fall back rather than go silent.
+                speakWithSystemVoice(text, { rate, pitch });
+            });
+            return;
+        }
+        if (!didKokoroLoadFail())
+            void ensureKokoroLoaded();
+    }
+    speakWithSystemVoice(text, { rate, pitch });
+}
 export function stopSpeaking() {
     try {
         chainToken++; // invalidate any in-flight clause chain before cancel() fires its own event
@@ -123,5 +162,6 @@ export function stopSpeaking() {
     catch {
         // best-effort only
     }
+    stopKokoroSpeaking();
 }
 //# sourceMappingURL=voice-guide.js.map

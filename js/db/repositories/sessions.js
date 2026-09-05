@@ -52,6 +52,14 @@ export async function listSessionsByType(type, db = getDb()) {
   return db.sessions.where('type').equals(type).sortBy('startedAt');
 }
 
+/** Every session logged against one program — the basis for Programs'
+ *  own calendar view (js/features/programs/program-calendar.js): which
+ *  real calendar days had activity, and how this week's count compares
+ *  to the program's own weekly training-day target. */
+export async function listSessionsForProgram(programId, db = getDb()) {
+  return db.sessions.where('programId').equals(programId).sortBy('startedAt');
+}
+
 export async function listRecentSessions(limit = 20, db = getDb()) {
   return db.sessions.orderBy('startedAt').reverse().limit(limit).toArray();
 }

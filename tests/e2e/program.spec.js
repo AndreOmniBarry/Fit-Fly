@@ -293,6 +293,100 @@ test.describe('my program', () => {
     await expect(page.locator(`#program-rest-row-${secondDayIndex}-${secondExerciseId}`)).toBeVisible();
   });
 
+  test('this week\'s progress starts honestly at zero and updates live as sets are logged', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' }); // hypertrophy: 4 real training days/week
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await expect(page.locator('#program-week-progress-text')).toHaveText('0 of 4 sessions this week');
+    await expect(page.locator('#program-week-progress-fill')).toHaveJSProperty('style.width', '0%');
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+
+    // One real day logged, regardless of how many individual sets that
+    // day ends up with — this is a days-with-a-session count, not a set
+    // count.
+    await expect(page.locator('#program-week-progress-text')).toHaveText('1 of 4 sessions this week');
+    await expect(page.locator('#program-week-progress-fill')).toHaveJSProperty('style.width', '25%');
+
+    const secondLogButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const secondDayIndex = await secondLogButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${secondDayIndex}-dumbbell-bench-press`).fill('6');
+    await page.locator(`#program-weight-${secondDayIndex}-dumbbell-bench-press`).fill('42');
+    await secondLogButton.click();
+    await expect(page.locator('#program-week-progress-text')).toHaveText('1 of 4 sessions this week');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('the calendar shows today marked once a session is logged, with a real detail list on tap', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    // Before logging anything, the calendar has no logged days at all.
+    await page.locator('#btn-program-calendar').click();
+    await expect(page.getByRole('heading', { name: 'Calendar' })).toBeVisible();
+    await expect(page.locator('.program-calendar-day--logged')).toHaveCount(0);
+    await page.locator('#btn-program-calendar-back').click();
+    await expect(page.getByRole('heading', { name: 'My Program' })).toBeVisible();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="push-up"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-push-up`).fill('12');
+    await logButton.click();
+
+    await page.locator('#btn-program-calendar').click();
+    const todayCell = page.locator('.program-calendar-day--today');
+    await expect(todayCell).toHaveClass(/program-calendar-day--logged/);
+    await expect(page.locator('.program-calendar-day--logged')).toHaveCount(1);
+
+    await todayCell.click();
+    await expect(page.locator('#program-calendar-day-detail')).toBeVisible();
+    await expect(page.locator('#program-calendar-day-detail-list')).toContainText('Push-Up — 1 set');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('an empty calendar day is inert — nothing real to show, so it isn\'t tappable', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await page.locator('#btn-program-calendar').click();
+
+    const todayCell = page.locator('.program-calendar-day--today');
+    await expect(todayCell).toBeDisabled();
+    await expect(page.locator('#program-calendar-day-detail')).toBeHidden();
+  });
+
+  test('calendar month navigation moves the label back and forward', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await page.locator('#btn-program-calendar').click();
+    await expect(page.getByRole('heading', { name: 'Calendar' })).toBeVisible();
+
+    const monthLabel = await page.locator('#program-calendar-month-label').textContent();
+    await page.locator('#btn-program-calendar-prev-month').click();
+    await expect(page.locator('#program-calendar-month-label')).not.toHaveText(monthLabel);
+    await page.locator('#btn-program-calendar-next-month').click();
+    await expect(page.locator('#program-calendar-month-label')).toHaveText(monthLabel);
+  });
+
   test('with no readiness check-in logged today, the readiness banner stays hidden', async ({ page }) => {
     await completeOnboarding(page, { goal: 'build-muscle' });
     await page.getByRole('button', { name: 'My Program' }).click();

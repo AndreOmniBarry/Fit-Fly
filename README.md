@@ -550,7 +550,13 @@ Hydration's own trend charts then picked up a real **D/W/M/6M/Y time-
 range switcher** (see "A shared trend chart" above) in place of a
 hardcoded, unlabeled 14-day window, with longer ranges honestly bucketed
 into week/month averages rather than an unreadable wall of daily bars.
-834 Vitest unit tests and 538 Playwright end-to-end tests
+Hearing then grew from a single spot check into a real **ambient
+monitor** (a NIOSH-formula noise dose, spike detection, and an
+exposure-over-time chart, all foreground-only and consent-gated) plus a
+real **pure-tone screening test** (see "Hearing health" above) — both
+explicit about being screening tools built on an uncalibrated
+microphone/speaker, never a diagnostic instrument.
+884 Vitest unit tests and 283 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -2418,6 +2424,92 @@ single quiet reading can hide a loud one behind — a real count of how
 many check-ins this week actually crossed a real exposure-risk
 threshold (`very-loud` or worse), not just a number that got averaged
 away. It's the grid's 10th tile.
+
+### Ambient monitor: a real noise dose, not just a spot check
+
+A 5-second check-in is honest, but it's a snapshot — it says nothing
+about a whole loud commute or a whole evening at a show. **Monitor**
+mode (a second tab on the same Hearing screen) is the real,
+consent-gated answer: `noise-monitor.js` keeps the same
+getUserMedia → AnalyserNode pipeline the check-in uses running for as
+long as the screen stays open, continuously integrating real RMS
+readings and reporting one genuine **Leq per interval** (10s by
+default) — not a single instantaneous snapshot every interval, which
+would genuinely miss a spike that happens between ticks.
+
+**A real NIOSH noise dose, not an invented number.**
+`noise-dose.js`'s `permissibleExposureHours` is NIOSH's own 3 dB
+exchange-rate formula (the same table `noise-level.js`'s category
+thresholds already cite), and `calculateNoiseDosePercent` sums real
+`duration ÷ permissible-time` across every real segment between
+samples — 100% means a full day's real allowance is used, 200% means
+double, and it's never capped or rounded away for a short session (a
+genuine 10-second segment at a dangerously loud level is a genuinely
+tiny real fraction of a day's dose, and stays one). `doseToTwa` derives
+the equivalent constant "time-weighted average" level for the session,
+solved directly from the same permissible-exposure formula rather than
+a separately-quoted constant that could drift out of sync with it —
+it reduces to NIOSH's own commonly published `85 + 10·log₁₀(D/100)`
+TWA formula exactly when a session happens to span the full 8-hour
+criterion period.
+
+**Real spike detection**, not calibrated impulse-noise measurement (a
+browser has no fast-time-constant peak-SPL meter to offer): `detectNoiseSpikes`
+flags any sample that jumped 15 dB or more over the one right before
+it — a real, honest "something sudden happened here" signal, framed as
+exactly that rather than a clinical claim.
+
+**Exposure over time, using the same real range switcher Steps and
+Hydration already ship.** `hearing-exposure.js` sums real dose across
+every session on the same real calendar day (NIOSH dose is additive
+within a day — two sessions genuinely combine), then feeds that
+through `js/lib/time-range.js`'s own D/W/M/6M/Y bucketing (see "Steps +
+Hydration" below) to show a real average-dose-per-day trend.
+
+**Still, and always, foreground-only.** A browser tab has no way to
+keep a microphone stream open once it's backgrounded or the screen
+locks — the same platform limit Steps' own web pedometer has, and the
+in-app copy says so rather than implying this works like a wearable's
+always-on background sensor. A native Capacitor build could add a real
+foreground-service-backed background listening mode the same way it
+already adds background step counting — a genuinely different
+capability, not something to fake here.
+
+### A real pure-tone hearing screening test
+
+Environmental monitoring answers "how loud is it around me" — it says
+nothing about whether hearing itself is changing. `pure-tone-test.js`
+adds a real, honestly-scoped screening test: a single ascending
+staircase (start quiet, step up until a tone is heard) at each of six
+standard audiometric frequencies (250 Hz–8 kHz — the same range
+high-frequency noise-induced and age-related hearing loss shows up in
+first), tested in each ear separately via real stereo panning
+(`pure-tone-generator.js`'s Web Audio oscillator).
+
+**What this genuinely is, stated as plainly in the UI as in this
+README: a relative, same-device screening estimate, never a calibrated
+audiogram.** A browser has no way to read or calibrate a speaker or
+headphone's real acoustic output level, so every "threshold" is a gain
+fraction (0–1, this device's own output range) — never a dB HL
+(hearing level) figure, which only means anything against a clinically
+calibrated reference. Comparing frequencies against each other *within
+one test*, and against *this same device's own past tests*, are both
+real, valid signals even without calibration; comparing to some
+absolute "normal hearing" number would not be, and this feature never
+attempts it.
+
+- `flagElevatedThresholds` — a same-test relative comparison: which
+  frequencies needed notably more gain than this person's own best
+  frequency today.
+- `notDetectedResults` — deliberately kept separate, never merged into
+  the milder "elevated" language: a frequency never heard even at this
+  device's maximum output is the single most notable result a
+  screening test like this can produce, surfaced per-ear (asymmetry
+  between ears is itself a real, meaningful signal).
+- `compareThresholdChange` — the real early-detection value of testing
+  more than once: hearing loss develops gradually, so a real
+  *worsening* against a person's own prior test on the same device
+  matters more than any single test's own absolute numbers.
 
 ## Active Energy
 

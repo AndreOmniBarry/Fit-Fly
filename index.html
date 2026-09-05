@@ -1234,9 +1234,19 @@
     <div class="row-between">
       <button class="miniapp-icon-btn" id="btn-hearing-back" aria-label="Back to your apps">←</button>
       <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Hearing</span>
-      <span style="width:36px;"></span>
+      <button class="miniapp-icon-btn" id="btn-hearing-test-entry" aria-label="Hearing screening test"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-check"></use></svg></button>
     </div>
 
+    <!-- Check-in (a single 5s spot reading) vs. Monitor (real periodic
+         readings for as long as this screen stays open, with a running
+         NIOSH noise dose + spike detection) — two different real jobs,
+         not two skins on the same data. -->
+    <div class="chip-group" id="hearing-mode-toggle" role="group" aria-label="Hearing mode" style="margin-top:var(--space-4);">
+      <button type="button" class="chip" data-value="checkin" aria-pressed="true">Check-in</button>
+      <button type="button" class="chip" data-value="monitor" aria-pressed="false">Monitor</button>
+    </div>
+
+    <div id="hearing-checkin-mode">
     <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Sound level check-in</h2>
     <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">
       A 5-second read from your phone's own microphone — an estimate, not a calibrated meter.
@@ -1302,6 +1312,145 @@
       <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       Your phone's microphone isn't a calibrated sound level meter — every reading here is a real signal-processing estimate, useful for spotting patterns (a consistently loud commute, a loud show), not for precise occupational compliance measurement. Exposure guidance shown is real published NIOSH/WHO reference figures, not a diagnosis.
     </p>
+    </div>
+
+    <!-- Monitor: real periodic samples for as long as this screen stays
+         open, feeding a real NIOSH noise dose + spike detection instead
+         of one spot reading. Still entirely foreground-only — a browser
+         tab can't listen once it's backgrounded or the screen locks
+         (see js/features/hearing/noise-monitor.js's own comment); the
+         footer note below says so honestly rather than implying this
+         works like a wearable's always-on background sensor. -->
+    <div id="hearing-monitor-mode" hidden>
+      <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Ambient monitor</h2>
+      <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">
+        Real periodic readings while this screen stays open — a running noise dose against NIOSH's own 8-hour exposure standard, plus sudden-spike detection.
+      </p>
+
+      <div class="safety-flag" id="hearing-monitor-error" style="margin-top:var(--space-4);" hidden>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+        <p id="hearing-monitor-error-text"></p>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
+        <span class="tilt-press stack">
+          <div id="hearing-monitor-idle" class="stack">
+            <p class="muted" style="font-size:var(--fs-sm); margin:0;">
+              Keep this open while you're out and about — a commute, a show. Stops the moment you leave this screen or your phone locks.
+            </p>
+            <button class="btn btn-secondary btn-block" id="btn-hearing-monitor-start">Start Monitoring</button>
+          </div>
+          <div id="hearing-monitor-active" class="stack" hidden>
+            <div class="row-between">
+              <span class="muted" style="font-size:var(--fs-sm);">Monitoring</span>
+              <strong id="hearing-monitor-elapsed">0:00</strong>
+            </div>
+            <div class="row" style="align-items:baseline; gap:var(--space-2);">
+              <strong style="font-size:var(--fs-xl);" id="hearing-monitor-live-db">— dB</strong>
+              <span class="data-badge estimated">estimated</span>
+            </div>
+            <p class="muted" id="hearing-monitor-live-label" style="font-size:var(--fs-sm); margin:0;"></p>
+            <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
+              <span>Dose so far: <strong id="hearing-monitor-dose">0%</strong></span>
+              <span>Spikes: <strong id="hearing-monitor-spikes">0</strong></span>
+            </div>
+            <button class="btn btn-primary btn-block" id="btn-hearing-monitor-stop">Stop Monitoring</button>
+          </div>
+          <div id="hearing-monitor-summary" class="stack" hidden>
+            <h3 style="margin:0;">Session summary</h3>
+            <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
+              <span>Duration: <strong id="hearing-monitor-summary-duration">—</strong></span>
+              <span>Equivalent level: <strong id="hearing-monitor-summary-twa">—</strong></span>
+            </div>
+            <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
+              <span>Dose used: <strong id="hearing-monitor-summary-dose">—</strong></span>
+              <span>Spikes: <strong id="hearing-monitor-summary-spikes">—</strong></span>
+            </div>
+            <div id="hearing-monitor-summary-chart"></div>
+            <button class="btn btn-ghost btn-block" id="btn-hearing-monitor-done">Done</button>
+          </div>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="hearing-exposure-card" style="margin-top:var(--space-4);" hidden>
+        <span class="tilt-press stack">
+          <h3 style="margin:0;">Exposure over time</h3>
+          <div class="chip-group" id="hearing-exposure-range" role="group" aria-label="Exposure time range">
+            <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+            <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+            <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+            <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+          </div>
+          <p class="muted" id="hearing-exposure-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
+          <div id="hearing-exposure-chart"></div>
+        </span>
+      </div>
+
+      <p class="safety-flag" style="margin-top:var(--space-4);">
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+        Still your phone's own uncalibrated microphone — dose and equivalent-level figures are real NIOSH-formula math applied to an estimate, useful for spotting real patterns, not for occupational compliance measurement. And still foreground-only: this can't listen with the screen locked or the app closed, the same limit Steps' own web pedometer has (a native app build can add a real background-listening mode the same way it adds background step counting).
+      </p>
+    </div>
+  </section>
+
+  <!-- HEARING: SCREENING TEST — a real pure-tone ascending-threshold
+       test (js/features/hearing/pure-tone-test.js), one frequency/ear at
+       a time. Explicitly a screening tool: a browser can't calibrate a
+       speaker/headphone's real output level, so every threshold is
+       relative (this test's own frequencies against each other, this
+       device's own past tests against today) — never a clinical dB HL
+       figure, and the copy throughout says so. -->
+  <section class="screen miniapp-night theme-hearing" id="screen-hearing-test" hidden>
+    <div class="row-between">
+      <button class="miniapp-icon-btn" id="btn-hearing-test-back" aria-label="Back">←</button>
+      <span class="muted" style="font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;">Hearing Test</span>
+      <span style="width:36px;"></span>
+    </div>
+
+    <div id="hearing-test-intro">
+      <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Hearing screening</h2>
+      <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;">
+        A quick pure-tone check, one ear at a time. Headphones on, a quiet room, and a comfortable volume make the biggest difference to a useful result.
+      </p>
+      <p class="safety-flag" style="margin-top:var(--space-4);">
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+        This is a screening tool, not a diagnostic hearing test, and never a substitute for a real audiologist. A browser has no way to calibrate a speaker or headphone's real output level, so results only ever compare frequencies against each other in this same test, and this same device's past tests against today — never a clinical decibel hearing-level figure.
+      </p>
+      <button class="miniapp-cta" id="btn-hearing-test-start" style="margin-top:var(--space-4);">Start Test</button>
+      <div id="hearing-test-no-history" class="stack" style="margin-top:var(--space-4);"></div>
+    </div>
+
+    <div id="hearing-test-running" class="stack" hidden style="align-items:center; margin:auto; text-align:center; gap:var(--space-3);">
+      <p class="muted" id="hearing-test-progress-label" style="font-size:var(--fs-sm); margin:0;">Left ear · Tone 1 of 6</p>
+      <span class="fitness-row-icon" aria-hidden="true" style="width:64px; height:64px;"><svg class="icon" width="32" height="32" viewBox="0 0 24 24"><use href="#icon-ear"></use></svg></span>
+      <p style="margin:0;">Tap the moment you hear a tone.</p>
+      <button class="miniapp-cta" id="btn-hearing-test-heard">I Hear It</button>
+    </div>
+
+    <div id="hearing-test-results" class="stack" hidden>
+      <h2 class="display" style="font-size:22px; margin-top:var(--space-4);">Your results</h2>
+      <div class="safety-flag" id="hearing-test-elevated-flag" hidden>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+        <p id="hearing-test-elevated-text"></p>
+      </div>
+      <div class="safety-flag" id="hearing-test-change-flag" hidden>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
+        <p id="hearing-test-change-text"></p>
+      </div>
+      <div class="card stack tilt-card tilt-enter">
+        <span class="tilt-press stack">
+          <h3 style="margin:0;">Left ear</h3>
+          <div id="hearing-test-chart-left"></div>
+        </span>
+      </div>
+      <div class="card stack tilt-card tilt-enter">
+        <span class="tilt-press stack">
+          <h3 style="margin:0;">Right ear</h3>
+          <div id="hearing-test-chart-right"></div>
+        </span>
+      </div>
+      <button class="btn btn-ghost btn-block" id="btn-hearing-test-done">Done</button>
+    </div>
   </section>
 
   <!-- STEPS: a real, live-counted walk (Generic Sensor API motion

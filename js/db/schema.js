@@ -430,4 +430,43 @@ export function defineSchema(db) {
     pregnancySetup: 'id',
     pregnancyLogs: 'date, updatedAt',
   });
+
+  // v17 — Hearing: a real "Monitor" session (periodic real mic samples
+  // while the screen stays open, consented once per session, distinct
+  // from noiseCheckIns' single-shot 5s check-in) plus real pure-tone
+  // screening test results. noiseMonitorSamples is keyed the same way
+  // sessions/sets already are (samples belong to a session by id) so a
+  // session's own exposure dose/spike analysis can be recomputed from
+  // its real raw readings at any time, not just a cached summary.
+  db.version(17).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+
+    noiseMonitorSessions: 'id, startedAt',
+    noiseMonitorSamples: '++id, sessionId, recordedAt',
+    hearingScreeningTests: 'id, completedAt',
+  });
 }

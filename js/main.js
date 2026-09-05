@@ -22,6 +22,7 @@ import { initStepsFeature } from './features/steps/steps-view.js';
 import { initHydrationFeature } from './features/hydration/hydration-view.js';
 import { initBadgesFeature } from './features/badges/badges-view.js';
 import { initHearingFeature } from './features/hearing/hearing-view.js';
+import { initHearingTestFeature } from './features/hearing/hearing-test-view.js';
 import { initActiveEnergyFeature } from './features/activity/active-energy-view.js';
 import { initSettingsFeature } from './features/settings/settings-view.js';
 import { seedExerciseLibrary } from './features/exercises/seed.js';
@@ -88,6 +89,7 @@ async function init() {
   initHydrationFeature();
   initBadgesFeature();
   initHearingFeature();
+  initHearingTestFeature();
   initActiveEnergyFeature();
   initSettingsFeature();
 

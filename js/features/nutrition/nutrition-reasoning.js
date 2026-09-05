@@ -3,7 +3,7 @@
 // program-generator.js's own reasoning array), applied here so a target
 // never reads as a black-box number with nothing behind it.
 
-import { formatCategoryLabel } from '../onboarding/wizard.js';
+import { formatCategoryLabel } from '../onboarding/category-label.js';
 
 const CATEGORY_CALORIE_REASONING = Object.freeze({
   'sedentary-start':

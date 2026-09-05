@@ -5,7 +5,7 @@ import { animateCountUp } from '../../lib/count-up.js';
 import { createStopwatch, formatDuration } from '../../lib/timer.js';
 import { requestWakeLock, releaseWakeLock } from '../../lib/wake-lock.js';
 import { primeAudio, playSplitCue, vibrateDevice } from '../../lib/audio-cue.js';
-import { isNativeRuntime } from '../../lib/native-runtime.js';
+import { backgroundTrackingNote } from './background-tracking-note.js';
 import { calculatePaceSecPerKm, filterAccuratePoints, recentPaceSecPerKm, totalRouteDistanceMeters } from './gps-math.js';
 import { computeSplits } from './splits.js';
 import {
@@ -48,21 +48,6 @@ async function refreshRunTile() {
 // that it actually reacts within the run instead of just re-deriving the
 // whole-run average.
 const LIVE_PACE_WINDOW_MS = 30000;
-
-// The web platform's real limit here — no service worker keeps a GPS
-// watch alive once the app isn't the foregrounded, active tab, so
-// tracking needs the screen open and awake (see js/lib/wake-lock.js).
-// Once this project is wrapped with Capacitor, a real native background-
-// geolocation plugin removes that limit — js/lib/native-runtime.js's
-// isNativeRuntime() is the seam that becomes true then, with no code
-// change needed here beyond this message. Provably false in every
-// browser context today, same contract as every other feature-detected
-// API in this app.
-function backgroundTrackingNote() {
-  return isNativeRuntime()
-    ? 'This device tracks your run in the background — you can lock the screen or switch apps.'
-    : "Keep this screen open and awake while you run — a web app can't track your route once the screen locks or you switch apps.";
-}
 
 /** Renders a splits list into `container` — shared by the live screen,
  *  the summary, and history, so the three don't drift out of sync with

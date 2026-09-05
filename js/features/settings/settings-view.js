@@ -7,6 +7,7 @@
 // "forgot PIN" reset already uses.
 import { showScreen } from '../../lib/router.js';
 import { exportBackup, importBackup } from '../../db/backup.js';
+import { countRows, todayFilenameStamp } from './backup-summary.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '../../lib/units.js';
 import { calculateAge } from '../onboarding/age.js';
@@ -22,12 +23,6 @@ function byId(id) {
 }
 function showError(id, show) {
     byId(id).hidden = !show;
-}
-function todayFilenameStamp() {
-    return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-}
-function countRows(backup) {
-    return Object.values(backup.tables).reduce((sum, rows) => sum + rows.length, 0);
 }
 export function initSettingsFeature() {
     let pendingImport = null;

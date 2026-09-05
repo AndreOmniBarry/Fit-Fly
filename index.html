@@ -1650,30 +1650,67 @@
       Tap a real serving size to log a drink, or add your own amount.
     </p>
 
-    <div class="hydration-figure tilt-enter" style="margin-top:var(--space-4);">
+    <!-- A glass of water, not a body — the shape people actually
+         associate with "water I'm about to drink." Real bubbles rise
+         and pop right at the true waterline (clipped to the fill rect's
+         own live geometry via hydrationWaterClip, not the whole glass),
+         two independent wave layers never re-sync into one mechanical
+         loop, a ring pulses out from the real surface on every log, and
+         the fill itself brightens toward goal (see .hydration-figure's
+         data-level in mini-apps.css). All real data — the fill rect's
+         y/height and that data-level attribute — comes from
+         hydration-view.ts's renderFigure(); everything else here is
+         pure decoration. -->
+    <div class="hydration-figure tilt-enter" id="hydration-figure" style="margin-top:var(--space-4);">
       <svg viewBox="0 0 100 170" width="160" height="272" data-tilt-depth="1">
         <defs>
           <clipPath id="hydrationFigureClip">
-            <circle cx="50" cy="20" r="14"/>
-            <path d="M50 34 C36 34 27 43 26 57 C25 68 29 79 33 87 C27 99 25 116 30 132 C34 145 40 154 44 160 L56 160 C60 154 66 145 70 132 C75 116 73 99 67 87 C71 79 75 68 74 57 C73 43 64 34 50 34 Z"/>
+            <path d="M22,16 C22,14 24,13 27,13 L73,13 C76,13 78,14 78,16 L72,150 C71,156 66,160 58,160 L42,160 C34,160 29,156 28,150 Z"/>
+          </clipPath>
+          <clipPath id="hydrationWaterClip">
+            <use href="#hydration-water-fill"/>
           </clipPath>
           <linearGradient id="hydrationWaterGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="var(--hydration-accent-2)"/>
-            <stop offset="100%" stop-color="var(--hydration-accent)"/>
+            <stop offset="0%" stop-color="var(--hydration-fill-a)"/>
+            <stop offset="100%" stop-color="var(--hydration-fill-b)"/>
+          </linearGradient>
+          <linearGradient id="hydrationGlassSheen" x1="0" y1="0" x2="1" y2="0.3">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0.28"/>
+            <stop offset="30%" stop-color="#ffffff" stop-opacity="0"/>
           </linearGradient>
         </defs>
         <g class="hydration-figure-outline">
-          <circle cx="50" cy="20" r="14"/>
-          <path d="M50 34 C36 34 27 43 26 57 C25 68 29 79 33 87 C27 99 25 116 30 132 C34 145 40 154 44 160 L56 160 C60 154 66 145 70 132 C75 116 73 99 67 87 C71 79 75 68 74 57 C73 43 64 34 50 34 Z"/>
+          <path d="M22,16 C22,14 24,13 27,13 L73,13 C76,13 78,14 78,16 L72,150 C71,156 66,160 58,160 L42,160 C34,160 29,156 28,150 Z"/>
         </g>
+        <ellipse class="hydration-glass-rim" cx="50" cy="15" rx="27" ry="3.4"/>
         <g clip-path="url(#hydrationFigureClip)">
-          <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="170" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
-          <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(170px);">
-            <g class="hydration-wave-scroll">
-              <path d="M0 4 Q12.5 -3 25 4 T50 4 T75 4 T100 4 T125 4 T150 4 T175 4 T200 4 V16 H0 Z"/>
+          <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="160" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
+          <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(160px);">
+            <g class="hydration-wave-scroll hydration-wave-scroll--back">
+              <path d="M0 6 Q12.5 -4 25 6 T50 6 T75 6 T100 6 T125 6 T150 6 T175 6 T200 6 V16 H0 Z"/>
+            </g>
+            <g class="hydration-wave-scroll hydration-wave-scroll--front">
+              <path d="M0 3 Q10 -3.5 20 3 T40 3 T60 3 T80 3 T100 3 T120 3 T140 3 T160 3 T180 3 T200 3 V16 H0 Z"/>
             </g>
           </g>
+          <g clip-path="url(#hydrationWaterClip)">
+            <circle class="hydration-bubble" cx="36" cy="155" r="1.6"/>
+            <circle class="hydration-bubble" cx="47" cy="155" r="1.1"/>
+            <circle class="hydration-bubble" cx="55" cy="155" r="1.8"/>
+            <circle class="hydration-bubble" cx="62" cy="155" r="1.2"/>
+            <circle class="hydration-bubble" cx="41" cy="155" r="1.4"/>
+            <circle class="hydration-bubble" cx="58" cy="155" r="1.5"/>
+          </g>
+          <ellipse class="hydration-splash-ring" id="hydration-splash-ring" cx="50" cy="160" rx="0" ry="0"/>
+          <!-- A fixed sheen, independent of fill level — the one thing
+               that keeps this reading as a glass of liquid rather than a
+               solid color swatch once it's nearly full. -->
+          <rect x="0" y="0" width="100" height="170" fill="url(#hydrationGlassSheen)"/>
         </g>
+        <ellipse class="hydration-condensation" cx="77" cy="55" rx="1.1" ry="1.7"/>
+        <ellipse class="hydration-condensation" cx="75" cy="100" rx="1" ry="1.5"/>
+        <ellipse class="hydration-condensation" cx="23" cy="75" rx="1.2" ry="1.9"/>
+        <ellipse class="hydration-condensation" cx="24.5" cy="120" rx="1" ry="1.6"/>
       </svg>
       <div class="hydration-figure-value">
         <span class="amount"><span id="hydration-today-ml">0</span><span class="unit">ml</span></span>

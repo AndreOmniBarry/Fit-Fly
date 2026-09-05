@@ -545,8 +545,12 @@ everything a program doesn't prescribe a number for) already had. My
 Program then got a real month **calendar and weekly-progress stat** (see
 "Tailored programs + periodization" above) — a flat Day 1/2/3 list with
 no sense of what actually happened on which real date, and no way to
-answer "am I on track this week" without counting sets by hand.
-814 Vitest unit tests and 532 Playwright end-to-end tests
+answer "am I on track this week" without counting sets by hand. Steps and
+Hydration's own trend charts then picked up a real **D/W/M/6M/Y time-
+range switcher** (see "A shared trend chart" above) in place of a
+hardcoded, unlabeled 14-day window, with longer ranges honestly bucketed
+into week/month averages rather than an unreadable wall of daily bars.
+834 Vitest unit tests and 538 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1257,6 +1261,48 @@ each mini-app's own `-trend.js`) and Run's already-existing `longestRun`
 all follow this same rule, the one Run's live PR badge already set: a
 real record has to survive the person scrolling past the visible window,
 or it isn't really a record.
+
+**A real D/W/M/6M/Y time-range switcher, replacing what used to be a
+hardcoded, unlabeled 14-day window on Steps and Hydration's own trend
+charts.** `js/lib/time-range.ts` is the one shared primitive behind it —
+`timeRangeBounds` turns a range key into a real date window (and which
+granularity it should draw at), `bucketDailyPoints` groups already-per-
+day values into that granularity, and `timeRangeDescription` supplies the
+explanatory copy under the chip row (never a bare "6M" left for someone
+to guess the meaning of). Longer ranges bucket into coarser points on
+purpose — 365 individual daily bars would be unreadable in the same
+chart width a week's 7 bars already fill, and no real analytics app
+(Apple Health included) draws one bar per day past a month — so D/W/M
+stay daily, 6M buckets by week, and Y buckets by month, each bucket
+**averaging** its real logged days together (never summing, which would
+scale with how many days happen to be in the bucket, and never treating
+a day with no entry as a fabricated zero — an average is only ever over
+the days that actually have data, with `daysLogged` tracked precisely
+for that reason). Bucketed bars say so honestly, too: a week/month bar's
+tooltip reads "…/day avg" and names the real span it covers ("Week of
+Mar 15", not just its first day, and never mistaken for one day's raw
+count).
+
+**No "D" chip on either chart, for two different honest reasons.**
+Steps logs one total per day — its own finest grain — so a single day
+can never form a multi-point trend; the ring above the very same screen
+already *is* the "today" view. Hydration logs real per-drink timestamps
+and could technically chart a single day, but its own History list right
+below already shows exactly that (each drink, by real logged time) — a
+second bar-chart rendition of the identical numbers wouldn't add
+anything. `time-range.ts` still exports `'D'` as a valid range (a future
+per-log breakdown could use it), it's just not offered as a chip on
+either of these two.
+
+Run and the Cycle Tracker/Pregnancy weight trend deliberately keep their
+existing windows this round rather than adopting the same switcher: Run
+charts individual runs by count, not calendar days (a genuinely different
+axis a date-range switcher doesn't map onto cleanly), and Sleep/Heart
+Rate/Hearing each already have their own bespoke, differently-shaped
+chart (a per-night SVG line, a small readings-only bar strip, sparse
+spot-checks) that this round didn't rebuild. A real, separate scope
+decision, not an oversight — the shared primitive exists now for
+whichever of those a later round decides is worth adapting.
 
 ## Steps
 

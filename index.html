@@ -1358,12 +1358,26 @@
     <div class="steps-card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
       <span class="tilt-press stack">
         <div class="row-between">
-          <h3>14-Day Trend</h3>
+          <h3>Trend</h3>
           <span class="row" id="steps-best-day-badge" style="gap:6px; align-items:center; font-size:var(--fs-sm);" hidden>
             <svg class="icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
             <span id="steps-best-day-text"></span>
           </span>
         </div>
+        <!-- No "D" chip: one total per day is this data's own finest
+             grain, so a single day can never form a multi-point trend
+             (renderTrendChart's own empty state would show every single
+             time) — Steps' ring above this card already is the "today"
+             view. See js/lib/time-range.js's own comment on why D still
+             exists as a valid range there anyway (a future per-log
+             breakdown could use it). -->
+        <div class="chip-group" id="steps-trend-range" role="group" aria-label="Trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="steps-trend-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
         <div id="steps-trend-chart"></div>
       </span>
     </div>
@@ -1476,12 +1490,25 @@
     <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
       <span class="tilt-press stack">
         <div class="row-between">
-          <h3>14-Day Trend</h3>
+          <h3>Trend</h3>
           <span class="row" id="hydration-best-day-badge" style="gap:6px; align-items:center; font-size:var(--fs-sm);" hidden>
             <svg class="icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
             <span id="hydration-best-day-text"></span>
           </span>
         </div>
+        <!-- No "D" chip here either — but for a different reason than
+             Steps: today's own real per-drink breakdown already exists
+             and is already shown, just below (the History list, by real
+             logged time), so a second bar-chart rendition of the exact
+             same numbers wouldn't add anything a person can't already
+             see. -->
+        <div class="chip-group" id="hydration-trend-range" role="group" aria-label="Trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="hydration-trend-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
         <div id="hydration-trend-chart"></div>
       </span>
     </div>

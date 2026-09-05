@@ -163,6 +163,70 @@ test.describe('hydration', () => {
     await expect(page.locator('#hydration-best-day-text')).toContainText('4,000');
   });
 
+  test('the trend range defaults to a real 7-day week, with no "D" chip (today\'s own per-drink log already covers that)', async ({
+    page,
+  }) => {
+    await expect(page.locator('#hydration-trend-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#hydration-trend-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#hydration-trend-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('switching the trend range updates the explanatory copy for every real range', async ({ page }) => {
+    const ranges = [
+      ['M', 'Last 30 days.'],
+      ['6M', 'Last 6 months, grouped by week.'],
+      ['Y', 'Last 12 months, grouped by month.'],
+      ['W', 'Last 7 days.'],
+    ];
+    for (const [value, copy] of ranges) {
+      await page.locator(`#hydration-trend-range button[data-value="${value}"]`).click();
+      await expect(page.locator('#hydration-trend-range-copy')).toHaveText(copy);
+      await expect(page.locator(`#hydration-trend-range button[data-value="${value}"]`)).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    }
+  });
+
+  test('the 6-month and 1-year ranges bucket real daily totals into week/month averages, not raw daily bars', async ({
+    page,
+  }) => {
+    await page.evaluate(async () => {
+      const { addHydrationEntry } = await import('/js/db/repositories/hydration.js');
+      const today = new Date();
+      // Sunday and the following Monday of the same real week, months
+      // back — guaranteed to land in one Sunday-start bucket regardless
+      // of which weekday "100 days ago" happens to be. A second,
+      // separate week (30 days later) gets its own single logged day,
+      // so the chart has two real buckets total — a lone averaged
+      // bucket would be only one point, and the trend chart's own
+      // honest "not enough to show a trend" empty state only ever
+      // renders with fewer than two.
+      const sunday = new Date(today);
+      sunday.setDate(sunday.getDate() - 100);
+      sunday.setDate(sunday.getDate() - sunday.getDay());
+      const monday = new Date(sunday);
+      monday.setDate(sunday.getDate() + 1);
+      const otherWeek = new Date(sunday);
+      otherWeek.setDate(sunday.getDate() + 30);
+      await addHydrationEntry({ amountMl: 1000, date: sunday.toISOString().slice(0, 10) });
+      await addHydrationEntry({ amountMl: 2000, date: monday.toISOString().slice(0, 10) });
+      await addHydrationEntry({ amountMl: 500, date: otherWeek.toISOString().slice(0, 10) });
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Hydration' }).click();
+
+    await page.locator('#hydration-trend-range button[data-value="6M"]').click();
+    // The first pair averages (1000 + 2000) / 2 = 1500 into one real
+    // week bucket, labeled as a real span.
+    const bars = page.locator('#hydration-trend-chart .trend-chart-bar');
+    await expect(bars.first()).toBeVisible();
+    await expect(bars).toHaveCount(2);
+    const labels = await bars.evaluateAll((els) => els.map((el) => el.getAttribute('aria-label')));
+    const averagedBarLabel = labels.find((label) => label?.includes('1,500ml/day avg'));
+    expect(averagedBarLabel).toContain('Week of');
+  });
+
   test('the screen reacts to tilt, same spatial language as the Hub', async ({ page }) => {
     await page.mouse.move(400, 60);
     await page.waitForTimeout(500);

@@ -12,7 +12,8 @@ import { iconMarkup } from '../../lib/icons.js';
 import { prefersReducedMotion } from '../../lib/motion.js';
 import { vibrateDevice } from '../../lib/audio-cue.js';
 import { GUIDED_SESSIONS, getGuidedSession, totalDurationSeconds } from './guided-sessions.js';
-import { isVoiceGuideSupported, speak, stopSpeaking } from './voice-guide.js';
+import { getVoiceEngine, isVoiceGuideSupported, speak, stopSpeaking } from './voice-guide.js';
+import { getKokoroDownloadProgress, isKokoroLoading } from './kokoro-voice.js';
 import type { GuidedSession, SessionBeat } from './guided-sessions.js';
 import type { IconName } from '../../lib/icons.js';
 
@@ -136,6 +137,25 @@ export function initGuidedSessionFeature(): GuidedSessionPlayerHandle {
     btn.style.opacity = voiceOn ? '1' : '0.5';
   }
 
+  /** The one visible sign that Kokoro's one-time download (see voice-
+   *  guide.ts's speak(), which is what actually triggers it) is running
+   *  in the background — deliberately placed inside the session someone
+   *  is already sitting through, not a separate download screen easy to
+   *  wander away from and lose progress on (a real fetch discarded
+   *  mid-flight can't resume — see kokoro-voice.ts). Hidden the instant
+   *  it's ready, failed, or simply not using Kokoro — never a lingering
+   *  banner once there's nothing left to report. */
+  function updateVoiceStatusUI(): void {
+    const el = byId('guided-session-voice-status');
+    if (voiceOn && getVoiceEngine() === 'kokoro' && isKokoroLoading()) {
+      const progress = getKokoroDownloadProgress();
+      el.textContent = progress ? `Preparing your natural voice… ${progress.percent}%` : 'Preparing your natural voice…';
+      el.hidden = false;
+    } else {
+      el.hidden = true;
+    }
+  }
+
   function tick(): void {
     if (!session || !countdown) return;
     const beat = session.beats[beatIndex];
@@ -145,6 +165,7 @@ export function initGuidedSessionFeature(): GuidedSessionPlayerHandle {
     const totalElapsedMs = elapsedBeforeCurrentBeatMs + elapsedInBeatMs;
     const totalMs = totalDurationSeconds(session) * 1000;
     byId('guided-session-progress').style.width = `${Math.min(100, (totalElapsedMs / totalMs) * 100)}%`;
+    updateVoiceStatusUI();
 
     if (countdown.isFinished()) {
       elapsedBeforeCurrentBeatMs += beat.durationSeconds * 1000;
@@ -213,6 +234,7 @@ export function initGuidedSessionFeature(): GuidedSessionPlayerHandle {
     session = null;
     onComplete = null;
     applyPacerPhase(undefined);
+    byId('guided-session-voice-status').hidden = true;
     if (completedNaturally && finishedSession && completeCb) completeCb(finishedSession);
     showScreen(returnScreenId);
   }
@@ -234,6 +256,7 @@ export function initGuidedSessionFeature(): GuidedSessionPlayerHandle {
     voiceOn = !voiceOn;
     if (!voiceOn) stopSpeaking();
     updateVoiceToggleUI();
+    updateVoiceStatusUI();
   });
 
   byId('btn-guided-session-pause').addEventListener('click', () => {

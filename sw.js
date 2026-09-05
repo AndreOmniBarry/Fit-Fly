@@ -77,10 +77,12 @@ self.addEventListener('fetch', (event) => {
   // Only same-origin GET requests are ours to cache. Nearly every
   // third-party library is vendored locally (see js/vendor/
   // THIRD_PARTY_NOTICES.md) with nothing cross-origin left to fetch at
-  // runtime — Kokoro's opt-in voice engine and model (kokoro-voice.ts) are
-  // the one deliberate exception, and Open Food Facts' food search is the
-  // other — and this app has no server to POST to, but pass anything
-  // unexpected straight through untouched rather than trying to cache it.
+  // runtime — Kokoro's voice engine and model (kokoro-voice.ts, the
+  // default voice guide engine, downloaded the first time a guided
+  // session actually speaks) are the one deliberate exception, and Open
+  // Food Facts' food search is the other — and this app has no server to
+  // POST to, but pass anything unexpected straight through untouched
+  // rather than trying to cache it.
   // Those two exceptions manage their own caching (the browser's HTTP
   // cache, plus Kokoro's own Cache Storage buckets) — duplicating that
   // here would just be a second, redundant copy.

@@ -8,18 +8,25 @@
 // on-screen caption (see guided-session-view.ts) carries the session
 // either way, so voice guidance is a real enhancement, not a dependency.
 //
-// A second, optional engine sits behind the same speak()/stopSpeaking()
-// surface: Kokoro-82M, a real neural TTS model run on-device (see
-// kokoro-voice.ts for what that actually costs and why it's opt-in).
-// Selecting it is a Settings-screen decision (settings-view.ts) persisted
-// via getPref/setPref; everything below still ends up calling this
-// module's own speak()/stopSpeaking(), so guided-session-view.ts and
-// every other caller never needs to know which engine actually spoke.
+// A second engine sits behind the same speak()/stopSpeaking() surface —
+// Kokoro-82M, a real neural TTS model run on-device (see kokoro-voice.ts
+// for what that actually costs) — and is the *default* one: a person
+// gets the real, therapeutic-quality voice without ever visiting
+// Settings. What's opt-in is only the one thing that has a genuine cost
+// (its download) never happening until it's actually needed — see
+// speak()'s own doc comment for exactly when that is. Settings can still
+// switch back to the always-available built-in voice (settings-view.ts),
+// persisted via getPref/setPref; everything below still ends up calling
+// this module's own speak()/stopSpeaking(), so guided-session-view.ts
+// and every other caller never needs to know which engine actually spoke.
 import { getPref } from '../../lib/storage.js';
-import { didKokoroLoadFail, ensureKokoroLoaded, getSavedKokoroVoice, isKokoroReady, speakWithKokoro, stopKokoroSpeaking, } from './kokoro-voice.js';
+import { didKokoroLoadFail, ensureKokoroLoaded, getSavedKokoroVoice, isKokoroReady, primeKokoroAudio, speakWithKokoro, stopKokoroSpeaking, } from './kokoro-voice.js';
 export const VOICE_ENGINE_PREF_KEY = 'voice-engine';
+/** Kokoro is the default the moment no one has said otherwise — the
+ *  pref only ever needs to exist at all once someone actively opts back
+ *  out to the built-in voice, in Settings. */
 export function getVoiceEngine() {
-    return getPref(VOICE_ENGINE_PREF_KEY) === 'kokoro' ? 'kokoro' : 'system';
+    return getPref(VOICE_ENGINE_PREF_KEY) === 'system' ? 'system' : 'kokoro';
 }
 function getSpeechSynthesis() {
     return typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
@@ -129,18 +136,31 @@ function speakWithSystemVoice(text, { rate = 0.92, pitch = 1 } = {}) {
         // best-effort only — see module doc comment
     }
 }
-/** Speaks one line, on whichever engine Settings has picked (see
- *  getVoiceEngine()). Kokoro needs its model already loaded to speak
- *  synchronously the way this API's callers (guided-session-view.ts)
- *  expect — a guided-breathing beat can't wait seconds mid-cue for a
- *  cold model load — so a call that lands before Settings' own
- *  ensureKokoroLoaded() has finished honestly falls back to the system
+/** Speaks one line, on whichever engine is active (see getVoiceEngine()
+ *  — Kokoro unless Settings has explicitly turned it off). Kokoro needs
+ *  its model already loaded to speak synchronously the way this API's
+ *  callers (guided-session-view.ts) expect — a guided-breathing beat
+ *  can't wait seconds mid-cue for a cold model load — so a call that
+ *  lands before it's finished loading honestly falls back to the system
  *  voice for *this* line rather than staying silent, while kicking off
- *  the load in the background so the next line has a real chance of
- *  using it. A load that has genuinely failed (cache cleared, offline)
- *  isn't retried on every single line — see didKokoroLoadFail(). */
+ *  the load in the background: the very first speak() of someone's very
+ *  first guided session or meditation is what actually triggers Kokoro's
+ *  one-time download (see kokoro-voice.ts), with no Settings visit
+ *  required — that first session narrates on the built-in voice while it
+ *  downloads, and every session after it gets the real thing. A load
+ *  that has genuinely failed (offline, storage denied) isn't retried on
+ *  every single line — see didKokoroLoadFail().
+ *
+ *  primeKokoroAudio() runs on every call, gesture or not: real speech is
+ *  reached through this function from both a direct tap (Settings'
+ *  Preview button) and a countdown timer's callback (each later beat in
+ *  a running session) — see that function's own doc comment for why a
+ *  shared, already-resumed AudioContext is what makes both paths
+ *  actually produce sound instead of a browser silently discarding
+ *  playback that arrives too many awaits away from the original tap. */
 export function speak(text, { rate = 0.92, pitch = 1, kokoroVoice } = {}) {
     if (getVoiceEngine() === 'kokoro') {
+        primeKokoroAudio();
         if (isKokoroReady()) {
             void speakWithKokoro(text, { voice: kokoroVoice ?? getSavedKokoroVoice(), speed: rate }).catch(() => {
                 // A load that was ready a moment ago can still fail mid-generation
@@ -149,8 +169,12 @@ export function speak(text, { rate = 0.92, pitch = 1, kokoroVoice } = {}) {
             });
             return;
         }
+        // Fire-and-forget on purpose (this line already fell back to the
+        // system voice above/below) — but still caught: didKokoroLoadFail()
+        // is how a *future* speak() call learns this failed, an uncaught
+        // rejection here would just be a spurious console error on top.
         if (!didKokoroLoadFail())
-            void ensureKokoroLoaded();
+            ensureKokoroLoaded().catch(() => { });
     }
     speakWithSystemVoice(text, { rate, pitch });
 }

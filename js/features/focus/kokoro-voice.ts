@@ -23,18 +23,32 @@
 // holds this too, so it isn't re-fetched every session. This is the one
 // place in Fit Fly that talks to a third party at all — see sw.js's
 // fetch handler and the README for the rest of the "vendored, not
-// fetched" story this deliberately steps outside of. That's why it's
-// strictly opt-in (see settings-view.ts) rather than loaded on app boot.
+// fetched" story this deliberately steps outside of. It's on by default
+// (see voice-guide.ts's getVoiceEngine()), but never downloads on app
+// boot — see ensureKokoroLoaded()'s callers for exactly when it does.
 import { getPref, setPref } from '../../lib/storage.js';
+
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
 
 const KOKORO_ENGINE_URL = 'https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js';
 const KOKORO_MODEL_ID = 'onnx-community/Kokoro-82M-v1.0-ONNX';
 
-// "q8" is kokoro-js's own documented default for the WASM device (see its
-// README) — the practical middle ground between "fp32"'s size and
-// "q4"'s quality loss, chosen deliberately over squeezing out the last
-// few megabytes at the cost of the exact warmth this feature exists for.
-const KOKORO_DTYPE = 'q8';
+// "q4" trades a real, audible slice of quality for a substantially
+// smaller, faster download than kokoro-js's own "q8" default (see its
+// README's dtype table) — deliberately, because this now downloads
+// automatically the first time someone plays a guided session (see
+// ensureKokoroLoaded()'s callers), not from an explicit "I'm choosing to
+// wait for this" Settings action. A shorter download is also a shorter
+// window for the one real failure mode this app can't avoid outright —
+// the browser discarding an in-progress fetch if the tab backgrounds or
+// reloads mid-download, which throws away that partial data and forces
+// a full restart next time (there's no partial-resume here; the browser
+// cache only ever holds a *complete* file).
+const KOKORO_DTYPE = 'q4';
 
 /** A curated subset of Kokoro's 28 shipped voices — every one here is
  *  the library's own top-graded ("A"/"A-"/"B-") pick, so "pick a voice"
@@ -143,6 +157,7 @@ let modulePromise: Promise<KokoroModule> | null = null;
 let ttsPromise: Promise<KokoroTTSInstance> | null = null;
 let loadedInstance: KokoroTTSInstance | null = null;
 let loadFailed = false;
+let lastProgress: KokoroDownloadProgress | null = null;
 
 /** True only once a model instance has actually finished loading in this
  *  page's memory — never inferred from a saved preference, and never
@@ -152,6 +167,22 @@ let loadFailed = false;
  *  Speech voice honestly instead of silently failing every speak(). */
 export function isKokoroReady(): boolean {
   return loadedInstance != null;
+}
+
+/** True while a load — from any caller, anywhere in the app — is
+ *  actually in flight. Lets a screen that didn't itself start the
+ *  download (Settings, say, when a guided session already triggered it)
+ *  reflect real progress passively, without starting a second one. */
+export function isKokoroLoading(): boolean {
+  return ttsPromise != null && loadedInstance == null && !loadFailed;
+}
+
+/** The most recent real progress event from any in-flight or completed
+ *  load, regardless of which caller's onProgress (if any) requested it
+ *  — see isKokoroLoading()'s own doc comment for why this needs to be
+ *  observable independent of who actually started the download. */
+export function getKokoroDownloadProgress(): KokoroDownloadProgress | null {
+  return lastProgress;
 }
 
 export function didKokoroLoadFail(): boolean {
@@ -169,6 +200,7 @@ export async function ensureKokoroLoaded(onProgress?: (p: KokoroDownloadProgress
     return;
   }
   loadFailed = false;
+  lastProgress = null;
   const byFile = new Map<string, { loaded: number; total: number }>();
 
   ttsPromise = (async () => {
@@ -178,7 +210,10 @@ export async function ensureKokoroLoaded(onProgress?: (p: KokoroDownloadProgress
       const instance = await KokoroTTS.from_pretrained(KOKORO_MODEL_ID, {
         dtype: KOKORO_DTYPE,
         device: 'wasm',
-        progress_callback: onProgress ? (e) => onProgress(aggregateProgress(byFile, e)) : undefined,
+        progress_callback: (e) => {
+          lastProgress = aggregateProgress(byFile, e);
+          onProgress?.(lastProgress);
+        },
       });
       loadedInstance = instance;
       return instance;
@@ -204,6 +239,7 @@ export async function forgetKokoroModel(clearCaches: boolean): Promise<void> {
   ttsPromise = null;
   loadedInstance = null;
   loadFailed = false;
+  lastProgress = null;
   if (!clearCaches || typeof caches === 'undefined') return;
   try {
     await Promise.all([caches.delete('transformers-cache'), caches.delete('kokoro-voices')]);
@@ -212,7 +248,41 @@ export async function forgetKokoroModel(clearCaches: boolean): Promise<void> {
   }
 }
 
-let currentAudio: HTMLAudioElement | null = null;
+// Playback deliberately reuses the exact pattern audio-cue.js's
+// primeAudio()/playCompletionBeep() and Focus's own audio-engine.ts
+// already rely on, rather than a plain HTMLAudioElement: a shared
+// AudioContext, resumed once inside a real user-gesture handler, stays
+//'running' for any audio scheduled on it *later* — even from deep
+// inside the multi-second, multi-await chain a streamed sentence
+// actually takes to generate — without needing a fresh gesture for
+// every single clip. An HTMLAudioElement's own .play() doesn't get that
+// same leniency on stricter browsers (notably iOS Safari): calling it
+// after that many awaits reads as "not really" a response to the
+// original tap, so the browser silently refuses to play it — and worse,
+// that refusal was previously being swallowed as if playback had
+// finished normally (see the git history of this function for the bug
+// that caused: a guided session or Settings' Preview button visibly
+// "playing" — captions advancing, pacer animating — with no sound at
+// all, and no error, no fallback, nothing to notice anything was wrong).
+let sharedAudioCtx: AudioContext | null = null;
+
+/** Call this from inside a real user-gesture handler — see the module
+ *  comment on the shared AudioContext above for why that's what actually
+ *  makes later, async-delayed playback audible. speak() (voice-
+ *  guide.ts) already does this on every call, so callers of this module
+ *  don't need to remember to. Safe and cheap to call repeatedly. */
+export function primeKokoroAudio(): void {
+  try {
+    const AudioContextClass = window.AudioContext ?? window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    if (!sharedAudioCtx) sharedAudioCtx = new AudioContextClass();
+    if (sharedAudioCtx.state === 'suspended') void sharedAudioCtx.resume().catch(() => {});
+  } catch {
+    // best-effort only
+  }
+}
+
+let currentSource: AudioBufferSourceNode | null = null;
 let speakToken = 0;
 
 /** Speaks text through Kokoro, one real sentence at a time (kokoro-js's
@@ -242,31 +312,41 @@ export async function speakWithKokoro(
   }
 }
 
-function playBlob(blob: Blob, token: number): Promise<void> {
-  return new Promise((resolve) => {
-    const url = URL.createObjectURL(blob);
-    const el = new Audio(url);
-    currentAudio = el;
-    const cleanup = () => {
-      URL.revokeObjectURL(url);
-      if (currentAudio === el) currentAudio = null;
+async function playBlob(blob: Blob, token: number): Promise<void> {
+  primeKokoroAudio(); // best-effort: re-resume in case the context lapsed since the last prime
+  const ctx = sharedAudioCtx;
+  if (!ctx) return; // Web Audio unsupported — silent, same best-effort contract as every other Web API wrapper here
+  if (token !== speakToken) return;
+
+  let audioBuffer: AudioBuffer;
+  try {
+    audioBuffer = await ctx.decodeAudioData(await blob.arrayBuffer());
+  } catch {
+    return; // a genuinely corrupt clip is rare and not worth surfacing mid-session — just skip it
+  }
+  if (token !== speakToken) return;
+
+  await new Promise<void>((resolve) => {
+    const source = ctx.createBufferSource();
+    source.buffer = audioBuffer;
+    source.connect(ctx.destination);
+    currentSource = source;
+    source.onended = () => {
+      if (currentSource === source) currentSource = null;
       resolve();
     };
-    el.addEventListener('ended', cleanup, { once: true });
-    el.addEventListener('error', cleanup, { once: true });
-    if (token !== speakToken) {
-      cleanup();
-      return;
-    }
-    void el.play().catch(cleanup);
+    source.start();
   });
 }
 
 export function stopKokoroSpeaking(): void {
   speakToken++;
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-    currentAudio = null;
+  if (currentSource) {
+    try {
+      currentSource.stop();
+    } catch {
+      // already stopped/ended — fine
+    }
+    currentSource = null;
   }
 }

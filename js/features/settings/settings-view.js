@@ -12,7 +12,7 @@ import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '../../lib/units.
 import { calculateAge } from '../onboarding/age.js';
 import { getProfile, saveProfile } from '../../db/repositories/profile.js';
 import { getVoiceEngine, VOICE_ENGINE_PREF_KEY, speak, stopSpeaking } from '../focus/voice-guide.js';
-import { didKokoroLoadFail, ensureKokoroLoaded, forgetKokoroModel, getSavedKokoroVoice, isKokoroReady, setSavedKokoroVoice, } from '../focus/kokoro-voice.js';
+import { didKokoroLoadFail, ensureKokoroLoaded, forgetKokoroModel, getKokoroDownloadProgress, getSavedKokoroVoice, isKokoroLoading, isKokoroReady, setSavedKokoroVoice, } from '../focus/kokoro-voice.js';
 import { setPref } from '../../lib/storage.js';
 function byId(id) {
     const el = document.getElementById(id);
@@ -131,11 +131,15 @@ export function initSettingsFeature() {
         byId('settings-voice-kokoro-voice-field').hidden = !(getVoiceEngine() === 'kokoro' && isKokoroReady());
     }
     /** Re-syncs the whole voice-guide card with reality every time Settings
-     *  opens — in particular, "kokoro" saved from an earlier session means
-     *  nothing has actually loaded into *this* page's memory yet (models
-     *  aren't kept across reloads), so this silently re-loads it from the
-     *  browser's own cache (fast — no real re-download) rather than showing
-     *  a stale "Ready" the first speak() would have to discover is false. */
+     *  opens — purely passive: this never itself starts a download. Kokoro
+     *  is the default engine, but the download it needs is only ever
+     *  triggered by an actual guided session's first speak() call (see
+     *  voice-guide.ts), or by explicitly tapping the chip below — opening
+     *  Settings just to check your profile shouldn't spend a byte on it.
+     *  If a session already started that download in the background, this
+     *  reflects its real live progress (isKokoroLoading()/
+     *  getKokoroDownloadProgress()) without starting a second one — the
+     *  same in-flight promise every caller shares (kokoro-voice.ts). */
     function refreshVoiceEngineUI() {
         const engine = getVoiceEngine();
         voiceEngineChips.setValue(engine);
@@ -148,28 +152,45 @@ export function initSettingsFeature() {
         }
         if (isKokoroReady()) {
             byId('settings-voice-status').textContent = 'Ready.';
+            setVoiceProgress(false);
             return;
         }
         if (didKokoroLoadFail()) {
             byId('settings-voice-status').textContent =
-                "Couldn't load your natural voice last time — try again, or switch back to the built-in voice.";
+                "Couldn't load your natural voice last time — it'll try again automatically next time you play a guided session, or tap below to retry now.";
+            setVoiceProgress(false);
             return;
         }
-        byId('settings-voice-status').textContent = 'Loading your natural voice…';
-        setVoiceProgress(true, 0);
-        void ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent))
-            .then(() => {
-            setVoiceProgress(false);
-            byId('settings-voice-status').textContent = 'Ready.';
-            byId('btn-settings-voice-remove').hidden = false;
-            updateKokoroVoiceFieldVisibility();
-        })
-            .catch(() => {
-            setVoiceProgress(false);
-            byId('settings-voice-status').textContent =
-                "Couldn't reload your natural voice (offline, or its cache was cleared) — using the built-in voice for now.";
-        });
+        if (isKokoroLoading()) {
+            byId('settings-voice-status').textContent = 'Downloading your natural voice in the background…';
+            setVoiceProgress(true, getKokoroDownloadProgress()?.percent ?? 0);
+            // Passively watches the already-in-flight load to completion —
+            // ensureKokoroLoaded() here awaits the existing promise rather
+            // than starting a new fetch, since one is already running.
+            void ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent))
+                .then(() => {
+                setVoiceProgress(false);
+                byId('settings-voice-status').textContent = 'Ready.';
+                byId('btn-settings-voice-remove').hidden = false;
+                updateKokoroVoiceFieldVisibility();
+            })
+                .catch(() => {
+                setVoiceProgress(false);
+                byId('settings-voice-status').textContent =
+                    "Couldn't download the natural voice (offline, or storage was denied) — using the built-in voice for now.";
+            });
+            return;
+        }
+        byId('settings-voice-status').textContent = 'Starts automatically the first time you play a guided session or meditation.';
+        setVoiceProgress(false);
     }
+    /** engine==='kokoro' persists the choice immediately, before knowing
+     *  whether the download even succeeds — a transient failure below is a
+     *  real, honest status to report, never a reason to silently revert
+     *  what was actually chosen (or, since kokoro is the default, what was
+     *  never actively changed away from in the first place). The chip
+     *  stays showing "Natural voice" through a failure on purpose; only an
+     *  explicit tap on "Built-in" ever changes the standing choice. */
     async function applyVoiceEngineChoice(engine) {
         if (engine === 'system') {
             setPref(VOICE_ENGINE_PREF_KEY, 'system');
@@ -180,8 +201,8 @@ export function initSettingsFeature() {
             updateKokoroVoiceFieldVisibility();
             return;
         }
+        setPref(VOICE_ENGINE_PREF_KEY, 'kokoro');
         if (isKokoroReady()) {
-            setPref(VOICE_ENGINE_PREF_KEY, 'kokoro');
             byId('settings-voice-status').textContent = 'Ready.';
             byId('btn-settings-voice-remove').hidden = false;
             updateKokoroVoiceFieldVisibility();
@@ -191,7 +212,6 @@ export function initSettingsFeature() {
         setVoiceProgress(true, 0);
         try {
             await ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent));
-            setPref(VOICE_ENGINE_PREF_KEY, 'kokoro');
             setVoiceProgress(false);
             byId('settings-voice-status').textContent = 'Ready — this voice now works offline too.';
             byId('btn-settings-voice-remove').hidden = false;
@@ -199,9 +219,8 @@ export function initSettingsFeature() {
         }
         catch {
             setVoiceProgress(false);
-            voiceEngineChips.setValue('system');
             byId('settings-voice-status').textContent =
-                "Couldn't download the natural voice right now (needs a network connection) — staying on the built-in voice.";
+                "Couldn't download the natural voice right now (needs a network connection) — it'll try again automatically next time you play a guided session, or tap the chip to retry now.";
         }
     }
     byId('btn-settings-voice-preview').addEventListener('click', () => {

@@ -4,6 +4,7 @@ import { feetInchesToCm, lbToKg } from '../../lib/units.js';
 import { calculateAge } from './age.js';
 import { calculateBmi } from './bmi.js';
 import { assignCategory, PRIMARY_GOALS } from './category-engine.js';
+import { formatCategoryLabel } from './category-label.js';
 import { RED_FLAG_SYMPTOMS } from './safety-screen.js';
 import { saveProfile } from '../../db/repositories/profile.js';
 import { recordInjuryScreen } from '../../db/repositories/injury-screens.js';
@@ -171,21 +172,3 @@ function renderResult(categoryResult) {
   byId('ob-result-review-banner').hidden = !categoryResult.needsProfessionalReview;
 }
 
-const CATEGORY_LABELS = {
-  'sedentary-start': 'Building Your Base',
-  'cut-fat-loss': 'Fat Loss',
-  recomposition: 'Recomposition',
-  'rehab-recuperation': 'Rehab & Recuperation',
-  hypertrophy: 'Hypertrophy',
-  endurance: 'Endurance',
-};
-
-/** `trainingFocus` only ever distinguishes anything within the
- *  'hypertrophy' category (see category-engine.js) — 'strength' gets its
- *  own real label rather than being folded into "Hypertrophy," since
- *  it's a genuinely different rep-range/rest/set prescription
- *  underneath, not the same program relabeled. */
-export function formatCategoryLabel(category, trainingFocus = null) {
-  if (category === 'hypertrophy' && trainingFocus === 'strength') return 'Strength Training';
-  return CATEGORY_LABELS[category] ?? category;
-}

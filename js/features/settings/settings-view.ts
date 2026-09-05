@@ -7,7 +7,7 @@
 // "forgot PIN" reset already uses.
 import { showScreen } from '../../lib/router.js';
 import { exportBackup, importBackup } from '../../db/backup.js';
-import type { FitFlyBackup } from '../../db/backup.js';
+import { countRows, todayFilenameStamp } from './backup-summary.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '../../lib/units.js';
 import { calculateAge } from '../onboarding/age.js';
@@ -34,14 +34,6 @@ function byId<T extends HTMLElement = HTMLElement>(id: string): T {
 
 function showError(id: string, show: boolean): void {
   byId(id).hidden = !show;
-}
-
-function todayFilenameStamp(): string {
-  return new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-}
-
-function countRows(backup: FitFlyBackup): number {
-  return Object.values(backup.tables).reduce((sum, rows) => sum + rows.length, 0);
 }
 
 export function initSettingsFeature(): void {

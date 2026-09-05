@@ -45,11 +45,11 @@ const INTERVAL_PREF_KEY = 'hydrationReminderIntervalHours';
 const LAST_REMINDER_PREF_KEY = 'lastHydrationReminderAt';
 const HOUR_MS = 60 * 60 * 1000;
 
-// Matches the figure's viewBox="0 0 100 170" in index.html: roughly the
-// top of the head to the feet, so the water genuinely rises through the
-// body rather than the whole 0-170 box (which includes empty margin).
-const FIGURE_TOP_Y = 8;
-const FIGURE_BOTTOM_Y = 170;
+// Matches the glass's real rim-to-base coordinates in index.html's
+// viewBox="0 0 100 170" (not the whole 0-170 box, which includes empty
+// margin) — so the water genuinely rises inside the drawn glass.
+const FIGURE_TOP_Y = 13;
+const FIGURE_BOTTOM_Y = 160;
 
 // The trend chart's own state — see steps-view.ts's identical comment;
 // same reasoning, same default range.
@@ -87,6 +87,7 @@ export function initHydrationFeature(): void {
       if (!Number.isFinite(amountMl) || amountMl <= 0) return;
       await addHydrationEntry({ amountMl });
       await refreshAll();
+      triggerHydrationSplash();
     });
   });
 
@@ -99,6 +100,7 @@ export function initHydrationFeature(): void {
     await addHydrationEntry({ amountMl });
     byId<HTMLInputElement>('hydration-custom-ml').value = '';
     await refreshAll();
+    triggerHydrationSplash();
   });
 
   // ---------- daily goal ----------
@@ -204,8 +206,27 @@ function renderFigure(todayMl: number): void {
   byId('hydration-water-fill').setAttribute('height', fillHeight.toFixed(2));
   byId('hydration-wave-position').style.transform = `translateY(${(fillY - 8).toFixed(2)}px)`;
 
+  // A brighter, more saturated fill the closer today gets to goal — a
+  // small "glow up" reward, not just a static color the whole way.
+  byId('hydration-figure').dataset.level = fraction >= 1 ? 'full' : fraction >= 0.4 ? 'mid' : 'low';
+
   animateCountUp(byId('hydration-today-ml'), todayMl, { formatter: (n) => Math.round(n).toLocaleString() });
   byId('hydration-goal-label').textContent = `of ${goal.toLocaleString()}ml goal`;
+}
+
+// Pulses a ring outward from the water's real current surface — called
+// only from an actual log action (never from the passive refreshes that
+// also run renderFigure, like page load or an import), so it reads as
+// "you just poured that in," not a random ambient effect. Toggling the
+// class off then back on (via rAF, not a synchronous reflow read, since
+// SVG elements don't reliably expose layout metrics) replays the CSS
+// animation every time instead of only firing once.
+function triggerHydrationSplash(): void {
+  const ring = byId('hydration-splash-ring');
+  const fillY = byId('hydration-water-fill').getAttribute('y') ?? String(FIGURE_BOTTOM_Y);
+  ring.setAttribute('cy', fillY);
+  ring.classList.remove('is-active');
+  requestAnimationFrame(() => ring.classList.add('is-active'));
 }
 
 function renderStats(recent: HydrationEntry[]): void {

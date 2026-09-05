@@ -779,9 +779,25 @@
 
 .hydration-figure{
   position:relative; width:160px; margin:0 auto; text-align:center;
+  --hydration-fill-a:#38bdf8; --hydration-fill-b:#0ea5e9;
+}
+/* Fill brightens toward goal — a small "glow up" reward instead of one
+   flat color the whole way. Level is set by hydration-view.ts's
+   renderFigure(), real data, not a guess. */
+.hydration-figure[data-level="mid"]{ --hydration-fill-a:#2dd4bf; --hydration-fill-b:#0891b2; }
+.hydration-figure[data-level="full"]{ --hydration-fill-a:#5eead4; --hydration-fill-b:#22d3ee; }
+.hydration-figure[data-level="full"] .hydration-figure-outline{
+  filter:drop-shadow(0 0 7px rgba(94,234,212,.55));
 }
 .hydration-figure-outline{
   fill:var(--hydration-card-bg); stroke:var(--hydration-card-border); stroke-width:2;
+  transition:filter .6s ease;
+}
+.hydration-glass-rim{
+  fill:none; stroke:var(--hydration-card-border); stroke-width:1.5; opacity:.7;
+}
+.hydration-condensation{
+  fill:rgba(255,255,255,.5);
 }
 .hydration-water-fill{
   transition:y 1.1s cubic-bezier(.16,1,.3,1), height 1.1s cubic-bezier(.16,1,.3,1);
@@ -789,16 +805,65 @@
 .hydration-wave-position{
   transition:transform 1.1s cubic-bezier(.16,1,.3,1);
 }
-.hydration-wave-scroll{
-  animation:hydration-wave-scroll 3.2s linear infinite;
+/* Two independent wave layers, different periods and amplitudes, one
+   drifting the opposite direction of the other — a single wave on a
+   loop reads as a mechanical texture; two that never re-sync read as a
+   real, chopped liquid surface. */
+.hydration-wave-scroll--back{
+  animation:hydration-wave-scroll-back 4.6s linear infinite;
 }
-.hydration-wave-scroll path{ fill:var(--hydration-accent); opacity:.55; }
-@keyframes hydration-wave-scroll{
+.hydration-wave-scroll--back path{ fill:var(--hydration-fill-b); opacity:.35; }
+.hydration-wave-scroll--front{
+  animation:hydration-wave-scroll-front 2.6s linear infinite;
+}
+.hydration-wave-scroll--front path{ fill:var(--hydration-fill-a); opacity:.6; }
+@keyframes hydration-wave-scroll-back{
   from{ transform:translateX(0); }
   to{ transform:translateX(-100px); }
 }
+@keyframes hydration-wave-scroll-front{
+  from{ transform:translateX(-100px); }
+  to{ transform:translateX(0); }
+}
+/* Bubbles rise from the base of the real water volume — clipped to the
+   fill rect's own live geometry (hydrationWaterClip in index.html, a
+   <use> mirroring #hydration-water-fill), so a bubble vanishes the
+   instant it reaches the actual surface instead of drifting through
+   open air above it. Staggered per-bubble delay/duration, never one
+   synced loop. */
+.hydration-bubble{
+  fill:#ffffff; opacity:0;
+  animation:hydration-bubble-rise 4s ease-in infinite;
+}
+.hydration-bubble:nth-child(1){ animation-delay:0s; animation-duration:3.3s; }
+.hydration-bubble:nth-child(2){ animation-delay:.9s; animation-duration:4.4s; }
+.hydration-bubble:nth-child(3){ animation-delay:1.6s; animation-duration:3.8s; }
+.hydration-bubble:nth-child(4){ animation-delay:.4s; animation-duration:5.1s; }
+.hydration-bubble:nth-child(5){ animation-delay:2.2s; animation-duration:3.6s; }
+.hydration-bubble:nth-child(6){ animation-delay:1.2s; animation-duration:4.7s; }
+@keyframes hydration-bubble-rise{
+  0%{ transform:translate(0,0); opacity:0; }
+  12%{ opacity:.85; }
+  50%{ transform:translate(1.5px,-70px); }
+  88%{ opacity:.5; }
+  100%{ transform:translate(-1px,-148px); opacity:0; }
+}
+/* A ring that pulses out from the water's real surface on every log —
+   hydration-view.ts's triggerHydrationSplash() sets cy to the fill
+   rect's current y and replays this by toggling the class. */
+.hydration-splash-ring{
+  fill:none; stroke:#ffffff; stroke-width:1.4; opacity:0;
+}
+.hydration-splash-ring.is-active{
+  animation:hydration-splash 700ms ease-out;
+}
+@keyframes hydration-splash{
+  0%{ opacity:.85; rx:2px; ry:1px; }
+  100%{ opacity:0; rx:30px; ry:7px; }
+}
 @media (prefers-reduced-motion: reduce){
-  .hydration-wave-scroll{ animation:none; }
+  .hydration-wave-scroll--back, .hydration-wave-scroll--front, .hydration-bubble{ animation:none; opacity:0; }
+  .hydration-splash-ring.is-active{ animation:none; }
   .hydration-water-fill, .hydration-wave-position{ transition:none; }
 }
 .hydration-figure-value{

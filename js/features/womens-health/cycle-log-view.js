@@ -18,6 +18,7 @@ import { currentCyclePhase, predictFertileWindow, predictionConfidence, predictN
 import { dueDateFromLmp, gestationalAge, daysUntilDue, trimesterForWeek } from './pregnancy.js';
 import { milestoneForWeek, PREGNANCY_SYMPTOMS } from './pregnancy-content.js';
 import { summarizeKickSession } from './kick-counter.js';
+import { formatDayLabel } from './day-label.js';
 import {
   getEncryptedCycleLog,
   listAllEncryptedCycleLogs,
@@ -36,16 +37,6 @@ function byId(id) {
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function formatDayLabel(dateStr, { withYear = false } = {}) {
-  const d = new Date(`${dateStr}T00:00:00`);
-  return d.toLocaleDateString(
-    undefined,
-    withYear
-      ? { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
-      : { weekday: 'short', month: 'short', day: 'numeric' }
-  );
 }
 
 const PHASE_LABEL = {

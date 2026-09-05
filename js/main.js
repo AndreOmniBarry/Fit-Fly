@@ -1,7 +1,8 @@
 import { applyThemePreference, isValidThemePreference, applyCategoryAccent } from './lib/theme.js';
 import { getPref, setPref } from './lib/storage.js';
 import { initRouter, showScreen } from './lib/router.js';
-import { initOnboardingWizard, formatCategoryLabel } from './features/onboarding/wizard.js';
+import { initOnboardingWizard } from './features/onboarding/wizard.js';
+import { formatCategoryLabel } from './features/onboarding/category-label.js';
 import { initActivityFeature } from './features/activity/activity-log.js';
 import { initRestTimerFeature } from './features/timers/rest-timer.js';
 import { initProgramFeature } from './features/programs/program-view.js';

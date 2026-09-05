@@ -21,7 +21,7 @@ import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
 import { readinessActionSuggestion } from '../recovery/readiness.js';
 import { assignCategory } from '../onboarding/category-engine.js';
-import { formatCategoryLabel } from '../onboarding/wizard.js';
+import { formatCategoryLabel } from '../onboarding/category-label.js';
 import { applyCategoryAccent } from '../../lib/theme.js';
 import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';

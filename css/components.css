@@ -48,6 +48,17 @@
   background:var(--accent-soft);
 }
 
+/* Program: the inline rest countdown that appears right under whichever
+   exercise a set was just logged for (see program-view.js's
+   startInlineRestTimer). The same --accent-soft tint as .card-accent —
+   an "actively happening" surface, not another static row of text. */
+.program-rest-timer{
+  background:var(--accent-soft);
+  border-radius:var(--radius-md);
+  padding:6px 10px;
+  margin-top:2px;
+}
+
 /* a .card that's also a clickable row, e.g. a home dashboard action */
 .card-button{
   width:100%;

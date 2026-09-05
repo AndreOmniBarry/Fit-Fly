@@ -3,6 +3,8 @@ import { loadInlineSvg } from '../../lib/svg-loader.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { initChipGroup } from '../../lib/chip-group.js';
+import { createCountdown, formatDuration } from '../../lib/timer.js';
+import { playCompletionBeep, primeAudio, vibrateDevice } from '../../lib/audio-cue.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment, recordCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import { listInjuryScreens } from '../../db/repositories/injury-screens.js';
@@ -46,6 +48,12 @@ const DAY_TYPE_ICONS = {
 };
 
 let activeProgramId = null;
+
+// The one inline rest countdown currently showing (see
+// startInlineRestTimer's own doc comment) — { dayIndex, exerciseId,
+// pollHandle } or null. Module-level rather than per-row state because
+// only one is ever meant to be visible at a time.
+let activeRestTimer = null;
 
 export function initProgramFeature() {
   byId('btn-home-program').addEventListener('click', async () => {
@@ -120,9 +128,15 @@ export function initProgramFeature() {
   });
 
   byId('program-days').addEventListener('click', async (event) => {
+    if (event.target.closest('[data-skip-rest]')) {
+      stopInlineRestTimer();
+      return;
+    }
+
     const button = event.target.closest('[data-log-set]');
     if (!button) return;
-    const { dayIndex, exerciseId, logMetric } = button.dataset;
+    const { dayIndex, exerciseId, logMetric, restSec } = button.dataset;
+    primeAudio(); // inside this click's call stack, so the rest timer's completion beep can play later
 
     if (logMetric === 'time') {
       const durationInput = byId(durationInputId(dayIndex, exerciseId));
@@ -130,6 +144,7 @@ export function initProgramFeature() {
       if (!(durationSec >= 1)) return;
       await logSet(exerciseId, { durationSec });
       durationInput.value = '';
+      startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
       return;
     }
 
@@ -147,6 +162,7 @@ export function initProgramFeature() {
       await logSet(exerciseId, { reps });
     }
     repsInput.value = '';
+    startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
   });
 }
 
@@ -181,6 +197,7 @@ async function getInjuryBodyAreaTags() {
 }
 
 async function renderProgramScreen() {
+  stopInlineRestTimer(); // #program-days is about to be replaced wholesale below
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
   if (!profile || !assignment) return;
 
@@ -233,6 +250,12 @@ function weightInputId(dayIndex, exerciseId) {
 }
 function durationInputId(dayIndex, exerciseId) {
   return `program-duration-${dayIndex}-${exerciseId}`;
+}
+function restRowId(dayIndex, exerciseId) {
+  return `program-rest-row-${dayIndex}-${exerciseId}`;
+}
+function restDisplayId(dayIndex, exerciseId) {
+  return `program-rest-display-${dayIndex}-${exerciseId}`;
 }
 
 function renderDay(day) {
@@ -306,7 +329,14 @@ function renderExercise(dayIndex, exercise) {
       </div>
       <div class="row">
         ${logInputs}
-        <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}">Log</button>
+        <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-rest-sec="${exercise.restSec}">Log</button>
+      </div>
+      <div class="row-between program-rest-timer" id="${restRowId(dayIndex, exercise.exerciseId)}" hidden>
+        <span class="row" style="gap:6px;">
+          <span class="muted" style="font-size:var(--fs-xs);">Rest</span>
+          <strong id="${restDisplayId(dayIndex, exercise.exerciseId)}" style="font-variant-numeric:tabular-nums;"></strong>
+        </span>
+        <button type="button" class="btn btn-ghost" data-skip-rest>Skip</button>
       </div>
     </div>
   `;
@@ -360,6 +390,65 @@ async function renderReadinessBanner() {
 async function logSet(exerciseId, fields) {
   const session = await getOrCreateTodaySession();
   await addSet(session.id, { exerciseId, ...fields });
+}
+
+function stopInlineRestTimer() {
+  if (!activeRestTimer) return;
+  clearInterval(activeRestTimer.pollHandle);
+  const row = byId(restRowId(activeRestTimer.dayIndex, activeRestTimer.exerciseId));
+  if (row) row.hidden = true;
+  activeRestTimer = null;
+}
+
+/** Starts (or restarts) the one visible inline rest countdown, right under
+ *  whichever exercise a set was just logged for. This is the actual point
+ *  of a rest timer in a real strength session — every generated exercise
+ *  already prescribes its own rest (program-generator.js's restSec,
+ *  printed right next to the Log button) that used to go nowhere: resting
+ *  correctly meant remembering that number and re-typing it into the
+ *  separate, generic Rest Timer screen. Logging a set now starts that
+ *  exact rest automatically, in place, with zero extra taps.
+ *
+ *  Only one shows at a time (the standalone Rest Timer screen — still
+ *  reachable from the Fitness Toolkit home list, see rest-timer.js — is
+ *  for anything else: an ad hoc rest outside a tracked program, a custom
+ *  duration, resting between exercises this program didn't prescribe a
+ *  number for). Logging a different exercise's set replaces whichever
+ *  countdown was already showing, the same way a lifter only ever rests
+ *  from one lift at a time. */
+function startInlineRestTimer(dayIndex, exerciseId, restSec) {
+  stopInlineRestTimer();
+  if (!(restSec > 0)) return; // nothing prescribed to count down from
+
+  const row = byId(restRowId(dayIndex, exerciseId));
+  const display = byId(restDisplayId(dayIndex, exerciseId));
+  if (!row || !display) return;
+
+  const countdown = createCountdown(restSec * 1000);
+  countdown.start();
+  row.hidden = false;
+
+  const timerState = { dayIndex, exerciseId, pollHandle: null };
+  activeRestTimer = timerState;
+
+  function render() {
+    if (countdown.isFinished()) {
+      clearInterval(timerState.pollHandle);
+      display.textContent = 'Rest complete!';
+      playCompletionBeep();
+      vibrateDevice();
+      // Auto-hides shortly after, rather than sitting there indefinitely
+      // — but only if a newer timer (a different exercise's set) hasn't
+      // already taken over this same row's slot in the meantime.
+      setTimeout(() => {
+        if (activeRestTimer === timerState) stopInlineRestTimer();
+      }, 3000);
+      return;
+    }
+    display.textContent = formatDuration(countdown.getRemainingMs());
+  }
+  render();
+  timerState.pollHandle = setInterval(render, 250);
 }
 
 /** Updates every rendered occurrence of this exercise (it can appear on

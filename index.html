@@ -2328,6 +2328,25 @@
       </span>
     </div>
 
+    <!-- Real progress toward a real target: this week's logged sessions
+         against this program's own weekly training-day count — never a
+         separately-invented "goal" (see program-view.js's
+         renderWeeklyProgress). The calendar icon here is the entry point
+         to the fuller month view (activity by day) — placed right next
+         to the stat it explains rather than up in the header. -->
+    <div class="card stack">
+      <div class="row-between">
+        <strong>This week</strong>
+        <button class="icon-btn" id="btn-program-calendar" aria-label="Calendar">
+          <svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-calendar"></use></svg>
+        </button>
+      </div>
+      <p class="muted" id="program-week-progress-text" style="margin:0;">—</p>
+      <div class="goal-progress-track">
+        <div class="goal-progress-fill" id="program-week-progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
     <div class="card card-accent stack" id="program-deload-banner" hidden>
       <strong>Deload week</strong>
       <p>Lighter volume this week on purpose — recovery is part of the plan, not a break from it.</p>
@@ -2347,6 +2366,49 @@
     </div>
 
     <div class="stack tilt-stagger" id="program-days"></div>
+  </section>
+
+  <!-- PROGRAM: CALENDAR — real activity at a glance, month by month.
+       Only two honest states per day: a session was logged, or it
+       wasn't — never a third "this was your scheduled rest day" state,
+       since Programs has no fixed day-to-date schedule to compare
+       against (Day 1/2/3 rotate whenever someone actually shows up, not
+       fixed weekdays — see program-view.js's own comment). Not a
+       mini-app-night screen (Programs lives in the light/dark adaptive
+       Fitness Toolkit), so this gets its own token-based palette rather
+       than a mini-app's fixed night surface — same real month-grid math
+       as Sleep/Cycle Tracker's own calendars (js/lib/calendar-grid.js),
+       just its own skin, the same "shared math, separate presentation"
+       split those two already established between each other. -->
+  <section class="screen" id="screen-program-calendar" hidden>
+    <div class="row-between">
+      <h2 style="margin:0;">Calendar</h2>
+      <button class="icon-btn" id="btn-program-calendar-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="row-between" style="margin-top:var(--space-4);">
+      <button class="icon-btn" id="btn-program-calendar-prev-month" aria-label="Previous month">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-arrow-left"></use></svg>
+      </button>
+      <strong id="program-calendar-month-label" style="font-size:15px;">—</strong>
+      <button class="icon-btn" id="btn-program-calendar-next-month" aria-label="Next month">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-chevron-right"></use></svg>
+      </button>
+    </div>
+
+    <div class="program-calendar-weekdays" style="margin-top:var(--space-4);" aria-hidden="true">
+      <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
+    </div>
+    <div class="program-calendar-grid" id="program-calendar-grid" role="grid" aria-label="Logged sessions by day"></div>
+
+    <div class="program-calendar-legend" style="margin-top:var(--space-4);">
+      <span><i class="program-calendar-dot"></i> Session logged</span>
+    </div>
+
+    <div class="card stack" id="program-calendar-day-detail" hidden style="margin-top:var(--space-4);">
+      <strong id="program-calendar-day-detail-date">—</strong>
+      <ul id="program-calendar-day-detail-list" style="margin:0; padding-left:1.2em;"></ul>
+    </div>
   </section>
 
   <!-- ACTIVITY: HISTORY -->

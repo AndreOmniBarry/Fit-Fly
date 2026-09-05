@@ -9,7 +9,14 @@ import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment, recordCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import { listInjuryScreens } from '../../db/repositories/injury-screens.js';
 import { createProgram, getActiveProgram, PROGRAM_STATUS, setProgramStatus } from '../../db/repositories/programs.js';
-import { addSet, createSession, listRecentSessions, listSetsForExercise } from '../../db/repositories/sessions.js';
+import {
+  addSet,
+  createSession,
+  listRecentSessions,
+  listSessionsForProgram,
+  listSetsForExercise,
+  listSetsForSession,
+} from '../../db/repositories/sessions.js';
 import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
 import { readinessActionSuggestion } from '../recovery/readiness.js';
@@ -20,6 +27,8 @@ import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';
 import { getCurrentWeekNumber } from './week-number.js';
 import { bestEstimatedOneRepMax } from './one-rep-max.js';
+import { localDateFromIso, sessionDatesForProgram, weeklySessionProgress } from './program-calendar.js';
+import { formatMonthLabel, getMonthGridDays } from '../../lib/calendar-grid.js';
 
 function byId(id) {
   return document.getElementById(id);
@@ -55,12 +64,38 @@ let activeProgramId = null;
 // only one is ever meant to be visible at a time.
 let activeRestTimer = null;
 
+// Calendar state — the program's own logged sessions (fetched once when
+// the calendar opens; the dataset is one person's own session history,
+// small enough to hold in full and just re-filter per viewed month,
+// rather than a per-month DB range query) plus which month is showing
+// and how many training days/week this program actually prescribes
+// (generated.days.length — the same real number already on the Days
+// list, never a separately-invented weekly "goal").
+let calendarSessions = [];
+let calendarPlannedDaysPerWeek = 0;
+let calendarYear = 0;
+let calendarMonth = 0; // 0-indexed, same convention as Date/calendar-grid.js
+
 export function initProgramFeature() {
   byId('btn-home-program').addEventListener('click', async () => {
     await renderProgramScreen();
     showScreen('screen-program');
   });
   byId('btn-program-back').addEventListener('click', () => showScreen('screen-home'));
+
+  // ---------- calendar ----------
+  byId('btn-program-calendar').addEventListener('click', async () => {
+    calendarSessions = activeProgramId ? await listSessionsForProgram(activeProgramId) : [];
+    const today = new Date();
+    calendarYear = today.getFullYear();
+    calendarMonth = today.getMonth();
+    renderProgramCalendar();
+    byId('program-calendar-day-detail').hidden = true;
+    showScreen('screen-program-calendar');
+  });
+  byId('btn-program-calendar-back').addEventListener('click', () => showScreen('screen-program'));
+  byId('btn-program-calendar-prev-month').addEventListener('click', () => shiftCalendarMonth(-1));
+  byId('btn-program-calendar-next-month').addEventListener('click', () => shiftCalendarMonth(1));
 
   // ---------- change goal ----------
   // "Pick the closest fit — you can change this any time," the
@@ -145,6 +180,7 @@ export function initProgramFeature() {
       await logSet(exerciseId, { durationSec });
       durationInput.value = '';
       startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
+      await renderWeeklyProgress(); // this week's real count just changed
       return;
     }
 
@@ -163,6 +199,7 @@ export function initProgramFeature() {
     }
     repsInput.value = '';
     startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
+    await renderWeeklyProgress(); // this week's real count just changed
   });
 }
 
@@ -218,6 +255,8 @@ async function renderProgramScreen() {
   animateCountUp(byId('program-week-number'), generated.weekNumber);
   byId('program-block-label').textContent = `Block ${generated.blockNumber}`;
   byId('program-deload-banner').hidden = !generated.isDeload;
+  calendarPlannedDaysPerWeek = generated.days.length;
+  await renderWeeklyProgress();
   await renderReadinessBanner();
   byId('program-reasoning').innerHTML = generated.reasoning.map((line) => `<li>${line}</li>`).join('');
   byId('program-days').innerHTML = generated.days.map(renderDay).join('');
@@ -385,6 +424,105 @@ async function renderReadinessBanner() {
   byId('program-readiness-category').textContent = `${checkin.score} · ${checkin.category}`;
   byId('program-readiness-suggestion').textContent = readinessActionSuggestion(checkin.category);
   banner.hidden = false;
+}
+
+/** Real progress toward a real target — this week's logged strength
+ *  sessions against this program's own weekly training-day count, never
+ *  a separately-invented "goal" (see program-calendar.js's own doc
+ *  comment). Programs has no fixed calendar-day schedule (Day 1/2/3
+ *  rotate whenever a person actually shows up, not fixed weekdays), so
+ *  this is the honest goal-proximity signal actually available — not
+ *  "did you train on the right days" but "how many of the days this
+ *  program calls for each week have happened so far". */
+async function renderWeeklyProgress() {
+  const sessions = activeProgramId ? await listSessionsForProgram(activeProgramId) : [];
+  const dates = sessionDatesForProgram(sessions);
+  const progress = weeklySessionProgress(dates, todayIsoDate(), calendarPlannedDaysPerWeek);
+  const sessionWord = progress.planned === 1 ? 'session' : 'sessions';
+  byId('program-week-progress-text').textContent = `${progress.completed} of ${progress.planned} ${sessionWord} this week`;
+  byId('program-week-progress-fill').style.width = `${progress.percent}%`;
+}
+
+function shiftCalendarMonth(delta) {
+  const next = new Date(calendarYear, calendarMonth + delta, 1);
+  calendarYear = next.getFullYear();
+  calendarMonth = next.getMonth();
+  renderProgramCalendar();
+  byId('program-calendar-day-detail').hidden = true;
+}
+
+/** Two real, honest states per day — a session was logged, or it wasn't
+ *  — never a third "this was a scheduled rest day" state, since Programs
+ *  has no fixed day-to-date schedule to compare against (see
+ *  renderWeeklyProgress's own comment). Only a logged day is tappable,
+ *  for the same reason Sleep/Cycle Tracker keep future days inert: there
+ *  is nothing real to show for an empty one. */
+function renderProgramCalendar() {
+  byId('program-calendar-month-label').textContent = formatMonthLabel(calendarYear, calendarMonth);
+  const sessionDates = sessionDatesForProgram(calendarSessions);
+  const sessionsByDate = new Map();
+  for (const session of calendarSessions) {
+    const date = localDateFromIso(session.startedAt);
+    if (!sessionsByDate.has(date)) sessionsByDate.set(date, []);
+    sessionsByDate.get(date).push(session);
+  }
+
+  const grid = byId('program-calendar-grid');
+  grid.innerHTML = '';
+  const days = getMonthGridDays(calendarYear, calendarMonth, todayIsoDate());
+
+  for (const day of days) {
+    const hasSession = sessionDates.has(day.date);
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.setAttribute('role', 'gridcell');
+    const classes = ['program-calendar-day'];
+    if (!day.inMonth) classes.push('program-calendar-day--out-of-month');
+    if (day.isFuture) classes.push('program-calendar-day--future');
+    if (day.isToday) classes.push('program-calendar-day--today');
+    if (hasSession) classes.push('program-calendar-day--logged');
+    cell.className = classes.join(' ');
+    cell.disabled = !hasSession;
+
+    const dayNumber = Number(day.date.slice(-2));
+    const dot = hasSession ? '<span class="program-calendar-day-dot"></span>' : '';
+    cell.innerHTML = `<span>${dayNumber}</span>${dot}`;
+    cell.setAttribute('aria-label', hasSession ? `${day.date}, session logged` : `${day.date}, no session logged`);
+
+    if (hasSession) {
+      cell.addEventListener('click', () => showCalendarDayDetail(day.date, sessionsByDate.get(day.date)));
+    }
+    grid.append(cell);
+  }
+}
+
+/** What was actually logged that day — real exercise names and real set
+ *  counts read straight from the sets table, not a summary invented from
+ *  the day's own prescription (which may have changed since, or may not
+ *  match what was actually done at all). */
+async function showCalendarDayDetail(date, sessions) {
+  const detail = byId('program-calendar-day-detail');
+  byId('program-calendar-day-detail-date').textContent = date;
+  const list = byId('program-calendar-day-detail-list');
+  list.innerHTML = '';
+
+  const setsByExercise = new Map();
+  for (const session of sessions) {
+    const sets = await listSetsForSession(session.id);
+    for (const set of sets) {
+      if (!setsByExercise.has(set.exerciseId)) setsByExercise.set(set.exerciseId, []);
+      setsByExercise.get(set.exerciseId).push(set);
+    }
+  }
+
+  for (const [exerciseId, sets] of setsByExercise) {
+    const name = getLibraryExercise(exerciseId)?.name ?? exerciseId;
+    const item = document.createElement('li');
+    const setWord = sets.length === 1 ? 'set' : 'sets';
+    item.textContent = `${name} — ${sets.length} ${setWord}`;
+    list.append(item);
+  }
+  detail.hidden = false;
 }
 
 async function logSet(exerciseId, fields) {

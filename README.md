@@ -541,8 +541,12 @@ real justification next — every generated exercise already prescribed
 its own rest and printed the number, but logging a set never did
 anything with it; it now starts that exact countdown inline, in place,
 reusing the same timer/audio primitives the standalone screen (kept for
-everything a program doesn't prescribe a number for) already had.
-803 Vitest unit tests and 528 Playwright end-to-end tests
+everything a program doesn't prescribe a number for) already had. My
+Program then got a real month **calendar and weekly-progress stat** (see
+"Tailored programs + periodization" above) — a flat Day 1/2/3 list with
+no sense of what actually happened on which real date, and no way to
+answer "am I on track this week" without counting sets by hand.
+814 Vitest unit tests and 532 Playwright end-to-end tests
 (desktop + mobile-viewport, zero console errors) are green.
 
 Known, deliberate gaps rather than oversights: no accounts or sync yet —
@@ -1586,6 +1590,45 @@ that category/focus pair, and regenerates. It deliberately excludes
 "recovering from injury/surgery" from this quick picker (the picker
 notes why, and points to "Start Over" instead): re-signaling an injury
 needs a real safety re-screen, not a goal swap.
+
+**A real calendar, and a real progress stat, where there used to be
+neither.** My Program only ever showed "Day 1 / Day 2 / Day 3" as a flat
+rotating list — no sense of what actually happened on which real dates,
+and no way to answer "am I on track this week" without counting sets
+logged by hand. Both are real gaps now:
+
+- A **"This week" card** shows exactly how many distinct days this week
+  already have a logged session against this program's own weekly
+  training-day count (`generated.days.length` — the same number already
+  printed as Day cards, never a separately-invented "goal"; see
+  `js/features/programs/program-calendar.js`'s `weeklySessionProgress`).
+  It updates live the moment a set is logged, the same
+  `.goal-progress-track`/`.goal-progress-fill` bar Goals already uses,
+  not a second progress-bar implementation.
+- Its calendar icon opens a real **month calendar**
+  (`js/lib/calendar-grid.js` — the same day-grid math Sleep and Cycle
+  Tracker's own calendars already share, just this feature's own token-
+  based skin, matching how those two already keep separate CSS despite
+  sharing the underlying math) marking every real day a session was
+  logged on. Tapping a logged day lists exactly what was done that day —
+  real exercise names and real set counts read straight from the `sets`
+  table, not a summary reconstructed from the day's current prescription
+  (which may have changed, or may not match what was actually done).
+- **Deliberately not a third "rest day" state.** Programs has no fixed
+  calendar-day schedule to compare against — Day 1/2/3 rotate whenever
+  someone actually shows up, not fixed weekdays — so there is no honest
+  way to say "this was your scheduled rest day" the way a real
+  Monday/Wednesday/Friday plan could. The calendar shows exactly two
+  states: a session happened, or it didn't. An empty day, including
+  today with nothing logged yet, is inert rather than a fabricated
+  "missed workout" — consistent with the app's "never guess, never
+  guilt-trip" rule everywhere else. Retroactive logging (picking a past
+  date to log a session for, the way Sleep's own History screen allows)
+  was deliberately left out of this round too: every strength session
+  currently assumes "now" end to end (`createSession`'s own
+  `startedAt`), and threading a chosen date through that whole flow is a
+  real, separate piece of work, not a natural extension of a calendar
+  *view*.
 
 ## Run mode
 

@@ -291,3 +291,39 @@ textarea.input{
 .whealth-calendar-dot[data-kind="fertile"]{ background:var(--success); }
 .whealth-calendar-dot[data-kind="predicted"]{ background:transparent; border:2px dashed var(--danger); }
 .whealth-calendar-dot[data-kind="logged"]{ background:var(--accent); }
+
+/* ---------- Programs calendar ---------- */
+/* Same real month-grid math as Sleep/Cycle Tracker's own calendars
+   (js/lib/calendar-grid.js) and the same generic light/dark tokens as
+   Cycle Tracker's (Programs isn't a night-surface mini-app either) — its
+   own class prefix rather than reusing .whealth-calendar-*, matching how
+   Sleep already keeps its own copy alongside Cycle Tracker's despite
+   sharing the underlying day math. Only one real state to mark (a
+   session was logged) — no period/fertile/predicted equivalents, since
+   Programs has nothing to predict here, only what actually happened. */
+.program-calendar-weekdays{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+  text-align:center; font-size:11px; font-weight:700; color:var(--ink-muted);
+}
+.program-calendar-grid{
+  display:grid; grid-template-columns:repeat(7, minmax(0,1fr));
+  gap:4px; margin-top:8px;
+}
+.program-calendar-day{
+  aspect-ratio:1; border-radius:12px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+  font-size:12.5px; font-weight:600; color:var(--ink-0);
+  background:var(--surface); border:1px solid var(--border);
+}
+.program-calendar-day--out-of-month{ opacity:.3; }
+.program-calendar-day--future{ background:transparent; }
+.program-calendar-day--today{ border-color:var(--accent); border-width:2px; }
+.program-calendar-day--logged{ background:var(--accent-soft); border-color:var(--accent); }
+.program-calendar-day-dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
+
+.program-calendar-legend{
+  display:flex; flex-wrap:wrap; gap:14px; margin-top:8px;
+  font-size:11.5px; color:var(--ink-muted);
+}
+.program-calendar-legend span{ display:flex; align-items:center; gap:5px; }
+.program-calendar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; font-style:normal; background:var(--accent); }

@@ -48,14 +48,23 @@ is exactly what Settings' own export/import is for (see "Export &
 import" below): a real, on-device backup file, entirely in your own
 hands.
 
-**One narrow, explicit exception**: Nutrition's food search sends the
+**Two narrow, explicit exceptions**: Nutrition's food search sends the
 text you type to [Open Food Facts](https://openfoodfacts.org), a free,
-open food database, to look up nutrition facts — that's the only network
-request this app makes anywhere, on to a third party, ever. It only
-happens when you tap Search (never live-as-you-type), only carries the
-search text, and never touches what you've actually logged, which stays
-local exactly like everything else. Recent and Favorites don't need it
-at all — both are built entirely from data already on this device.
+open food database, to look up nutrition facts. It only happens when you
+tap Search (never live-as-you-type), only carries the search text, and
+never touches what you've actually logged, which stays local exactly
+like everything else. Recent and Favorites don't need it at all — both
+are built entirely from data already on this device.
+
+The second is opt-in and one-time: turning on "Natural voice (Kokoro AI)"
+in Settings' Voice guide section downloads a real, on-device neural
+text-to-speech model (see "Voice guide" below) from Hugging Face Hub and
+its engine from jsDelivr. Once downloaded, generation happens entirely
+on this device — nothing about what a guided session says, or when, is
+ever sent anywhere — and the files are cached by the browser, so it's
+the last network request that specific feature ever needs. It's off by
+default, and everything else in the app (including the built-in voice
+guide) still needs zero network access, same as always.
 
 ## Export & import
 
@@ -319,9 +328,9 @@ js/
   db/                         # Dexie (IndexedDB) schema and store access; backup.js exports/imports every table + every pref as one JSON file — see "Export & import"
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
-    settings/                    # export/import backup UI (TypeScript) — see "Export & import"
+    settings/                    # profile edit, export/import backup UI, voice-guide engine choice (TypeScript) — see "Export & import"
     sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
-    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance + the shared guided-session player (TypeScript)
+    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (built-in + opt-in on-device Kokoro-82M neural voice) + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
     steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak, native-pedometer.js (real background step counting on a native build) (TypeScript)
@@ -998,6 +1007,67 @@ natural rate variance and a real pitch drop on the line's final clause
 (the same "terminal declination" real speech uses to signal a thought
 ending, versus a slight lift on one that continues), with a short
 breath-length pause between them.
+
+**A second engine, for real neural warmth: Kokoro-82M, on-device.** The
+browser's built-in voice above is free, universal, and needs nothing —
+but it's still formant/concatenative synthesis, not a model that actually
+learned prosody from real speech. Settings' Voice guide section
+(`settings-view.ts`) offers a second, opt-in engine: Kokoro, a real
+82-million-parameter neural text-to-speech model, run entirely on this
+device through [ONNX Runtime](https://onnxruntime.ai)'s WebAssembly
+backend (`kokoro-voice.ts`). `speak()`/`stopSpeaking()` stay the one
+public surface every caller (`guided-session-view.ts` included) already
+uses — which engine actually spoke is invisible to them, decided per call
+from the saved preference.
+
+Two honest constraints shape how this is built, not glossed over:
+
+- *A real, one-time download.* Kokoro's weights live on Hugging Face Hub
+  — there's no vendorable npm form of "an 82M-parameter model," so
+  turning this on for the first time means a genuine network fetch
+  (tens of megabytes, `q8` quantization — the library's own documented
+  default for the WASM device, chosen over `fp32`'s size or `q4`'s
+  quality loss). Settings shows the real aggregate percentage as it
+  downloads (`aggregateProgress`, unit-tested for exactly this: summing
+  real bytes loaded/total across every file, not averaging each file's
+  own percentage, which would misreport badly once files of very
+  different sizes are downloading at once). A failed download (offline,
+  denied storage) reverts the choice and says so — it never silently
+  leaves Settings claiming an engine that isn't actually working.
+- *Loaded from a CDN, not vendored — the one deliberate exception to
+  this app's "everything vendored" rule* (see "TypeScript, without a
+  bundler" and `js/vendor/THIRD_PARTY_NOTICES.md`). Vendoring Dexie and
+  Capacitor buys real offline-from-first-load benefit. Kokoro can't
+  offer that no matter what: its model weights need that one real fetch
+  regardless, so committing kokoro-js's own engine — its bundled ONNX
+  Runtime WebAssembly binary alone is ~21MB — into this repository's
+  permanent git history would cost real, irreversible size for zero
+  offline benefit. So the engine loads once per browser from jsDelivr
+  (the CDN kokoro-js's own README recommends for no-bundler use) and is
+  cached by the browser alongside the model weights afterward — this is
+  the one feature in the app that talks to a third party at all; see
+  "Your data stays on this device" above for the other one.
+
+Once loaded, `speakWithKokoro` uses kokoro-js's own sentence-boundary
+splitter (correctly handling abbreviations, decimals, and quotes — real
+work this doesn't reimplement) to generate and play one real sentence at
+a time, each keeping Kokoro's own model-learned prosody intact end to
+end, with `breathPauseMs` — unit-tested, and scaling gently with
+speaking rate — inserting a real pause between sentences: the one thing
+generating them separately loses, and the one a person actually does
+when they breathe between sentences. Settings offers a real choice
+between four of Kokoro's voices once it's ready, not just its default —
+`af_heart` (its own single top-graded voice, the only one it marks "A",
+the only one it marks with ❤️, and the default for the warmth this
+feature exists for), `af_bella`, `am_fenrir`, and `bf_emma` — a curated
+shortlist of the library's other highly-graded voices rather than its
+full 28-voice list, several of which the library's own grading marks
+noticeably rougher. The choice is a real saved preference
+(`getSavedKokoroVoice`/`setSavedKokoroVoice`), read fresh by every
+`speak()` call, not just applied once at download time. A model that
+fails to reload in a later session (cache evicted, offline) falls back
+to the built-in voice for that line honestly, exactly like every other
+best-effort Web API wrapper in this app.
 
 **The breathing pacer reacts on four channels, not one.** Each ring
 (`guided-session-pacer-core/-mid/-outer`) moves a smaller fraction of the

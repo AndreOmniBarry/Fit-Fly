@@ -11,6 +11,9 @@ import { initChipGroup } from '../../lib/chip-group.js';
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '../../lib/units.js';
 import { calculateAge } from '../onboarding/age.js';
 import { getProfile, saveProfile } from '../../db/repositories/profile.js';
+import { getVoiceEngine, VOICE_ENGINE_PREF_KEY, speak, stopSpeaking } from '../focus/voice-guide.js';
+import { didKokoroLoadFail, ensureKokoroLoaded, forgetKokoroModel, getSavedKokoroVoice, isKokoroReady, setSavedKokoroVoice, } from '../focus/kokoro-voice.js';
+import { setPref } from '../../lib/storage.js';
 function byId(id) {
     const el = document.getElementById(id);
     if (!el)
@@ -108,11 +111,119 @@ export function initSettingsFeature() {
         byId('profile-age-hint').textContent = `${calculateAge(birthdate)} years old`;
         byId('profile-save-status').textContent = 'Saved.';
     });
+    // ---------- voice guide ----------
+    const voiceEngineChips = initChipGroup(byId('settings-voice-engine'), {
+        initial: getVoiceEngine(),
+        onChange: (value) => void applyVoiceEngineChoice(value),
+    });
+    const kokoroVoiceChips = initChipGroup(byId('settings-voice-kokoro-voice'), {
+        initial: getSavedKokoroVoice(),
+        onChange: (value) => setSavedKokoroVoice(value),
+    });
+    function setVoiceProgress(visible, percent = 0) {
+        byId('settings-voice-progress').hidden = !visible;
+        byId('settings-voice-progress-fill').style.width = `${percent}%`;
+    }
+    // The voice picker only means anything once Natural voice is the
+    // active, working engine — showing it while still on the built-in
+    // voice (or mid-download) would offer a choice that does nothing yet.
+    function updateKokoroVoiceFieldVisibility() {
+        byId('settings-voice-kokoro-voice-field').hidden = !(getVoiceEngine() === 'kokoro' && isKokoroReady());
+    }
+    /** Re-syncs the whole voice-guide card with reality every time Settings
+     *  opens — in particular, "kokoro" saved from an earlier session means
+     *  nothing has actually loaded into *this* page's memory yet (models
+     *  aren't kept across reloads), so this silently re-loads it from the
+     *  browser's own cache (fast — no real re-download) rather than showing
+     *  a stale "Ready" the first speak() would have to discover is false. */
+    function refreshVoiceEngineUI() {
+        const engine = getVoiceEngine();
+        voiceEngineChips.setValue(engine);
+        byId('btn-settings-voice-remove').hidden = engine !== 'kokoro' || !isKokoroReady();
+        updateKokoroVoiceFieldVisibility();
+        if (engine !== 'kokoro') {
+            byId('settings-voice-status').textContent = '';
+            setVoiceProgress(false);
+            return;
+        }
+        if (isKokoroReady()) {
+            byId('settings-voice-status').textContent = 'Ready.';
+            return;
+        }
+        if (didKokoroLoadFail()) {
+            byId('settings-voice-status').textContent =
+                "Couldn't load your natural voice last time — try again, or switch back to the built-in voice.";
+            return;
+        }
+        byId('settings-voice-status').textContent = 'Loading your natural voice…';
+        setVoiceProgress(true, 0);
+        void ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent))
+            .then(() => {
+            setVoiceProgress(false);
+            byId('settings-voice-status').textContent = 'Ready.';
+            byId('btn-settings-voice-remove').hidden = false;
+            updateKokoroVoiceFieldVisibility();
+        })
+            .catch(() => {
+            setVoiceProgress(false);
+            byId('settings-voice-status').textContent =
+                "Couldn't reload your natural voice (offline, or its cache was cleared) — using the built-in voice for now.";
+        });
+    }
+    async function applyVoiceEngineChoice(engine) {
+        if (engine === 'system') {
+            setPref(VOICE_ENGINE_PREF_KEY, 'system');
+            stopSpeaking();
+            byId('settings-voice-status').textContent = '';
+            setVoiceProgress(false);
+            byId('btn-settings-voice-remove').hidden = !isKokoroReady();
+            updateKokoroVoiceFieldVisibility();
+            return;
+        }
+        if (isKokoroReady()) {
+            setPref(VOICE_ENGINE_PREF_KEY, 'kokoro');
+            byId('settings-voice-status').textContent = 'Ready.';
+            byId('btn-settings-voice-remove').hidden = false;
+            updateKokoroVoiceFieldVisibility();
+            return;
+        }
+        byId('settings-voice-status').textContent = 'Downloading your natural voice — this only happens once…';
+        setVoiceProgress(true, 0);
+        try {
+            await ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent));
+            setPref(VOICE_ENGINE_PREF_KEY, 'kokoro');
+            setVoiceProgress(false);
+            byId('settings-voice-status').textContent = 'Ready — this voice now works offline too.';
+            byId('btn-settings-voice-remove').hidden = false;
+            updateKokoroVoiceFieldVisibility();
+        }
+        catch {
+            setVoiceProgress(false);
+            voiceEngineChips.setValue('system');
+            byId('settings-voice-status').textContent =
+                "Couldn't download the natural voice right now (needs a network connection) — staying on the built-in voice.";
+        }
+    }
+    byId('btn-settings-voice-preview').addEventListener('click', () => {
+        speak("Hi — this is Fit Fly's voice guide. It reads your session cues aloud, gently, so you can keep your eyes closed.");
+    });
+    byId('btn-settings-voice-remove').addEventListener('click', async () => {
+        await forgetKokoroModel(true);
+        setPref(VOICE_ENGINE_PREF_KEY, 'system');
+        voiceEngineChips.setValue('system');
+        byId('settings-voice-status').textContent = 'Removed — back to the built-in voice.';
+        byId('btn-settings-voice-remove').hidden = true;
+        updateKokoroVoiceFieldVisibility();
+    });
     byId('btn-hub-settings').addEventListener('click', async () => {
         await loadProfileForm();
+        refreshVoiceEngineUI();
         showScreen('screen-settings');
     });
-    byId('btn-settings-back').addEventListener('click', () => showScreen('screen-hub'));
+    byId('btn-settings-back').addEventListener('click', () => {
+        stopSpeaking();
+        showScreen('screen-hub');
+    });
     // ---------- export ----------
     byId('btn-settings-export').addEventListener('click', async () => {
         const statusEl = byId('settings-export-status');

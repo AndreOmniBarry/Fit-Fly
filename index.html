@@ -561,32 +561,38 @@
       </span>
     </div>
 
-    <!-- VOICE GUIDE: the built-in browser voice (js/features/focus/voice-
-         guide.ts) always works and needs nothing from this screen — this
-         card only exists to opt into the second engine, Kokoro-82M, a
-         real on-device neural TTS model (js/features/focus/kokoro-voice.ts
-         has the full honest story: why it needs a one-time download, and
-         why that engine loads from a CDN instead of being vendored like
-         everything else in this app). Off by default on purpose. -->
+    <!-- VOICE GUIDE: Kokoro-82M, a real on-device neural TTS model
+         (js/features/focus/kokoro-voice.ts has the full honest story —
+         why it needs a one-time download, and why that engine loads
+         from a CDN instead of being vendored like everything else in
+         this app), is the default here — nothing to install, nothing
+         to toggle on. Its one real cost, the download, only ever
+         triggers automatically the first time a guided session or
+         meditation actually plays (js/features/focus/voice-guide.ts's
+         speak()); this screen only ever reflects that, or lets someone
+         opt back out to the always-available built-in voice. -->
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <h3>Voice guide</h3>
         <p class="muted">
-          Guided sessions and breathing pacers can read their cues aloud.
-          Your device's own built-in voice needs nothing extra and always
-          works offline. "Natural voice" is a real 82-million-parameter
-          neural voice model that runs entirely on this device too — no
-          server ever hears your sessions — but getting it here the first
-          time means a genuine one-time download (tens of megabytes) over
-          a network this app otherwise never uses. After that first
-          download it's cached on this device and works offline like
-          everything else.
+          Guided sessions and breathing pacers read their cues aloud on
+          "Natural voice" by default — a real 82-million-parameter neural
+          voice model, run entirely on this device (no server ever hears
+          your sessions), with genuinely better prosody and warmth than a
+          browser's own built-in voice. The first time you actually play
+          a guided session or meditation, it downloads automatically
+          (tens of megabytes, over a network this app otherwise never
+          uses) while that first session narrates on your device's
+          built-in voice instead — every session after it uses the real
+          thing. After that one download it's cached here and works
+          offline like everything else. Prefer to skip the download
+          entirely? Switch to the built-in voice below.
         </p>
         <div class="field">
           <label id="lbl-settings-voice-engine">Voice engine</label>
           <div class="chip-group" id="settings-voice-engine" role="group" aria-labelledby="lbl-settings-voice-engine">
-            <button type="button" class="chip" data-value="system" aria-pressed="true">Built-in (device)</button>
-            <button type="button" class="chip" data-value="kokoro" aria-pressed="false">Natural voice (Kokoro AI)</button>
+            <button type="button" class="chip" data-value="kokoro" aria-pressed="true">Natural voice (Kokoro AI)</button>
+            <button type="button" class="chip" data-value="system" aria-pressed="false">Built-in (device)</button>
           </div>
         </div>
         <div class="field" id="settings-voice-kokoro-voice-field" hidden>
@@ -606,6 +612,7 @@
           <button class="btn btn-secondary" id="btn-settings-voice-preview">Preview this voice</button>
           <button class="btn btn-ghost" id="btn-settings-voice-remove" hidden>Remove downloaded voice</button>
         </div>
+        <p class="muted" style="font-size:11.5px; margin-top:6px;">Plays through your media volume — check your device isn't muted or on silent if you don't hear anything.</p>
       </span>
     </div>
 
@@ -1073,6 +1080,7 @@
         <div class="breathe-ring breathe-ring--core" id="guided-session-pacer-core"></div>
       </div>
       <p class="display" id="guided-session-caption" style="font-size:22px; margin:0; max-width:300px;" role="status" aria-live="polite">—</p>
+      <p class="muted" id="guided-session-voice-status" hidden style="font-size:var(--fs-xs); margin:4px 0 0;"></p>
     </div>
 
     <div class="focus-progress-track">

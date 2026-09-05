@@ -56,15 +56,18 @@ never touches what you've actually logged, which stays local exactly
 like everything else. Recent and Favorites don't need it at all — both
 are built entirely from data already on this device.
 
-The second is opt-in and one-time: turning on "Natural voice (Kokoro AI)"
-in Settings' Voice guide section downloads a real, on-device neural
-text-to-speech model (see "Voice guide" below) from Hugging Face Hub and
-its engine from jsDelivr. Once downloaded, generation happens entirely
-on this device — nothing about what a guided session says, or when, is
-ever sent anywhere — and the files are cached by the browser, so it's
-the last network request that specific feature ever needs. It's off by
-default, and everything else in the app (including the built-in voice
-guide) still needs zero network access, same as always.
+The second is a one-time download, not an ongoing habit: "Natural voice
+(Kokoro AI)" is Voice guide's default engine (see "Voice guide" below),
+and the real, on-device neural text-to-speech model it needs downloads
+automatically — from Hugging Face Hub, plus its engine from jsDelivr —
+the first time a guided session or meditation actually plays, never on
+app boot and never from just opening Settings. Once downloaded,
+generation happens entirely on this device — nothing about what a
+guided session says, or when, is ever sent anywhere — and the files are
+cached by the browser, so it's the last network request that specific
+feature ever needs. Settings can switch back to the always-available
+built-in voice at any time, which needs zero network access, same as
+everything else in the app.
 
 ## Export & import
 
@@ -330,7 +333,7 @@ js/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
     settings/                    # profile edit, export/import backup UI, voice-guide engine choice (TypeScript) — see "Export & import"
     sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
-    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (built-in + opt-in on-device Kokoro-82M neural voice) + the shared guided-session player (TypeScript)
+    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (default on-device Kokoro-82M neural voice, built-in Web Speech as fallback/opt-out) + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
     steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak, native-pedometer.js (real background step counting on a native build) (TypeScript)
@@ -1008,32 +1011,50 @@ natural rate variance and a real pitch drop on the line's final clause
 ending, versus a slight lift on one that continues), with a short
 breath-length pause between them.
 
-**A second engine, for real neural warmth: Kokoro-82M, on-device.** The
-browser's built-in voice above is free, universal, and needs nothing —
-but it's still formant/concatenative synthesis, not a model that actually
-learned prosody from real speech. Settings' Voice guide section
-(`settings-view.ts`) offers a second, opt-in engine: Kokoro, a real
-82-million-parameter neural text-to-speech model, run entirely on this
+**A second engine, on by default, for real neural warmth: Kokoro-82M,
+on-device.** The browser's built-in voice above is free, universal, and
+needs nothing — but it's still formant/concatenative synthesis, not a
+model that actually learned prosody from real speech. Kokoro, a real
+82-million-parameter neural text-to-speech model run entirely on this
 device through [ONNX Runtime](https://onnxruntime.ai)'s WebAssembly
-backend (`kokoro-voice.ts`). `speak()`/`stopSpeaking()` stay the one
-public surface every caller (`guided-session-view.ts` included) already
-uses — which engine actually spoke is invisible to them, decided per call
-from the saved preference.
+backend (`kokoro-voice.ts`), is Voice guide's *default* engine —
+`getVoiceEngine()` returns `'kokoro'` unless Settings has explicitly
+turned it off, not the other way around. `speak()`/`stopSpeaking()`
+(`voice-guide.ts`) stay the one public surface every caller
+(`guided-session-view.ts` included) already uses — which engine actually
+spoke is invisible to them, decided per call.
 
-Two honest constraints shape how this is built, not glossed over:
+Three honest constraints shape how this is built, not glossed over:
 
-- *A real, one-time download.* Kokoro's weights live on Hugging Face Hub
-  — there's no vendorable npm form of "an 82M-parameter model," so
-  turning this on for the first time means a genuine network fetch
-  (tens of megabytes, `q8` quantization — the library's own documented
-  default for the WASM device, chosen over `fp32`'s size or `q4`'s
-  quality loss). Settings shows the real aggregate percentage as it
-  downloads (`aggregateProgress`, unit-tested for exactly this: summing
-  real bytes loaded/total across every file, not averaging each file's
-  own percentage, which would misreport badly once files of very
-  different sizes are downloading at once). A failed download (offline,
-  denied storage) reverts the choice and says so — it never silently
-  leaves Settings claiming an engine that isn't actually working.
+- *A real download, triggered by real use, not a settings trip.* Kokoro's
+  weights live on Hugging Face Hub — there's no vendorable npm form of
+  "an 82M-parameter model," so using it at all means a genuine network
+  fetch (tens of megabytes, `q4` quantization — a real, audible quality
+  trade against kokoro-js's own `q8` default, chosen deliberately for a
+  smaller, faster download: this one now starts automatically, so a
+  shorter download is also a shorter window for the one failure mode
+  no client-side code can fully avoid — a fetch discarded because the
+  tab backgrounded or reloaded mid-download can't resume; it just
+  restarts next time). That download fires the moment `speak()`'s first
+  real call lands — someone's very first guided session or meditation —
+  never on app boot, and never just from opening Settings to check a
+  profile field: that first session narrates on the built-in voice while
+  Kokoro downloads in the background (a small status line on the
+  session screen itself says so, real percentage included — deliberately
+  placed inside the session someone is already sitting through, not a
+  separate download screen that's easy to wander away from and lose
+  progress on), and every session after it gets the real thing. Settings
+  shows the same real aggregate percentage when it's watching an
+  already-in-flight download, or driving one itself after an explicit
+  retry (`aggregateProgress`, unit-tested for exactly this: summing real
+  bytes loaded/total across every file, not averaging each file's own
+  percentage, which would misreport badly once files of very different
+  sizes are downloading at once). A failed download reports the real
+  reason and is remembered for the rest of that page session (no
+  hammering a dead endpoint on every beat) — but never silently reverts
+  the standing choice back to the built-in voice; a transient failure is
+  an honest status to report, not a reason to un-choose what was never
+  actively changed away from.
 - *Loaded from a CDN, not vendored — the one deliberate exception to
   this app's "everything vendored" rule* (see "TypeScript, without a
   bundler" and `js/vendor/THIRD_PARTY_NOTICES.md`). Vendoring Dexie and
@@ -1047,6 +1068,22 @@ Two honest constraints shape how this is built, not glossed over:
   cached by the browser alongside the model weights afterward — this is
   the one feature in the app that talks to a third party at all; see
   "Your data stays on this device" above for the other one.
+- *Real playback, primed for a real gesture — not the browser silently
+  discarding it.* Generated speech is decoded and played through a
+  shared `AudioContext`/`AudioBufferSourceNode`, the exact pattern
+  `audio-cue.js`'s `primeAudio()` and Focus's own `audio-engine.ts`
+  already rely on, rather than a plain `HTMLAudioElement` — `speak()`
+  primes it on every call. An `HTMLAudioElement.play()` reached through
+  the multi-second, multi-await chain a streamed sentence actually takes
+  to generate (WASM inference per sentence) reads as "not really" a
+  response to the original tap on stricter browsers, which then quietly
+  refuse to play it; a resumed `AudioContext`, by contrast, stays
+  `'running'` for anything scheduled on it later, gesture or not. This
+  fixed a real bug caught during manual testing: a guided session or
+  Settings' Preview button visibly "playing" — captions advancing, pacer
+  animating — with total silence and no error, because the previous
+  `HTMLAudioElement`-based path was catching a rejected `.play()` the
+  same way it caught a normal, successful playback ending.
 
 Once loaded, `speakWithKokoro` uses kokoro-js's own sentence-boundary
 splitter (correctly handling abbreviations, decimals, and quotes — real
@@ -1067,7 +1104,11 @@ noticeably rougher. The choice is a real saved preference
 `speak()` call, not just applied once at download time. A model that
 fails to reload in a later session (cache evicted, offline) falls back
 to the built-in voice for that line honestly, exactly like every other
-best-effort Web API wrapper in this app.
+best-effort Web API wrapper in this app — and, same as everywhere else
+audio plays through the device's media volume rather than a separate
+app volume, a muted or silenced device produces the identical symptom
+with no programmatic signal to tell it apart; Settings' own Voice guide
+card says so plainly.
 
 **The breathing pacer reacts on four channels, not one.** Each ring
 (`guided-session-pacer-core/-mid/-outer`) moves a smaller fraction of the

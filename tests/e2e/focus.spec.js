@@ -29,8 +29,21 @@ async function completeOnboarding(page) {
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
 }
 
+// Kokoro is voice guidance's default engine (see js/features/focus/
+// voice-guide.ts's getVoiceEngine()) and its real, tens-of-megabytes
+// download triggers automatically the moment any guided session speaks
+// its first line — several tests below start one. Blocking the CDN/HF
+// traffic outright keeps this suite fast and network-independent; see
+// tests/e2e/voice-guide.spec.js for the tests that actually exercise
+// that download/fallback behavior.
+async function blockKokoroNetwork(page) {
+  await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
+  await page.route('https://huggingface.co/**', (route) => route.abort());
+}
+
 test.describe('focus', () => {
   test.beforeEach(async ({ page }) => {
+    await blockKokoroNetwork(page);
     await page.goto('/');
     await clearAppDb(page);
     await page.reload();
@@ -83,8 +96,11 @@ test.describe('focus', () => {
     // No web API can detect a muted device or a media-volume slider at
     // zero — regression coverage for the one honest fix available for
     // "it says Playing but I hear nothing": telling people what to check.
+    // Scoped to this screen — Settings' own Voice guide card carries the
+    // same honest phrase for the exact same reason (kokoro-voice.ts),
+    // and it's still in the DOM (just hidden) while Focus is showing.
     await expect(page.locator('#focus-volume')).toBeVisible();
-    await expect(page.getByText(/media volume/i)).toBeVisible();
+    await expect(page.locator('#screen-focus').getByText(/media volume/i)).toBeVisible();
   });
 
   test('switching sounds stops the first and starts the second, not both at once', async ({ page }) => {

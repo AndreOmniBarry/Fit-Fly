@@ -49,11 +49,14 @@ irreversible size for zero offline benefit.
 So this one library is `import()`ed at runtime from
 `https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js` — the
 CDN kokoro-js's own README recommends for no-bundler use — instead of
-being vendored, and only when a person explicitly opts in from Settings'
-Voice guide section (never on app boot). It's cached by the browser
-after that first load, same as the model weights it fetches from
-Hugging Face Hub, so it isn't re-fetched every session. This is the one
-place in Fit Fly's own code that talks to a third party at runtime at
-all (see the README's "Your data stays on this device" for the only
+being vendored. Kokoro is Voice guide's default engine, but this fetch
+only ever fires from a real `speak()` call inside an actual guided
+session or meditation (never on app boot, and never just from opening
+Settings) — see js/features/focus/voice-guide.ts's `speak()`. It's
+cached by the browser after that first load, same as the model weights
+it fetches from Hugging Face Hub, so it isn't re-fetched every session.
+This is the one place in Fit Fly's own code that talks to a third party
+at runtime at all (see the README's "Your data stays on this device" for
+the only
 other one, Nutrition's food search) — sw.js's fetch handler deliberately
 leaves this traffic untouched rather than trying to precache it.

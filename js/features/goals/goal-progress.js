@@ -41,3 +41,18 @@ export function daysUntilDeadline(deadlineIsoDate, nowIsoDate = new Date().toISO
   const msPerDay = 24 * 60 * 60 * 1000;
   return Math.round((new Date(deadlineIsoDate) - new Date(nowIsoDate)) / msPerDay);
 }
+
+/**
+ * @param {object} input
+ * @param {'increase'|'decrease'} input.direction
+ * @param {number} input.currentValue
+ * @param {number} input.targetValue
+ * @returns {number} how much real distance is left in the goal's own unit,
+ *   direction-aware and floored at 0 once achieved — the honest "how close
+ *   am I" framing a bare percentage doesn't give: "3%" and "14.5kg to go"
+ *   are the same math, but only one tells you what's actually left to do.
+ */
+export function remainingToTarget({ direction, currentValue, targetValue }) {
+  const remaining = direction === 'decrease' ? currentValue - targetValue : targetValue - currentValue;
+  return Math.max(0, Math.round(remaining * 10) / 10);
+}

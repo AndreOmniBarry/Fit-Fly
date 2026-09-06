@@ -5,9 +5,13 @@ import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { getPref, setPref } from '../../lib/storage.js';
 import { getNotificationPermission, requestNotificationPermission, showNotification } from '../../lib/notifications.js';
-import { calculateProgressPercent, daysUntilDeadline, isGoalAchieved } from './goal-progress.js';
-import { MILESTONE_MESSAGES, newlyCrossedMilestones } from './milestones.js';
-import { goalsNeedingTodaysNudge } from './reminders.js';
+import { calculateStreak } from '../../lib/streak.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
+import { calculateProgressPercent, daysUntilDeadline, isGoalAchieved, remainingToTarget } from './goal-progress.js';
+import { newlyCrossedMilestones } from './milestones.js';
+import { inferActivityType } from './goal-activity.js';
+import { pickMilestoneMessage } from './goal-phrases.js';
+import { buildGoalsNotification } from './reminders.js';
 import { createGoal, listActiveGoals, logGoalProgress, markGoalAchieved } from '../../db/repositories/goals.js';
 
 function byId(id) {
@@ -18,9 +22,17 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** The dates progress was actually logged for this goal, oldest first —
+ *  the one real signal every streak/trend read here comes from. */
+function loggedDates(goal) {
+  return (goal.history ?? []).map((entry) => entry.loggedAt.slice(0, 10));
+}
+
 // A milestone just crossed shows once, on the very next render, then
 // clears itself — a real one-time celebration, not a badge that lingers
-// forever once earned.
+// forever once earned. Stores the already-picked message text (not just
+// the threshold number) so the card and the notification that fired
+// alongside it always read identically.
 const pendingMilestoneByGoalId = new Map();
 
 export function initGoalsFeature() {
@@ -68,12 +80,16 @@ export function initGoalsFeature() {
     await renderGoals();
   });
 
-  // "Time to smash your goals today" — a real check-on-open nudge, the
-  // honest version of a reminder without a push server (see
-  // reminders.js's own comment). Never prompts for permission on its
-  // own — only fires if it's already granted — and at most once per
-  // calendar day even across reloads, tracked via a persisted pref
-  // rather than in-memory, so refreshing the page doesn't re-trigger it.
+  // A real, activity-flavored nudge — "time to smash your walk streak",
+  // not one generic line for every goal — the honest version of a
+  // reminder without a push server (see reminders.js's own comment).
+  // Priority (a real streak at risk, then real close-to-target progress,
+  // then the plain "hasn't logged today" case) all lives in
+  // buildGoalsNotification, over real goals and real history only. Never
+  // prompts for permission on its own — only fires if it's already
+  // granted — and at most once per calendar day even across reloads,
+  // tracked via a persisted pref rather than in-memory, so refreshing
+  // the page doesn't re-trigger it.
   void checkGoalReminders();
 }
 
@@ -84,16 +100,11 @@ async function checkGoalReminders() {
   if (getPref('lastGoalsReminderDate') === today) return;
 
   const goals = await listActiveGoals();
-  const needingNudge = goalsNeedingTodaysNudge(goals, today);
-  if (needingNudge.length === 0) return;
+  const notification = buildGoalsNotification(goals, today);
+  if (!notification) return;
 
   setPref('lastGoalsReminderDate', today);
-  showNotification('Time to smash your goals today', {
-    body:
-      needingNudge.length === 1
-        ? needingNudge[0].name
-        : `${needingNudge.length} goals could use an update: ${needingNudge.map((g) => g.name).join(', ')}`,
-  });
+  showNotification(notification.title, { body: notification.body });
 }
 
 function renderNotifyStatus() {
@@ -122,6 +133,21 @@ async function renderGoals() {
   goals.forEach((goal) => {
     const percentEl = list.querySelector(`[data-percent-for="${goal.id}"]`);
     if (percentEl) animateCountUp(percentEl, Math.round(calculateProgressPercent(goal)), { formatter: (n) => `${Math.round(n)}%` });
+
+    // A real trend of every logged update for this goal, reusing the
+    // exact same shared bar chart Steps/Hydration/Run already use (see
+    // js/lib/trend-chart.js) rather than a bespoke chart just for Goals
+    // — with the target drawn in as the chart's own reference line, so
+    // "how close am I" is a picture, not just a percentage.
+    const chartContainer = list.querySelector(`[data-history-for="${goal.id}"]`);
+    if (chartContainer) {
+      renderTrendChart(chartContainer, {
+        points: goalHistoryChartPoints(goal),
+        accentVar: '--accent',
+        referenceValue: goal.targetValue,
+        emptyMessage: 'Log progress twice to see a trend.',
+      });
+    }
   });
 
   list.querySelectorAll('[data-log-progress-id]').forEach((btn) => {
@@ -131,8 +157,28 @@ async function renderGoals() {
       const value = Number(input.value);
       if (!Number.isFinite(value)) return;
       await applyProgressUpdate(goalId, value);
+      input.value = '';
       await renderGoals();
     });
+  });
+}
+
+function goalHistoryChartPoints(goal) {
+  return (goal.history ?? []).map((entry, index) => {
+    const date = new Date(entry.loggedAt);
+    const achievedAtThisPoint = isGoalAchieved({
+      direction: goal.direction,
+      currentValue: entry.value,
+      targetValue: goal.targetValue,
+    });
+    return {
+      key: `${goal.id}-${index}`,
+      value: entry.value,
+      axisLabel: `${date.getMonth() + 1}/${date.getDate()}`,
+      highlighted: achievedAtThisPoint,
+      tooltipValue: `${entry.value}${goal.unit}`,
+      tooltipDetail: `${date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${achievedAtThisPoint ? ' · Goal met' : ''}`,
+    };
   });
 }
 
@@ -151,8 +197,9 @@ async function applyProgressUpdate(goalId, currentValue) {
   const crossed = newlyCrossedMilestones(previousPercent, currentPercent);
   if (crossed.length > 0) {
     const milestone = crossed[crossed.length - 1]; // the highest one reached in this single update
-    pendingMilestoneByGoalId.set(goalId, milestone);
-    showNotification('Nice progress!', { body: `${goal.name}: ${MILESTONE_MESSAGES[milestone]}` });
+    const message = pickMilestoneMessage(inferActivityType(goal), milestone);
+    pendingMilestoneByGoalId.set(goalId, message);
+    showNotification('Nice progress!', { body: `${goal.name}: ${message}` });
   }
 }
 
@@ -172,24 +219,35 @@ function renderGoalCard(goal) {
   const deadlineText =
     days == null ? '' : days >= 0 ? `${days} day(s) left` : `${Math.abs(days)} day(s) past deadline`;
 
-  const milestone = pendingMilestoneByGoalId.get(goal.id);
+  const streak = calculateStreak(loggedDates(goal));
+  const remaining = remainingToTarget(goal);
+  const closeText = remaining > 0 ? `${remaining}${escapeHtml(goal.unit)} to go` : 'Right at your target';
+
+  const milestoneMessage = pendingMilestoneByGoalId.get(goal.id);
   pendingMilestoneByGoalId.delete(goal.id); // shown at most once
+
+  const history = goal.history ?? [];
 
   return `
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <div class="row-between">
-          <span class="row" style="gap:10px;">
+          <span class="row" style="gap:10px; align-items:center; flex-wrap:wrap;">
             <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-target"></use></svg></span>
             <strong>${escapeHtml(goal.name)}</strong>
+            ${
+              streak >= 2
+                ? `<span class="row" style="gap:3px; align-items:center; font-size:var(--fs-xs); font-weight:700;"><svg class="icon" width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-flame"></use></svg>${streak}-day streak</span>`
+                : ''
+            }
           </span>
           <span class="muted" style="font-size:var(--fs-sm);">${deadlineText}</span>
         </div>
         ${
-          milestone
+          milestoneMessage
             ? `<div class="card card-accent row" style="align-items:center; gap:var(--space-2); padding:var(--space-2) var(--space-3);">
                  <svg class="icon" width="16" height="16" viewBox="0 0 24 24"><use href="#icon-party"></use></svg>
-                 <span style="font-size:var(--fs-sm);">${escapeHtml(MILESTONE_MESSAGES[milestone])}</span>
+                 <span style="font-size:var(--fs-sm);">${escapeHtml(milestoneMessage)}</span>
                </div>`
             : ''
         }
@@ -197,9 +255,10 @@ function renderGoalCard(goal) {
           <div class="goal-progress-fill" style="width:${percent}%"></div>
         </div>
         <div class="row-between" style="font-size:var(--fs-sm);">
-          <span class="muted">${goal.currentValue}${escapeHtml(goal.unit)} of ${goal.targetValue}${escapeHtml(goal.unit)}</span>
+          <span class="muted">${goal.currentValue}${escapeHtml(goal.unit)} of ${goal.targetValue}${escapeHtml(goal.unit)} · ${closeText}</span>
           <span class="muted" data-percent-for="${goal.id}">${percent}%</span>
         </div>
+        ${history.length > 0 ? `<div class="trend-chart" data-history-for="${goal.id}"></div>` : ''}
         <div class="row">
           <input class="input" type="number" step="any" data-progress-input="${goal.id}" placeholder="Update value">
           <button class="btn btn-secondary" data-log-progress-id="${goal.id}">Log</button>

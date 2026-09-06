@@ -74,6 +74,30 @@ describe('readinessActionSuggestion: a plain-language nudge per category', () =>
   });
 });
 
+describe('calculateReadiness: sleep debt adds context without changing the score', () => {
+  it('flags a notable sleep debt in the reasoning', () => {
+    const result = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1, sleepDebtMinutes: 150 });
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('sleep debt'))).toBe(true);
+  });
+
+  it('stays quiet about a trivial debt', () => {
+    const result = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1, sleepDebtMinutes: 20 });
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('sleep debt'))).toBe(false);
+  });
+
+  it('never mentions debt when none was passed at all — no invented number for someone with no Sleep logs', () => {
+    const result = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1 });
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('sleep debt'))).toBe(false);
+  });
+
+  it('does not change the score itself — debt is reasoning context, not a second sleep input', () => {
+    const withoutDebt = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1 });
+    const withDebt = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1, sleepDebtMinutes: 300 });
+    expect(withDebt.score).toBe(withoutDebt.score);
+    expect(withDebt.category).toBe(withoutDebt.category);
+  });
+});
+
 describe('calculateReadiness: monotonic sanity checks', () => {
   it('more sleep never scores lower than less sleep, all else equal', () => {
     const lessSleep = calculateReadiness({ sleepHours: 5, energyLevel: 3, sorenessLevel: 3 });

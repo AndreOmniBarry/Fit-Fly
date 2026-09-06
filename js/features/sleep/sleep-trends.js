@@ -18,4 +18,15 @@ export function buildWeeklyTrend(logs) {
 export function calculateLoggingStreak(logs) {
     return calculateStreak(logs.map((log) => log.date));
 }
+/** The single longest night across a person's whole logged history — a
+ *  real personal best, never scoped to a recent window, same "an actual
+ *  record, not a recent-window illusion" contract as Hydration/Steps' own
+ *  bestXDayEver. A tie keeps whichever the array lists first, so callers
+ *  should pass logs oldest-first for an exact tie to read as the first
+ *  time it was reached, not an arbitrary later repeat. */
+export function bestSleepNightEver(logs) {
+    if (logs.length === 0)
+        return null;
+    return logs.reduce((best, log) => (log.durationMinutes > best.durationMinutes ? log : best));
+}
 //# sourceMappingURL=sleep-trends.js.map

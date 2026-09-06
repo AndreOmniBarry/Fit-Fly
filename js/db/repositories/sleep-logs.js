@@ -25,4 +25,13 @@ export async function listSleepLogsInRange(startDate, endDate, db = getDb()) {
 export async function deleteSleepLog(date, db = getDb()) {
     await db.sleepLogs.delete(date);
 }
+/** Every logged night ever, unordered — the Insights chart's own D/W/M/6M/Y
+ *  range switcher needs real access back past the 14-night window
+ *  listRecentSleepLogs caps at (a 6M/Y view has to reach further back than
+ *  that), the same "whole history, not just a recent window" query
+ *  listAllStepEntries/listAllHydrationEntries already use for their own
+ *  best-day-ever badge and long-range trend. */
+export async function listAllSleepLogs(db = getDb()) {
+    return db.sleepLogs.toArray();
+}
 //# sourceMappingURL=sleep-logs.js.map

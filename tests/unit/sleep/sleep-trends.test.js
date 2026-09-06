@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildWeeklyTrend, calculateLoggingStreak } from '../../../js/features/sleep/sleep-trends.js';
+import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from '../../../js/features/sleep/sleep-trends.js';
 
 function log(date, durationMinutes) {
   return { date, bedTime: null, wakeTime: null, durationMinutes, quality: null, notes: '', loggedAt: `${date}T08:00:00.000Z` };
@@ -50,5 +50,21 @@ describe('calculateLoggingStreak', () => {
   it('a duplicate date for the same night does not inflate the streak', () => {
     const logs = [log('2024-01-01', 480), log('2024-01-01', 480), log('2024-01-02', 480)];
     expect(calculateLoggingStreak(logs)).toBe(2);
+  });
+});
+
+describe('bestSleepNightEver', () => {
+  it('is null with no logs', () => {
+    expect(bestSleepNightEver([])).toBeNull();
+  });
+
+  it('finds the single longest night across the whole history, not just a recent window', () => {
+    const logs = [log('2024-01-01', 400), log('2024-06-15', 560), log('2024-03-02', 420)];
+    expect(bestSleepNightEver(logs)?.date).toBe('2024-06-15');
+  });
+
+  it('breaks an exact tie by picking whichever the array lists first', () => {
+    const logs = [log('2024-01-01', 480), log('2024-01-02', 480)];
+    expect(bestSleepNightEver(logs)?.date).toBe('2024-01-01');
   });
 });

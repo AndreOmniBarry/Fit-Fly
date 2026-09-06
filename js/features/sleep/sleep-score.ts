@@ -28,7 +28,11 @@ function qualityScore(quality: number): number {
   return clamp((quality / 5) * 100, 0, 100);
 }
 
-function categoryFor(score: number): SleepCategory {
+/** The same poor/fair/good/great banding calculateSleepScore itself uses —
+ *  exported so anything else that only has a bare 0-100 score (a bucketed
+ *  chart average, say — see sleep-insight-chart.ts) can classify it the
+ *  same way, without duplicating the band cutoffs a second place. */
+export function categoryForScore(score: number): SleepCategory {
   if (score < 50) return 'poor';
   if (score < 70) return 'fair';
   if (score < 85) return 'good';
@@ -65,7 +69,7 @@ export function calculateSleepScore(
   const totalWeight = known.reduce((sum, [key]) => sum + WEIGHTS[key], 0);
   const weightedSum = known.reduce((sum, [key, value]) => sum + value * WEIGHTS[key], 0);
   const score = Math.round(weightedSum / totalWeight);
-  const category = categoryFor(score);
+  const category = categoryForScore(score);
 
   return { score, category, components, reasoning: buildReasoning(components, category, band, tonight.durationMinutes) };
 }

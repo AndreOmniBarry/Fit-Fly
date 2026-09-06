@@ -895,14 +895,47 @@
       </div>
     </div>
 
+    <!-- Real per-night duration + score, not "just one unintuitive
+         slope": a smooth area whose *shape* is duration and whose
+         per-point *color* is that night's (or period's) own sleep score
+         band — two of Sleep's own logged metrics in one picture, laid out
+         with the exact same D/W/M/6M/Y range-switching, bucketing, and
+         tap/hover/focus-to-reveal language as Hydration/Steps' own trend
+         chart (js/lib/time-range.js, js/lib/trend-chart.ts) — just over a
+         curve instead of bars, since duration-and-score together don't
+         fit one bar's single value. See sleep-insight-chart.ts for the
+         pure bucketing/geometry math this renders. -->
     <div class="sleep-chart-card" style="margin-top:var(--space-4);">
       <div class="row-between" style="margin-bottom:var(--space-3);">
         <strong style="font-size:14px;">Recent nights</strong>
-        <span class="muted" style="font-size:11.5px;">score per night</span>
+        <span class="row" id="sleep-insight-best-night-badge" style="gap:6px; align-items:center; font-size:11.5px;" hidden>
+          <svg class="icon" width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
+          <span id="sleep-insight-best-night-text"></span>
+        </span>
       </div>
-      <svg width="100%" height="120" viewBox="0 0 320 120" preserveAspectRatio="none" id="sleep-insight-chart" role="img" aria-label="Sleep score trend over recent logged nights"></svg>
-      <p class="muted center-text" id="sleep-insight-chart-empty" style="font-size:var(--fs-sm);" hidden>Log a second night to start a trend line.</p>
+
+      <div class="chip-group" id="sleep-insight-range" role="group" aria-label="Chart time range">
+        <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+        <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+        <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+        <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+      </div>
+
+      <div class="sleep-insight-chart-wrap" id="sleep-insight-chart-wrap" style="margin-top:var(--space-3);">
+        <svg width="100%" height="140" viewBox="0 0 320 140" preserveAspectRatio="none" id="sleep-insight-chart" role="img" aria-label="Sleep duration over the selected range, colored by sleep score"></svg>
+        <div class="sleep-insight-chart-points" id="sleep-insight-chart-points"></div>
+      </div>
+      <p class="muted center-text" id="sleep-insight-chart-empty" style="font-size:var(--fs-sm);" hidden>Log a second night to start a trend.</p>
       <div class="row-between" id="sleep-insight-chart-labels" style="font-size:10.5px; color:var(--sleep-ink-faint); margin-top:4px;"></div>
+
+      <p class="muted" id="sleep-insight-range-copy" style="font-size:var(--fs-xs); margin-top:10px;">Last 7 days.</p>
+
+      <div class="sleep-calendar-legend" id="sleep-insight-legend" style="margin-top:10px;">
+        <span><i class="sleep-calendar-dot" data-category="great"></i> Great</span>
+        <span><i class="sleep-calendar-dot" data-category="good"></i> Good</span>
+        <span><i class="sleep-calendar-dot" data-category="fair"></i> Fair</span>
+        <span><i class="sleep-calendar-dot" data-category="poor"></i> Poor</span>
+      </div>
     </div>
 
     <div class="stack" id="sleep-insight-factors" style="margin-top:var(--space-4);"></div>

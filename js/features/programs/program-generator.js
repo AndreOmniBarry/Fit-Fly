@@ -8,6 +8,7 @@
 import { EXERCISE_LIBRARY } from '../exercises/exercise-library.js';
 import { getBlockInfo } from './periodization.js';
 import { getCooldown, getWarmup } from './warmup-cooldown.js';
+import { selectRestSeconds } from '../timers/rest-duration.js';
 
 const DIFFICULTY_ALLOWANCE = Object.freeze({
   beginner: ['beginner'],
@@ -43,24 +44,34 @@ const CATEGORY_DAY_PLANS = Object.freeze({
 // (a beginner plank hold starts short and builds up, same shape as a
 // beginner's rep count — see exercise-library.js's own comment on why
 // this needed splitting out from reps in the first place).
+//
+// Deliberately no `restSec` here any more — rest used to be one flat
+// number per category, applied to every exercise in every slot
+// regardless of what it actually was (a heavy loaded lift and a
+// bodyweight core hold, resting the exact same amount). That's exactly
+// the "a phone timer could do this" complaint: a fixed number a person
+// could just as well set on their own watch. Actual per-exercise rest is
+// now computed by rest-duration.js's selectRestSeconds() below, from
+// what the set genuinely was — its movement pattern, whether it was
+// externally loaded, and the rep range it was just prescribed at.
 const CATEGORY_PRESCRIPTIONS = Object.freeze({
-  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20', restSec: 60 },
-  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30', restSec: 45 },
-  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30', restSec: 75 },
-  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15', restSec: 60 },
-  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45', restSec: 90 },
-  endurance: { sets: 2, reps: '15-20', holdSec: '30-45', restSec: 30 },
+  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20' },
+  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30' },
+  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30' },
+  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15' },
+  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45' },
+  endurance: { sets: 2, reps: '15-20', holdSec: '30-45' },
 });
 
 // A real strength-training prescription, per the NSCA's own guidelines —
-// lower reps at heavier intent, more sets, meaningfully longer rest
-// (2-5min for real neuromuscular recovery between near-maximal efforts,
-// not the ~90s hypertrophy rest above) — this is what actually makes
+// lower reps at heavier intent, more sets — this is what actually makes
 // "build strength" a different program from "build muscle", not a
 // re-skinned copy of it. Timed holds get proportionally longer too:
 // a strength-focused isometric still aims for near-maximal tension, held
-// briefly, not hypertrophy's longer time-under-tension.
-const STRENGTH_FOCUS_PRESCRIPTION = Object.freeze({ sets: 5, reps: '3-6', holdSec: '20-30', restSec: 180 });
+// briefly, not hypertrophy's longer time-under-tension. (Its longer real
+// rest between sets falls out of selectRestSeconds() below, from the
+// much lower rep range alone — not a separate number maintained here.)
+const STRENGTH_FOCUS_PRESCRIPTION = Object.freeze({ sets: 5, reps: '3-6', holdSec: '20-30' });
 
 const CATEGORY_REASONING = Object.freeze({
   'sedentary-start': 'Two full-body sessions a week, light volume — building the habit and a base matters more than the exact numbers right now.',
@@ -153,7 +164,11 @@ export function generateProgram({
         sets: setsThisWeek,
         reps: prescription.reps,
         holdSec: prescription.holdSec,
-        restSec: prescription.restSec,
+        restSec: selectRestSeconds({
+          pattern: exercise.pattern,
+          logMetric: exercise.logMetric,
+          reps: prescription.reps,
+        }),
       })),
     };
   });

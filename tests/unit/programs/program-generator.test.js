@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { generateProgram } from '../../../js/features/programs/program-generator.js';
 import { getLibraryExercise } from '../../../js/features/exercises/exercise-library.js';
+import { selectRestSeconds } from '../../../js/features/timers/rest-duration.js';
 
 describe('generateProgram: basic shape', () => {
   it('produces the right number of days for each category', () => {
@@ -182,6 +183,48 @@ describe('generateProgram: per-exercise logMetric', () => {
     expect(plank).toBeDefined();
     expect(plank.logMetric).toBe('time');
     expect(plank.holdSec).toMatch(/^\d+-\d+$/);
+  });
+});
+
+describe('generateProgram: per-exercise rest, not one flat number for the whole program', () => {
+  it('every generated exercise\'s restSec matches rest-duration.js\'s own answer for its real pattern/logMetric/reps', () => {
+    // The rest timer's whole reason for existing over a phone timer is
+    // that it picks a duration from what the exercise actually was —
+    // this proves that's really wired all the way through, not just
+    // true in rest-duration.js's own isolated unit tests.
+    const program = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced' });
+    for (const day of program.days) {
+      for (const exercise of day.exercises) {
+        const libraryEntry = getLibraryExercise(exercise.exerciseId);
+        const expected = selectRestSeconds({
+          pattern: libraryEntry.pattern,
+          logMetric: exercise.logMetric,
+          reps: exercise.reps,
+        });
+        expect(exercise.restSec).toBe(expected);
+      }
+    }
+  });
+
+  it('a heavier, lower-rep strength-focus program rests longer than the same exercise at hypertrophy reps', () => {
+    const hypertrophyProgram = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', trainingFocus: 'hypertrophy' });
+    const strengthProgram = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', trainingFocus: 'strength' });
+
+    // Same block/rotation logic picks the same exercise for both — only
+    // the rep range (and therefore the rest it earns) differs.
+    const hyperExercise = hypertrophyProgram.days[0].exercises[0];
+    const strengthExercise = strengthProgram.days[0].exercises[0];
+    expect(strengthExercise.exerciseId).toBe(hyperExercise.exerciseId);
+    expect(strengthExercise.restSec).toBeGreaterThan(hyperExercise.restSec);
+  });
+
+  it('a program never invents one identical restSec for every exercise regardless of type', () => {
+    // rehab-recuperation's mobility days mix a core hold (plank, time-
+    // based) with reps-based hinge/cardio work — real different exercise
+    // types that should not all land on the exact same rest duration.
+    const program = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner' });
+    const restSecValues = new Set(program.days.flatMap((day) => day.exercises.map((e) => e.restSec)));
+    expect(restSecValues.size).toBeGreaterThan(1);
   });
 });
 

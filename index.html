@@ -2475,10 +2475,31 @@
           <div class="chip-group" id="nutrition-favorite-chips"></div>
         </div>
 
+        <details class="stack" id="nutrition-regional-help" style="gap:6px;">
+          <summary style="cursor:pointer; font-size:var(--fs-sm); font-weight:600;">Can't find your dish? Get guidance</summary>
+          <p class="muted" style="font-size:var(--fs-xs);">
+            Home-cooked regional dishes (fufu, injera, jollof rice, biryani, ...) mostly aren't in a barcode
+            database like Open Food Facts. Search the staple ingredient behind the dish instead of the dish
+            name — tap one below for a real per-100g reference figure, sourced from published food-composition
+            data, then set the "Portion eaten" field to what you actually had. The biggest thing a per-100g
+            staple figure misses is added cooking oil: about
+            <strong id="nutrition-oil-kcal">124</strong> kcal per tablespoon, almost all fat — add that back in
+            yourself if your dish was fried or oil-finished, since no database can see how much oil was in your
+            pan.
+          </p>
+          <div class="chip-group" id="nutrition-regional-chips"></div>
+        </details>
+
         <input class="input" type="text" id="nutrition-name" placeholder="What did you eat?">
         <p class="muted" id="nutrition-portion-hint" style="font-size:var(--fs-xs);" hidden>
-          These are per 100g from the food database — adjust them to match your actual portion before adding.
+          This is a per-100g reference figure, not your actual portion — enter how many grams you ate below and
+          the amounts will be scaled for you.
         </p>
+        <div class="row" id="nutrition-portion-grams-wrap" hidden>
+          <input class="input" type="number" id="nutrition-portion-grams" min="1" placeholder="grams eaten" value="100">
+          <span class="muted" style="font-size:var(--fs-xs); align-self:center;">grams eaten (100g = the reference amount)</span>
+        </div>
+        <p class="muted" id="nutrition-portion-note" style="font-size:var(--fs-xs);" hidden></p>
         <div class="row">
           <input class="input" type="number" id="nutrition-calories" min="0" placeholder="kcal">
           <input class="input" type="number" id="nutrition-protein" min="0" placeholder="protein g">

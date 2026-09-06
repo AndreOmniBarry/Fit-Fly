@@ -286,4 +286,57 @@ test.describe('nutrition', () => {
     await expect(page.locator('#nutrition-total-fiber')).toHaveText('8g');
     await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Fiber8g');
   });
+
+  test('entering the actual grams eaten rescales a per-100g search result instead of logging the raw figure', async ({
+    page,
+  }) => {
+    await page.route('https://world.openfoodfacts.org/**', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          products: [
+            {
+              product_name: 'Rolled Oats',
+              nutriments: { 'energy-kcal_100g': 389, proteins_100g: 17, carbohydrates_100g: 66, fat_100g: 7, fiber_100g: 10 },
+            },
+          ],
+        }),
+      })
+    );
+
+    await page.locator('#nutrition-search-query').fill('oats');
+    await page.locator('#btn-nutrition-search').click();
+    await page.locator('#nutrition-search-results button').first().click();
+    await expect(page.locator('#nutrition-calories')).toHaveValue('389'); // 100g default, unscaled
+
+    await page.locator('#nutrition-portion-grams').fill('50');
+    await expect(page.locator('#nutrition-calories')).toHaveValue('195'); // 389 * 0.5, rounded
+    await expect(page.locator('#nutrition-protein')).toHaveValue('9');
+    await expect(page.locator('#nutrition-fiber')).toHaveValue('5');
+
+    await page.locator('#btn-nutrition-add').click();
+    await expect(page.locator('#nutrition-total-calories')).toHaveText('195');
+  });
+
+  test('picking a regional staple from the "can\'t find your dish" guidance fills a sourced per-100g reference and scales with portion', async ({
+    page,
+  }) => {
+    await page.locator('#nutrition-regional-help summary').click();
+    await page.locator('#nutrition-regional-chips .chip', { hasText: 'Cassava' }).click();
+
+    await expect(page.locator('#nutrition-name')).toHaveValue('Cassava (raw)');
+    await expect(page.locator('#nutrition-calories')).toHaveValue('160');
+    await expect(page.locator('#nutrition-portion-hint')).toBeVisible();
+    await expect(page.locator('#nutrition-portion-note')).toContainText('fufu');
+    // nothing was logged just by picking the reference figure
+    await expect(page.locator('#nutrition-entry-list')).toContainText('Nothing logged yet today');
+
+    await page.locator('#nutrition-portion-grams').fill('200');
+    await expect(page.locator('#nutrition-calories')).toHaveValue('320');
+
+    await page.locator('#btn-nutrition-add').click();
+    await expect(page.locator('#nutrition-entry-list .card').first()).toContainText('Cassava (raw)');
+    await expect(page.locator('#nutrition-total-calories')).toHaveText('320');
+  });
 });

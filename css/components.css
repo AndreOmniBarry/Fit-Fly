@@ -306,6 +306,21 @@ textarea.input{
 }
 .whealth-calendar-day--predicted-period .whealth-calendar-day-dot{ background:var(--danger); }
 
+/* Estimated menstrual/follicular/luteal days — the same soft-fill/
+   colored-border shape as the fertile-window rule above (an estimate,
+   never mistaken for real logged flow, which is always the solid
+   --period fill), each phase its own hue so the four are never
+   confusable with each other. Ovulation reuses --fertile directly rather
+   than a --phase-ovulation rule of its own — same window, same color,
+   the familiar "fertile window" name the legend and prediction card copy
+   already use for it. */
+.whealth-calendar-day--phase-menstrual{ background:var(--danger-soft); border-color:var(--danger); }
+.whealth-calendar-day--phase-menstrual .whealth-calendar-day-dot{ background:var(--danger); }
+.whealth-calendar-day--phase-follicular{ background:var(--info-soft); border-color:var(--info); }
+.whealth-calendar-day--phase-follicular .whealth-calendar-day-dot{ background:var(--info); }
+.whealth-calendar-day--phase-luteal{ background:var(--warning-soft); border-color:var(--warning); }
+.whealth-calendar-day--phase-luteal .whealth-calendar-day-dot{ background:var(--warning); }
+
 .whealth-calendar-legend{
   display:flex; flex-wrap:wrap; gap:14px; margin-top:8px;
   font-size:11.5px; color:var(--ink-muted);
@@ -313,9 +328,87 @@ textarea.input{
 .whealth-calendar-legend span{ display:flex; align-items:center; gap:5px; }
 .whealth-calendar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; font-style:normal; }
 .whealth-calendar-dot[data-kind="period"]{ background:var(--danger); }
+.whealth-calendar-dot[data-kind="menstrual"]{ background:var(--danger-soft); border:1px solid var(--danger); }
+.whealth-calendar-dot[data-kind="follicular"]{ background:var(--info-soft); border:1px solid var(--info); }
 .whealth-calendar-dot[data-kind="fertile"]{ background:var(--success); }
+.whealth-calendar-dot[data-kind="luteal"]{ background:var(--warning-soft); border:1px solid var(--warning); }
 .whealth-calendar-dot[data-kind="predicted"]{ background:transparent; border:2px dashed var(--danger); }
 .whealth-calendar-dot[data-kind="logged"]{ background:var(--accent); }
+
+/* ---------- Cycle Tracker phase indicator ---------- */
+/* The real segmented "where am I in my cycle" bar in the prediction card
+   — each segment's real width comes from cyclePhaseSegments (the
+   person's own logged averages, or the same defaults the rest of this
+   feature falls back to), never a fixed 25% split. The marker is
+   `left:` positioned from the real cycleDayNumber/cycleLengthDays ratio,
+   same "real data as a real position" rule the trend-chart's grow-in
+   bars and the goal-progress fill already follow, just as a point
+   instead of a bar. */
+.whealth-phase-bar{
+  position:relative; height:10px; margin-top:2px;
+}
+.whealth-phase-bar-track{
+  display:flex; width:100%; height:100%; border-radius:6px; overflow:hidden; background:var(--border);
+}
+.whealth-phase-bar-segment{ height:100%; }
+.whealth-phase-bar-segment[data-phase="menstrual"]{ background:var(--danger); }
+.whealth-phase-bar-segment[data-phase="follicular"]{ background:var(--info); }
+.whealth-phase-bar-segment[data-phase="ovulation"]{ background:var(--success); }
+.whealth-phase-bar-segment[data-phase="luteal"]{ background:var(--warning); }
+.whealth-phase-bar-marker{
+  position:absolute; top:-3px; left:0; width:3px; height:16px; margin-left:-1.5px;
+  background:var(--ink-0); border-radius:2px; box-shadow:0 0 0 2px var(--surface);
+  transition:left .5s cubic-bezier(.16,1,.3,1);
+}
+@media (prefers-reduced-motion: reduce){
+  .whealth-phase-bar-marker{ transition:none; }
+}
+.whealth-phase-bar-legend{
+  display:flex; flex-wrap:wrap; gap:10px; margin-top:6px;
+  font-size:11px; color:var(--ink-muted);
+}
+.whealth-phase-bar-legend span{ display:flex; align-items:center; gap:4px; }
+.whealth-phase-bar-legend span::before{
+  content:''; display:inline-block; width:7px; height:7px; border-radius:50%;
+}
+.whealth-phase-bar-legend span[data-phase="menstrual"]::before{ background:var(--danger); }
+.whealth-phase-bar-legend span[data-phase="follicular"]::before{ background:var(--info); }
+.whealth-phase-bar-legend span[data-phase="ovulation"]::before{ background:var(--success); }
+.whealth-phase-bar-legend span[data-phase="luteal"]::before{ background:var(--warning); }
+.whealth-phase-bar-legend span.is-current{ color:var(--ink-0); font-weight:700; }
+
+/* A quiet per-phase tint on the prediction card's own border/icon —
+   never the loud solid fill the calendar's real logged flow gets, this
+   is only ever an estimate. Falls back to the card's normal accent
+   border when no phase is known yet (data-phase="" — see the attribute
+   selector's absence below matching that case implicitly). */
+#whealth-prediction[data-phase="menstrual"]{ border-color:var(--danger); }
+#whealth-prediction[data-phase="menstrual"] .whealth-phase-icon{ color:var(--danger); background:var(--danger-soft); }
+#whealth-prediction[data-phase="follicular"]{ border-color:var(--info); }
+#whealth-prediction[data-phase="follicular"] .whealth-phase-icon{ color:var(--info); background:var(--info-soft); }
+#whealth-prediction[data-phase="ovulation"]{ border-color:var(--success); }
+#whealth-prediction[data-phase="ovulation"] .whealth-phase-icon{ color:var(--success); background:var(--success-soft); }
+#whealth-prediction[data-phase="luteal"]{ border-color:var(--warning); }
+#whealth-prediction[data-phase="luteal"] .whealth-phase-icon{ color:var(--warning); background:var(--warning-soft); }
+
+/* ---------- Cycle Tracker flow-intensity chips ---------- */
+/* The same "one hue, stepped opacity, never a second color for
+   intensity" language the calendar's own period-day opacity steps use
+   (see the comment above .whealth-calendar-day--period) — applied here
+   as a small filled dot in front of each flow chip's own label, so the
+   picker itself reads as a real intensity scale rather than five
+   unrelated options. */
+#whealth-flow .chip[data-value]::before{
+  content:''; display:inline-block; width:8px; height:8px; border-radius:50%;
+  margin-right:6px; vertical-align:middle; background:var(--danger);
+}
+#whealth-flow .chip[data-value="none"]::before{ background:var(--border-strong); }
+#whealth-flow .chip[data-value="spotting"]::before{ opacity:.35; }
+#whealth-flow .chip[data-value="light"]::before{ opacity:.55; }
+#whealth-flow .chip[data-value="medium"]::before{ opacity:.8; }
+#whealth-flow .chip[data-value="heavy"]::before{ opacity:1; }
+#whealth-flow .chip[aria-pressed="true"][data-value]::before{ background:var(--accent-ink, #fff); opacity:1; }
+#whealth-flow .chip[aria-pressed="true"][data-value="none"]::before{ background:var(--accent-ink, #fff); opacity:.6; }
 
 /* ---------- Programs calendar ---------- */
 /* Same real month-grid math as Sleep/Cycle Tracker's own calendars

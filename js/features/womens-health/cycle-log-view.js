@@ -13,8 +13,16 @@ import {
   setUpPin,
   unlockWithPin,
 } from './pin.js';
-import { derivePeriodStartDates, MOODS, SYMPTOMS } from './constants.js';
-import { currentCyclePhase, predictFertileWindow, predictionConfidence, predictNextPeriodStart } from './cycle-prediction.js';
+import { averagePeriodLengthDays, derivePeriodStartDates, MOODS, SYMPTOMS } from './constants.js';
+import {
+  currentCyclePhase,
+  cycleLengthHistory,
+  cyclePhaseSegments,
+  predictFertileWindow,
+  predictionConfidence,
+  predictNextPeriodStart,
+} from './cycle-prediction.js';
+import { cycleLengthVariability, symptomFrequency } from './cycle-insights.js';
 import { dueDateFromLmp, gestationalAge, daysUntilDue, trimesterForWeek } from './pregnancy.js';
 import { milestoneForWeek, PREGNANCY_SYMPTOMS } from './pregnancy-content.js';
 import { summarizeKickSession } from './kick-counter.js';
@@ -40,10 +48,29 @@ function todayIsoDate() {
 }
 
 const PHASE_LABEL = {
+  menstrual: 'Menstrual phase',
   follicular: 'Follicular phase',
-  fertile: 'Fertile window',
+  ovulation: 'Ovulation phase',
   luteal: 'Luteal phase',
 };
+
+// Real, semantically-matched icons per phase (all already in index.html's
+// shared icon sprite) — a droplet for bleeding, a leaf for the growth-
+// phase follicular stage, a sparkle for the fertile/ovulation peak, a
+// moon for the waning luteal phase. Purely decorative (aria-hidden), the
+// text label next to it is the real information.
+const PHASE_ICON = {
+  menstrual: 'icon-droplet',
+  follicular: 'icon-leaf',
+  ovulation: 'icon-sparkle',
+  luteal: 'icon-moon',
+};
+
+// Fewer logged days than this and "symptom patterns" would really just be
+// whatever happened on one or two specific days — not a pattern yet. Same
+// "say so honestly instead of a guess" rule the prediction/insight
+// functions themselves already follow for too-small a sample.
+const MIN_LOGGED_DAYS_FOR_SYMPTOM_PATTERNS = 3;
 
 export function initWomensHealthFeature() {
   // Same spatial-tilt language as the rest of the Fitness Toolkit — both
@@ -143,6 +170,7 @@ export function initWomensHealthFeature() {
     allLogs = await decryptAllLogs();
     renderPrediction();
     renderCalendar();
+    renderInsights();
     loadFormForDate(editingDate);
 
     const setup = await decryptPregnancySetup();
@@ -343,10 +371,19 @@ export function initWomensHealthFeature() {
     byId('whealth-log-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
+  /** The two numbers almost everything on this screen (phase, prediction,
+   *  the phase bar, the calendar) is ultimately derived from — computed
+   *  once per render from the exact same `allLogs` decrypt rather than
+   *  recomputed slightly differently in three different places. */
+  function getPeriodStartDates() {
+    return derivePeriodStartDates(allLogs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity })));
+  }
+  function getPeriodLengthDays() {
+    return averagePeriodLengthDays(allLogs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity })));
+  }
+
   function renderPrediction() {
-    const periodStartDates = derivePeriodStartDates(
-      allLogs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity }))
-    );
+    const periodStartDates = getPeriodStartDates();
 
     const predictionCard = byId('whealth-prediction');
     if (periodStartDates.length === 0) {
@@ -354,6 +391,8 @@ export function initWomensHealthFeature() {
       return;
     }
 
+    const periodLengthDays = getPeriodLengthDays();
+    const phaseOptions = { averagePeriodLengthDays: periodLengthDays };
     const nextStart = predictNextPeriodStart(periodStartDates);
     const confidence = predictionConfidence(periodStartDates);
     const fertileWindow = predictFertileWindow(periodStartDates);
@@ -365,7 +404,7 @@ export function initWomensHealthFeature() {
     // every other screen's badges already follow.
     const today = todayIsoDate();
     const isBleedingToday = allLogs.some((l) => l.date === today && l.flowIntensity && l.flowIntensity !== 'none');
-    const phase = currentCyclePhase(periodStartDates, today);
+    const phase = currentCyclePhase(periodStartDates, today, phaseOptions);
     if (isBleedingToday) {
       byId('whealth-cycle-day-label').textContent = phase ? `Day ${phase.cycleDayNumber} · Period` : 'Period';
     } else if (phase) {
@@ -377,23 +416,157 @@ export function initWomensHealthFeature() {
       byId('whealth-cycle-day-label').textContent = 'Next period overdue (estimated)';
     }
 
+    const iconUse = byId('whealth-phase-icon-use');
+    iconUse.setAttribute('href', `#${PHASE_ICON[phase?.phase ?? 'menstrual']}`);
+    // A quiet color tint per phase on the card itself (see the
+    // .whealth-phase-* rules in css/components.css) — real logged flow
+    // still always renders as "Period" above regardless of which bucket
+    // the estimate itself lands in.
+    predictionCard.dataset.phase = isBleedingToday ? 'menstrual' : phase?.phase ?? '';
+
     byId('whealth-prediction-date').textContent = `Next period estimated: ${nextStart}`;
     byId('whealth-prediction-confidence').textContent = `estimated · ${confidence}`;
     byId('whealth-fertile-window').textContent = fertileWindow
       ? `Estimated fertile window: ${fertileWindow.start} – ${fertileWindow.end}`
       : '';
     predictionCard.hidden = false;
+
+    renderPhaseBar(periodStartDates, phaseOptions, phase);
+  }
+
+  /** The actual visual "phase indicator" — a segmented bar shaped by the
+   *  person's own real cycle/period lengths (cyclePhaseSegments), with a
+   *  marker at today's real position in it. Hidden whenever there's no
+   *  phase to place a marker at (currentCyclePhase itself returned null —
+   *  see its own doc comment for exactly when that is), since a bar with
+   *  no "you are here" marker would be misleading rather than useful. */
+  function renderPhaseBar(periodStartDates, phaseOptions, phase) {
+    const bar = byId('whealth-phase-bar');
+    const track = byId('whealth-phase-bar-track');
+    track.innerHTML = '';
+
+    const segments = cyclePhaseSegments(periodStartDates, phaseOptions);
+    if (!segments || !phase) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+
+    const orderedSegments = [
+      ['menstrual', segments.menstrualDays],
+      ['follicular', segments.follicularDays],
+      ['ovulation', segments.ovulationDays],
+      ['luteal', segments.lutealDays],
+    ];
+    const totalDays = orderedSegments.reduce((sum, [, days]) => sum + days, 0);
+    for (const [phaseName, days] of orderedSegments) {
+      if (days <= 0) continue;
+      const segment = document.createElement('div');
+      segment.className = 'whealth-phase-bar-segment';
+      segment.dataset.phase = phaseName;
+      segment.style.width = `${(days / totalDays) * 100}%`;
+      track.append(segment);
+    }
+
+    const markerPercent = Math.min(100, Math.max(0, ((phase.cycleDayNumber - 1) / segments.cycleLengthDays) * 100));
+    byId('whealth-phase-bar-marker').style.left = `${markerPercent}%`;
+
+    for (const el of document.querySelectorAll('#whealth-phase-bar-legend [data-phase]')) {
+      el.classList.toggle('is-current', el.dataset.phase === phase.phase);
+    }
+  }
+
+  /** Real insights only — every number here comes straight from
+   *  cycle-prediction.js/cycle-insights.js's pure functions, which
+   *  themselves return null/empty rather than a guess whenever there
+   *  isn't enough real history yet (same convention Hydration's own
+   *  trend chart already follows for a too-short history). The whole
+   *  card only hides completely with zero logged days ever — once there's
+   *  *any* real history, each sub-section shows either real numbers or
+   *  its own honest "not enough yet" message, never both hidden at once. */
+  function renderInsights() {
+    const card = byId('whealth-insights');
+    if (allLogs.length === 0) {
+      card.hidden = true;
+      return;
+    }
+    card.hidden = false;
+
+    const periodStartDates = getPeriodStartDates();
+
+    const points = cycleLengthHistory(periodStartDates).map((h) => ({
+      key: h.periodStartDate,
+      value: h.lengthDays,
+      axisLabel: h.periodStartDate.slice(5),
+      tooltipValue: `${h.lengthDays} days`,
+      tooltipDetail: formatDayLabel(h.periodStartDate, { withYear: true }),
+    }));
+    renderTrendChart(byId('whealth-cycle-length-chart'), {
+      points,
+      accentVar: '--accent',
+      emptyMessage: 'Log at least 3 periods to see your cycle-length trend.',
+    });
+
+    const variability = cycleLengthVariability(periodStartDates);
+    byId('whealth-cycle-variability').textContent = variability
+      ? `Average ${Math.round(variability.averageDays)}-day cycle, varying ±${Math.round(variability.stdDevDays)} days (${variability.minDays}–${variability.maxDays} days) — ${variability.regularity}.`
+      : 'Log a few more cycles to see how regular yours are.';
+
+    const frequencies = symptomFrequency(allLogs, SYMPTOMS);
+    const symptomWrap = byId('whealth-symptom-frequency');
+    symptomWrap.innerHTML = '';
+    if (allLogs.length < MIN_LOGGED_DAYS_FOR_SYMPTOM_PATTERNS) {
+      symptomWrap.append(buildMutedNote('Log a few more days to see your symptom patterns.'));
+    } else if (frequencies.length === 0) {
+      symptomWrap.append(buildMutedNote('No symptoms logged yet.'));
+    } else {
+      for (const symptom of frequencies) {
+        symptomWrap.append(buildSymptomFrequencyRow(symptom));
+      }
+    }
+  }
+
+  function buildMutedNote(text) {
+    const note = document.createElement('p');
+    note.className = 'muted center-text';
+    note.style.fontSize = 'var(--fs-sm)';
+    note.textContent = text;
+    return note;
+  }
+
+  function buildSymptomFrequencyRow(symptom) {
+    const row = document.createElement('div');
+    row.className = 'stack';
+    row.style.gap = '4px';
+
+    const labelRow = document.createElement('div');
+    labelRow.className = 'row-between';
+    labelRow.style.fontSize = 'var(--fs-sm)';
+    const label = document.createElement('span');
+    label.textContent = symptom.label;
+    const stat = document.createElement('span');
+    stat.className = 'muted';
+    stat.textContent = `${symptom.percent}% · ${symptom.count} day${symptom.count === 1 ? '' : 's'}`;
+    labelRow.append(label, stat);
+
+    const track = document.createElement('div');
+    track.className = 'goal-progress-track';
+    const fill = document.createElement('div');
+    fill.className = 'goal-progress-fill';
+    fill.style.width = `${symptom.percent}%`;
+    track.append(fill);
+
+    row.append(labelRow, track);
+    return row;
   }
 
   function renderCalendar() {
     byId('whealth-calendar-month-label').textContent = formatMonthLabel(calendarYear, calendarMonth);
 
     const logsByDate = new Map(allLogs.map((l) => [l.date, l]));
-    const periodStartDates = derivePeriodStartDates(
-      allLogs.map((l) => ({ date: l.date, flowIntensity: l.flowIntensity }))
-    );
+    const periodStartDates = getPeriodStartDates();
+    const phaseOptions = { averagePeriodLengthDays: getPeriodLengthDays() };
     const nextStart = predictNextPeriodStart(periodStartDates);
-    const fertileWindow = predictFertileWindow(periodStartDates);
 
     const grid = byId('whealth-calendar-grid');
     grid.innerHTML = '';
@@ -402,8 +575,12 @@ export function initWomensHealthFeature() {
     for (const day of days) {
       const log = logsByDate.get(day.date);
       const hasRealFlow = log?.flowIntensity && log.flowIntensity !== 'none';
-      const isFertile = fertileWindow && day.date >= fertileWindow.start && day.date <= fertileWindow.end;
       const isPredictedStart = day.date === nextStart;
+      // currentCyclePhase looks across *every* logged period, not just
+      // the latest — so a past month's days get colored by whichever of
+      // their own (possibly fully historical, possibly-estimated-current)
+      // cycle they actually fall in, same phase model as the card above.
+      const phase = !hasRealFlow && !isPredictedStart ? currentCyclePhase(periodStartDates, day.date, phaseOptions) : null;
 
       const cell = document.createElement('button');
       cell.type = 'button';
@@ -420,12 +597,17 @@ export function initWomensHealthFeature() {
         classes.push('whealth-calendar-day--period');
         cell.dataset.flow = log.flowIntensity;
         ariaSuffix = `period logged, ${log.flowIntensity} flow`;
-      } else if (isFertile) {
-        classes.push('whealth-calendar-day--fertile');
-        ariaSuffix = 'estimated fertile window';
       } else if (isPredictedStart) {
         classes.push('whealth-calendar-day--predicted-period');
         ariaSuffix = 'estimated next period start';
+      } else if (phase?.phase === 'ovulation') {
+        // Same familiar "fertile window" name/color the legend and the
+        // top prediction card's own copy already use for this window.
+        classes.push('whealth-calendar-day--fertile');
+        ariaSuffix = 'estimated fertile window';
+      } else if (phase) {
+        classes.push(`whealth-calendar-day--phase-${phase.phase}`);
+        ariaSuffix = `estimated ${PHASE_LABEL[phase.phase].toLowerCase()}`;
       } else if (log) {
         classes.push('whealth-calendar-day--logged');
         ariaSuffix = 'logged';
@@ -434,7 +616,7 @@ export function initWomensHealthFeature() {
       cell.disabled = day.isFuture;
 
       const dayNumber = Number(day.date.slice(-2));
-      const dot = !hasRealFlow && (isFertile || isPredictedStart || log) ? '<span class="whealth-calendar-day-dot"></span>' : '';
+      const dot = !hasRealFlow && (phase || isPredictedStart || log) ? '<span class="whealth-calendar-day-dot"></span>' : '';
       cell.innerHTML = `<span>${dayNumber}</span>${dot}`;
       cell.setAttribute('aria-label', `${formatDayLabel(day.date, { withYear: true })}, ${ariaSuffix}`);
 

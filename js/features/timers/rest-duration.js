@@ -52,13 +52,13 @@ export function parseRepsMidpoint(reps) {
  *  answer — so it's cheaply unit-testable and safe to call straight from
  *  the moment a set is logged, no lookup table or DB round trip needed. */
 export function selectRestSeconds(input) {
-    // A timed hold/cardio bout has no rep count to reason about at all —
-    // these are short, active-recovery-style breaks, not a strength set's
-    // full recovery window. Cardio's own pattern (e.g. a standing-march
-    // bout) gets the shortest break of anything here: the intent there is
-    // sustained-effort conditioning, not maximal output on the next set.
-    if (input.logMetric === 'time') {
-        return input.pattern === 'cardio' ? 30 : 45;
+    // A hold or cardio bout has no rep count to reason about at all — these
+    // are short, active-recovery-style breaks, not a strength set's full
+    // recovery window. Cardio gets the shortest break of anything here: the
+    // intent there is sustained-effort conditioning, not maximal output on
+    // the next set.
+    if (input.logMetric === 'hold' || input.logMetric === 'cardio') {
+        return input.logMetric === 'cardio' ? 30 : 45;
     }
     const repsMid = parseRepsMidpoint(input.reps);
     const isCompound = COMPOUND_PATTERNS.has(input.pattern);

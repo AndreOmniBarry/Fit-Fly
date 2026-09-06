@@ -2194,11 +2194,27 @@
     <div class="card card-accent stack tilt-card tilt-enter" id="whealth-prediction" hidden>
       <span class="tilt-press stack">
         <div class="row-between">
-          <strong id="whealth-cycle-day-label">Next period (estimated)</strong>
+          <span class="row" style="gap:10px;">
+            <span class="fitness-row-icon whealth-phase-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-droplet" id="whealth-phase-icon-use"></use></svg></span>
+            <strong id="whealth-cycle-day-label">Next period (estimated)</strong>
+          </span>
           <span class="data-badge estimated" id="whealth-prediction-confidence">estimated</span>
         </div>
+
+        <div class="whealth-phase-bar" id="whealth-phase-bar" role="img" aria-label="Progress through the estimated cycle phases" hidden>
+          <div class="whealth-phase-bar-track" id="whealth-phase-bar-track"></div>
+          <div class="whealth-phase-bar-marker" id="whealth-phase-bar-marker"></div>
+        </div>
+        <div class="whealth-phase-bar-legend" id="whealth-phase-bar-legend">
+          <span data-phase="menstrual">Menstrual</span>
+          <span data-phase="follicular">Follicular</span>
+          <span data-phase="ovulation">Ovulation</span>
+          <span data-phase="luteal">Luteal</span>
+        </div>
+
         <p id="whealth-prediction-date">—</p>
         <p class="muted" id="whealth-fertile-window" style="font-size:var(--fs-sm);"></p>
+        <p class="muted" style="font-size:var(--fs-xs);">Estimated from your own logged history — not a diagnosis or a medical prediction. Actual ovulation and cycle timing vary, and nothing here can detect pregnancy or a health condition.</p>
       </span>
     </div>
 
@@ -2249,10 +2265,33 @@
       <div class="whealth-calendar-grid" id="whealth-calendar-grid" role="grid" aria-label="Cycle days, logged and estimated"></div>
       <div class="whealth-calendar-legend">
         <span><i class="whealth-calendar-dot" data-kind="period"></i> Period logged</span>
-        <span><i class="whealth-calendar-dot" data-kind="fertile"></i> Fertile window (estimated)</span>
+        <span><i class="whealth-calendar-dot" data-kind="menstrual"></i> Menstrual (estimated)</span>
+        <span><i class="whealth-calendar-dot" data-kind="follicular"></i> Follicular (estimated)</span>
+        <span><i class="whealth-calendar-dot" data-kind="fertile"></i> Ovulation / fertile window (estimated)</span>
+        <span><i class="whealth-calendar-dot" data-kind="luteal"></i> Luteal (estimated)</span>
         <span><i class="whealth-calendar-dot" data-kind="predicted"></i> Next period (estimated)</span>
         <span><i class="whealth-calendar-dot" data-kind="logged"></i> Logged, no flow</span>
       </div>
+    </div>
+
+    <div class="card stack tilt-card tilt-enter" id="whealth-insights" hidden>
+      <span class="tilt-press stack">
+        <div class="row" style="gap:10px;">
+          <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></span>
+          <h3>Insights</h3>
+        </div>
+
+        <div class="stack" style="gap:4px;">
+          <span class="muted" style="font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em;">Cycle length trend</span>
+          <div class="trend-chart" id="whealth-cycle-length-chart" role="img" aria-label="Logged cycle length, one bar per completed cycle"></div>
+          <p class="muted" id="whealth-cycle-variability" style="font-size:var(--fs-sm);"></p>
+        </div>
+
+        <div class="stack" style="gap:8px;">
+          <span class="muted" style="font-size:var(--fs-xs); text-transform:uppercase; letter-spacing:.04em;">Most common symptoms</span>
+          <div class="stack" id="whealth-symptom-frequency" style="gap:10px;"></div>
+        </div>
+      </span>
     </div>
     </div>
 
@@ -2674,17 +2713,21 @@
   </section>
 
   <!-- PROGRAM: CALENDAR — real activity at a glance, month by month.
-       Only two honest states per day: a session was logged, or it
-       wasn't — never a third "this was your scheduled rest day" state,
-       since Programs has no fixed day-to-date schedule to compare
-       against (Day 1/2/3 rotate whenever someone actually shows up, not
-       fixed weekdays — see program-view.js's own comment). Not a
-       mini-app-night screen (Programs lives in the light/dark adaptive
-       Fitness Toolkit), so this gets its own token-based palette rather
-       than a mini-app's fixed night surface — same real month-grid math
-       as Sleep/Cycle Tracker's own calendars (js/lib/calendar-grid.js),
-       just its own skin, the same "shared math, separate presentation"
-       split those two already established between each other. -->
+       Three honest states per day: a session was logged, a real rest
+       day (this program already existed on that date and nothing was
+       logged), or future/before-this-program's-start days with nothing
+       to claim either way — never a fabricated "this was your scheduled
+       Tuesday" fixed-weekday claim, since Programs has no fixed
+       day-to-date schedule to compare against (Day 1/2/3 rotate whenever
+       someone actually shows up, not fixed weekdays — see
+       program-calendar.js's classifyProgramCalendarDay for exactly where
+       that line is drawn). Not a mini-app-night screen (Programs lives
+       in the light/dark adaptive Fitness Toolkit), so this gets its own
+       token-based palette rather than a mini-app's fixed night surface —
+       same real month-grid math as Sleep/Cycle Tracker's own calendars
+       (js/lib/calendar-grid.js), just its own skin, the same "shared
+       math, separate presentation" split those two already established
+       between each other. -->
   <section class="screen" id="screen-program-calendar" hidden>
     <div class="row-between">
       <h2 style="margin:0;">Calendar</h2>
@@ -2701,6 +2744,17 @@
       </button>
     </div>
 
+    <!-- Same real "this week" goal-proximity number as My Program's own
+         header card (program-calendar.js's weeklySessionProgress) — a
+         visible goal-proximity indicator right where a spread of real
+         days is on screen to judge it against. -->
+    <div class="card stack" style="margin-top:var(--space-4);">
+      <p class="muted" id="program-calendar-week-progress-text" style="margin:0;">—</p>
+      <div class="goal-progress-track">
+        <div class="goal-progress-fill" id="program-calendar-week-progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
     <div class="program-calendar-weekdays" style="margin-top:var(--space-4);" aria-hidden="true">
       <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
     </div>
@@ -2708,6 +2762,7 @@
 
     <div class="program-calendar-legend" style="margin-top:var(--space-4);">
       <span><i class="program-calendar-dot"></i> Session logged</span>
+      <span><i class="program-calendar-dot program-calendar-dot--rest"></i> Rest day</span>
     </div>
 
     <div class="card stack" id="program-calendar-day-detail" hidden style="margin-top:var(--space-4);">

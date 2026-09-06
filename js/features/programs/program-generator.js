@@ -25,7 +25,13 @@ const PATTERN_SEQUENCE_BY_DAY_TYPE = Object.freeze({
   upper: ['push', 'pull', 'push', 'pull'],
   lower: ['squat', 'hinge', 'core'],
   cardio: ['cardio'],
-  mobility: ['core', 'hinge', 'cardio'],
+  // A real 'mobility' pattern slot leads the day now — a rehab program's
+  // Day 1 is genuinely stretch/mobility work, not a repeat of the same
+  // core/hinge/cardio slots every other day type already uses under a
+  // different label. 'core' and 'hinge' round it out with the gentlest
+  // real strength-adjacent options already in the library (dead bug,
+  // glute bridge) rather than an all-stretch day with zero loading at all.
+  mobility: ['mobility', 'core', 'hinge'],
 });
 
 const CATEGORY_DAY_PLANS = Object.freeze({
@@ -37,13 +43,18 @@ const CATEGORY_DAY_PLANS = Object.freeze({
   endurance: ['cardio', 'full-body', 'cardio', 'full-body'],
 });
 
-// `holdSec` is the prescription for logMetric: 'time' exercises (plank,
-// standing march) — there's no rep count for a timed hold, so this is a
-// genuinely separate number from `reps`, not the same value relabeled.
-// Roughly scaled to match each category's own reps range/intensity
-// (a beginner plank hold starts short and builds up, same shape as a
-// beginner's rep count — see exercise-library.js's own comment on why
-// this needed splitting out from reps in the first place).
+// `holdSec` (logMetric 'hold' — a static isometric like plank) and
+// `cardioSec` (logMetric 'cardio' — a dynamic bout like marching/jumping
+// jacks) are genuinely different prescriptions, not the same number
+// relabeled: a near-maximal isometric contraction fatigues faster than
+// sub-maximal cyclical movement at the same relative effort, so a real
+// cardio bout is prescribed meaningfully longer than a hold at the same
+// category's intensity — same reason `reps` (a rep count) was already
+// split out from both of these. Roughly scaled to match each category's
+// own reps range/intensity (a beginner plank hold starts short and
+// builds up, same shape as a beginner's rep count — see
+// exercise-library.js's own comment on why these needed splitting out
+// from reps in the first place).
 //
 // Deliberately no `restSec` here any more — rest used to be one flat
 // number per category, applied to every exercise in every slot
@@ -55,12 +66,17 @@ const CATEGORY_DAY_PLANS = Object.freeze({
 // what the set genuinely was — its movement pattern, whether it was
 // externally loaded, and the rep range it was just prescribed at.
 const CATEGORY_PRESCRIPTIONS = Object.freeze({
-  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20' },
-  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30' },
-  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30' },
-  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15' },
-  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45' },
-  endurance: { sets: 2, reps: '15-20', holdSec: '30-45' },
+  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20', cardioSec: '30-45' },
+  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30', cardioSec: '45-60' },
+  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30', cardioSec: '40-55' },
+  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15', cardioSec: '20-30' },
+  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45', cardioSec: '45-60' },
+  // Endurance gets the longest cardio bouts of any category on purpose —
+  // building the aerobic base is the entire point of this category (see
+  // CATEGORY_REASONING below), so its cardio prescription is the one
+  // place that actually leans into real duration rather than a short
+  // accessory bout.
+  endurance: { sets: 2, reps: '15-20', holdSec: '30-45', cardioSec: '60-90' },
 });
 
 // A real strength-training prescription, per the NSCA's own guidelines —
@@ -68,10 +84,11 @@ const CATEGORY_PRESCRIPTIONS = Object.freeze({
 // "build strength" a different program from "build muscle", not a
 // re-skinned copy of it. Timed holds get proportionally longer too:
 // a strength-focused isometric still aims for near-maximal tension, held
-// briefly, not hypertrophy's longer time-under-tension. (Its longer real
-// rest between sets falls out of selectRestSeconds() below, from the
-// much lower rep range alone — not a separate number maintained here.)
-const STRENGTH_FOCUS_PRESCRIPTION = Object.freeze({ sets: 5, reps: '3-6', holdSec: '20-30' });
+// briefly, not hypertrophy's longer time-under-tension. Cardio isn't the
+// point of a strength focus, so its cardioSec stays modest. Its longer
+// real rest between sets falls out of selectRestSeconds() below, from
+// the much lower rep range alone — not a separate number maintained here.
+const STRENGTH_FOCUS_PRESCRIPTION = Object.freeze({ sets: 5, reps: '3-6', holdSec: '20-30', cardioSec: '30-45' });
 
 const CATEGORY_REASONING = Object.freeze({
   'sedentary-start': 'Two full-body sessions a week, light volume — building the habit and a base matters more than the exact numbers right now.',
@@ -145,6 +162,15 @@ export function generateProgram({
   const prescription = isStrengthFocus ? STRENGTH_FOCUS_PRESCRIPTION : CATEGORY_PRESCRIPTIONS[category];
   const block = getBlockInfo(weekNumber);
   const setsThisWeek = block.isDeload ? Math.max(1, prescription.sets - 1) : prescription.sets;
+  // Week-over-week progressive overload within a block: getBlockInfo's
+  // own loadMultiplier (1.0 / 1.05 / 1.1, then a deload's 0.6) turned
+  // into a plain percentage a person can actually apply to their own
+  // working weight/effort from week 1 of this block — see this field's
+  // use in program-view.js and periodization.js's own comment on why a
+  // 4-week block is shaped this way. Sets alone don't carry this: two
+  // categories can share a set count while very much not sharing a
+  // week-3 target load.
+  const targetLoadPercent = Math.round(block.loadMultiplier * 100);
 
   const days = dayPlan.map((dayType, index) => {
     const exercises = pickExercisesForDay(PATTERN_SEQUENCE_BY_DAY_TYPE[dayType], {
@@ -164,11 +190,13 @@ export function generateProgram({
         sets: setsThisWeek,
         reps: prescription.reps,
         holdSec: prescription.holdSec,
+        cardioSec: prescription.cardioSec,
         restSec: selectRestSeconds({
           pattern: exercise.pattern,
           logMetric: exercise.logMetric,
           reps: prescription.reps,
         }),
+        targetLoadPercent,
       })),
     };
   });
@@ -176,6 +204,15 @@ export function generateProgram({
   const reasoning = [isStrengthFocus ? STRENGTH_FOCUS_REASONING : CATEGORY_REASONING[category]];
   if (block.isDeload) {
     reasoning.push('This is a deload week — one fewer set across the board so you recover and come back stronger.');
+  } else if (block.weekInBlock > 1) {
+    // Standard linear periodization: a small, compounding load increase
+    // across the 3 working weeks of a block before the deload resets it
+    // — real progressive overload, not the exact same numbers repeated
+    // week after week (see periodization.js's own comment on the
+    // 4-week-block shape this is built on).
+    reasoning.push(
+      `Week ${block.weekInBlock} of this block: aim for roughly ${targetLoadPercent}% of your week-1 working weight/effort on each lift — a small, compounding load increase before the deload resets it, not the same numbers repeated every week.`
+    );
   }
   if (injuryBodyAreaTags.length > 0) {
     reasoning.push(`Exercises that load your ${injuryBodyAreaTags.join(', ')} were left out this week.`);
@@ -194,6 +231,7 @@ export function generateProgram({
     blockNumber: block.blockNumber,
     weekInBlock: block.weekInBlock,
     isDeload: block.isDeload,
+    targetLoadPercent,
     days,
     reasoning,
   };

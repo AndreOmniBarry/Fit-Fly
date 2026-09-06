@@ -1,5 +1,4 @@
 import { showScreen } from '../../lib/router.js';
-import { loadInlineSvg } from '../../lib/svg-loader.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { initChipGroup } from '../../lib/chip-group.js';
@@ -20,6 +19,8 @@ import {
 } from '../../db/repositories/sessions.js';
 import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
+import { categorizeExercise } from '../exercises/movement-category.js';
+import { getMovementDemoSvgMarkup } from '../exercises/movement-demo-svg.js';
 import { readinessActionSuggestion } from '../recovery/readiness.js';
 import { assignCategory } from '../onboarding/category-engine.js';
 import { formatCategoryLabel } from '../onboarding/category-label.js';
@@ -28,7 +29,12 @@ import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';
 import { getCurrentWeekNumber } from './week-number.js';
 import { bestEstimatedOneRepMax } from './one-rep-max.js';
-import { localDateFromIso, sessionDatesForProgram, weeklySessionProgress } from './program-calendar.js';
+import {
+  classifyProgramCalendarDay,
+  localDateFromIso,
+  sessionDatesForProgram,
+  weeklySessionProgress,
+} from './program-calendar.js';
 import { formatMonthLabel, getMonthGridDays } from '../../lib/calendar-grid.js';
 
 function byId(id) {
@@ -58,6 +64,11 @@ const DAY_TYPE_ICONS = {
 };
 
 let activeProgramId = null;
+// The active program's own real start date (local YYYY-MM-DD) — the
+// calendar's honest boundary between "before this program existed" and
+// "a real rest day within it" (see program-calendar.js's own
+// classifyProgramCalendarDay).
+let activeProgramStartDate = null;
 
 // The one inline rest countdown currently showing (see
 // startInlineRestTimer's own doc comment) — { dayIndex, exerciseId,
@@ -100,6 +111,7 @@ export function initProgramFeature() {
     calendarYear = today.getFullYear();
     calendarMonth = today.getMonth();
     renderProgramCalendar();
+    await renderCalendarWeeklyProgress(); // the same real goal-proximity number as My Program, visible right here too
     byId('program-calendar-day-detail').hidden = true;
     showScreen('screen-program-calendar');
   });
@@ -183,13 +195,30 @@ export function initProgramFeature() {
     const { dayIndex, exerciseId, logMetric, restSec } = button.dataset;
     primeAudio(); // inside this click's call stack, so the rest timer's completion beep can play later
 
-    if (logMetric === 'time') {
+    if (logMetric === 'hold') {
       const durationInput = byId(durationInputId(dayIndex, exerciseId));
       const durationSec = Number(durationInput.value);
       if (!(durationSec >= 1)) return;
       await logSet(exerciseId, { durationSec });
       durationInput.value = '';
       startInlineRestTimer(dayIndex, exerciseId, Number(restSec), nextSetNumber(dayIndex, exerciseId));
+      await renderWeeklyProgress(); // this week's real count just changed
+      return;
+    }
+
+    if (logMetric === 'cardio') {
+      const durationInput = byId(durationInputId(dayIndex, exerciseId));
+      const durationSec = Number(durationInput.value);
+      if (!(durationSec >= 1)) return;
+      // Distance is a real, optional field only a distance-covering
+      // cardio exercise even renders (see renderExercise) — left out of
+      // the logged set entirely when blank, never a fabricated 0.
+      const distanceInput = byId(distanceInputId(dayIndex, exerciseId));
+      const distanceKm = distanceInput ? Number(distanceInput.value) || null : null;
+      await logSet(exerciseId, distanceKm ? { durationSec, distanceKm } : { durationSec });
+      durationInput.value = '';
+      if (distanceInput) distanceInput.value = '';
+      startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
       await renderWeeklyProgress(); // this week's real count just changed
       return;
     }
@@ -251,6 +280,7 @@ async function renderProgramScreen() {
 
   const program = await ensureActiveProgram(assignment.category, profile.experienceLevel, assignment.trainingFocus);
   activeProgramId = program.id;
+  activeProgramStartDate = localDateFromIso(program.startedAt);
   const weekNumber = getCurrentWeekNumber(program.startedAt);
   const injuryBodyAreaTags = await getInjuryBodyAreaTags();
 
@@ -275,7 +305,7 @@ async function renderProgramScreen() {
   const allExerciseIds = new Set();
   for (const day of generated.days) {
     for (const exercise of day.exercises) {
-      loadDemoSvgInto(svgSlotId(day.dayIndex, exercise.exerciseId), getLibraryExercise(exercise.exerciseId)?.demoSvg);
+      renderMovementDemoInto(svgSlotId(day.dayIndex, exercise.exerciseId), exercise.exerciseId);
       allExerciseIds.add(exercise.exerciseId);
     }
   }
@@ -300,6 +330,9 @@ function weightInputId(dayIndex, exerciseId) {
 }
 function durationInputId(dayIndex, exerciseId) {
   return `program-duration-${dayIndex}-${exerciseId}`;
+}
+function distanceInputId(dayIndex, exerciseId) {
+  return `program-distance-${dayIndex}-${exerciseId}`;
 }
 function restRowId(dayIndex, exerciseId) {
   return `program-rest-row-${dayIndex}-${exerciseId}`;
@@ -354,20 +387,24 @@ function renderDay(day) {
   `;
 }
 
-// A loaded lift shows reps + a real weight and earns an estimated-1RM
-// readout; a bodyweight move only ever shows reps (no "kg" field with
-// nothing real to put in it); a timed hold/cardio bout shows seconds,
-// not a rep count at all — see exercise-library.js's own comment on
-// logMetric for why these three genuinely need different forms, not one
-// reps+kg pair used for everything regardless of what the exercise is.
+// Four real, distinct forms — never the same reps+kg pair regardless of
+// what the exercise actually is (see exercise-library.js's own comment
+// on logMetric): a loaded lift shows reps + a real weight and earns an
+// estimated-1RM readout; a bodyweight move shows reps only (no "kg"
+// field with nothing real to put in it); a static hold shows seconds
+// held, not a rep count that never meant anything for it; a cardio bout
+// shows seconds *and*, only for an exercise that actually covers ground
+// (`distanceTrackable`), an optional real distance in km.
 function renderExercise(dayIndex, exercise) {
   const libraryEntry = getLibraryExercise(exercise.exerciseId);
   const cueLine = libraryEntry ? `<span class="muted" style="font-size:var(--fs-xs);">${libraryEntry.cues[0]}</span>` : '';
 
   const prescriptionText =
-    exercise.logMetric === 'time'
+    exercise.logMetric === 'hold'
       ? `${exercise.sets} sets × ${exercise.holdSec}s hold · rest ${exercise.restSec}s`
-      : `${exercise.sets} sets × ${exercise.reps} reps · rest ${exercise.restSec}s`;
+      : exercise.logMetric === 'cardio'
+        ? `${exercise.sets} bouts × ${exercise.cardioSec}s cardio · rest ${exercise.restSec}s`
+        : `${exercise.sets} sets × ${exercise.reps} reps · rest ${exercise.restSec}s`;
 
   const oneRepMaxSlot =
     exercise.logMetric === 'reps-weight'
@@ -375,12 +412,15 @@ function renderExercise(dayIndex, exercise) {
       : '';
 
   const logInputs =
-    exercise.logMetric === 'time'
+    exercise.logMetric === 'hold'
       ? `<input class="input" type="number" min="1" id="${durationInputId(dayIndex, exercise.exerciseId)}" placeholder="seconds held">`
-      : exercise.logMetric === 'reps-weight'
-        ? `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">
-           <input class="input" type="number" min="0" step="0.5" id="${weightInputId(dayIndex, exercise.exerciseId)}" placeholder="kg">`
-        : `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">`;
+      : exercise.logMetric === 'cardio'
+        ? `<input class="input" type="number" min="1" id="${durationInputId(dayIndex, exercise.exerciseId)}" placeholder="seconds">
+           ${libraryEntry?.distanceTrackable ? `<input class="input" type="number" min="0" step="0.01" id="${distanceInputId(dayIndex, exercise.exerciseId)}" placeholder="distance (km, optional)">` : ''}`
+        : exercise.logMetric === 'reps-weight'
+          ? `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">
+             <input class="input" type="number" min="0" step="0.5" id="${weightInputId(dayIndex, exercise.exerciseId)}" placeholder="kg">`
+          : `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">`;
 
   return `
     <div class="stack" style="border-top:1px solid var(--border); padding-top:var(--space-3);">
@@ -408,19 +448,30 @@ function renderExercise(dayIndex, exercise) {
   `;
 }
 
-async function loadDemoSvgInto(elementId, svgPath) {
-  if (!svgPath) return;
+/** Renders the looping movement-category demo (movement-demo-svg.js) for
+ *  one generated exercise into its slot — synchronous and DOM-free of
+ *  any network fetch (unlike the library's original per-exercise SVG
+ *  files, there's nothing to load: the markup is generated on the spot
+ *  from the exercise's own `pattern`/`logMetric` metadata via
+ *  categorizeExercise, so it scales to every exercise the library ever
+ *  gains without a new asset per one). Respects prefers-reduced-motion
+ *  by asking for the same figure with no looping animation, rather than
+ *  a CSS hack fighting native SMIL after the fact. */
+function renderMovementDemoInto(elementId, exerciseId) {
   const el = byId(elementId);
-  if (!el) return;
-  try {
-    el.innerHTML = await loadInlineSvg(svgPath);
-    const svg = el.querySelector('svg');
-    if (svg) {
-      svg.setAttribute('width', '100%');
-      svg.setAttribute('height', '100%');
-    }
-  } catch {
-    // best-effort demo art — an empty placeholder beats breaking the screen
+  const libraryEntry = getLibraryExercise(exerciseId);
+  if (!el || !libraryEntry) return;
+
+  const category = categorizeExercise(libraryEntry);
+  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
+  const markup = getMovementDemoSvgMarkup(category, { reduceMotion });
+  if (!markup) return;
+
+  el.innerHTML = markup;
+  const svg = el.querySelector('svg');
+  if (svg) {
+    svg.setAttribute('width', '100%');
+    svg.setAttribute('height', '100%');
   }
 }
 
@@ -478,12 +529,29 @@ function shiftCalendarMonth(delta) {
   byId('program-calendar-day-detail').hidden = true;
 }
 
-/** Two real, honest states per day — a session was logged, or it wasn't
- *  — never a third "this was a scheduled rest day" state, since Programs
- *  has no fixed day-to-date schedule to compare against (see
- *  renderWeeklyProgress's own comment). Only a logged day is tappable,
- *  for the same reason Sleep/Cycle Tracker keep future days inert: there
- *  is nothing real to show for an empty one. */
+/** The same real "this week" goal-proximity bar My Program's header
+ *  already shows (see renderWeeklyProgress), surfaced right on the
+ *  calendar screen too — a real, visible indicator of how this week's
+ *  actual training compares to this program's own weekly target, in the
+ *  one place someone's actually looking at a spread of real days to
+ *  judge it against. */
+async function renderCalendarWeeklyProgress() {
+  const sessions = activeProgramId ? await listSessionsForProgram(activeProgramId) : [];
+  const dates = sessionDatesForProgram(sessions);
+  const progress = weeklySessionProgress(dates, todayIsoDate(), calendarPlannedDaysPerWeek);
+  const sessionWord = progress.planned === 1 ? 'session' : 'sessions';
+  byId('program-calendar-week-progress-text').textContent = `This week: ${progress.completed} of ${progress.planned} ${sessionWord}`;
+  byId('program-calendar-week-progress-fill').style.width = `${progress.percent}%`;
+}
+
+/** Three real, honest states per day — a session was logged, a real rest
+ *  day (this program already existed, nothing was logged), or the
+ *  future/before-this-program's-start days that have nothing to claim
+ *  either way (see program-calendar.js's own classifyProgramCalendarDay
+ *  for exactly why this isn't the fabricated "your scheduled Tuesday"
+ *  kind of rest day). Only a logged day is tappable, for the same reason
+ *  Sleep/Cycle Tracker keep future days inert: there is nothing real to
+ *  show for an empty one. */
 function renderProgramCalendar() {
   byId('program-calendar-month-label').textContent = formatMonthLabel(calendarYear, calendarMonth);
   const sessionDates = sessionDatesForProgram(calendarSessions);
@@ -500,6 +568,12 @@ function renderProgramCalendar() {
 
   for (const day of days) {
     const hasSession = sessionDates.has(day.date);
+    const status = classifyProgramCalendarDay({
+      date: day.date,
+      hasSession,
+      isFuture: day.isFuture,
+      programStartDate: activeProgramStartDate,
+    });
     const cell = document.createElement('button');
     cell.type = 'button';
     cell.setAttribute('role', 'gridcell');
@@ -507,16 +581,23 @@ function renderProgramCalendar() {
     if (!day.inMonth) classes.push('program-calendar-day--out-of-month');
     if (day.isFuture) classes.push('program-calendar-day--future');
     if (day.isToday) classes.push('program-calendar-day--today');
-    if (hasSession) classes.push('program-calendar-day--logged');
+    if (status === 'logged') classes.push('program-calendar-day--logged');
+    if (status === 'rest') classes.push('program-calendar-day--rest');
     cell.className = classes.join(' ');
-    cell.disabled = !hasSession;
+    cell.disabled = status !== 'logged';
 
     const dayNumber = Number(day.date.slice(-2));
-    const dot = hasSession ? '<span class="program-calendar-day-dot"></span>' : '';
+    const dot = status === 'logged' ? '<span class="program-calendar-day-dot"></span>' : '';
     cell.innerHTML = `<span>${dayNumber}</span>${dot}`;
-    cell.setAttribute('aria-label', hasSession ? `${day.date}, session logged` : `${day.date}, no session logged`);
+    const labelByStatus = {
+      logged: `${day.date}, session logged`,
+      rest: `${day.date}, rest day, nothing logged`,
+      future: `${day.date}, upcoming`,
+      'before-program': `${day.date}, before this program started`,
+    };
+    cell.setAttribute('aria-label', labelByStatus[status]);
 
-    if (hasSession) {
+    if (status === 'logged') {
       cell.addEventListener('click', () => showCalendarDayDetail(day.date, sessionsByDate.get(day.date)));
     }
     grid.append(cell);

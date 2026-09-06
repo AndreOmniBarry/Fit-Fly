@@ -27,7 +27,12 @@
 // and taxes the CNS harder, than the same rep range done bodyweight).
 
 export type MovementPattern = 'squat' | 'hinge' | 'push' | 'pull' | 'core' | 'cardio';
-export type LogMetric = 'reps-weight' | 'reps' | 'time';
+// 'hold' (a static isometric like plank) and 'cardio' (a dynamic bout
+// like marching) used to be one combined 'time' value — exercise-
+// library.js's own split into the two is a real prescription difference
+// (see program-generator.js's CATEGORY_PRESCRIPTIONS comment), and this
+// module needs to track that same split, not the metric it replaced.
+export type LogMetric = 'reps-weight' | 'reps' | 'hold' | 'cardio';
 
 export interface RestDurationInput {
   /** The exercise's own movement pattern (exercise-library.js). */
@@ -36,7 +41,8 @@ export interface RestDurationInput {
   logMetric: LogMetric;
   /** The prescribed rep range for this set, e.g. "8-12" or "3-6" — same
    *  shape program-generator.js already prescribes. Ignored (and not
-   *  required) for logMetric 'time', which has no rep count at all. */
+   *  required) for logMetric 'hold'/'cardio', which have no rep count at
+   *  all. */
   reps?: string;
 }
 
@@ -69,13 +75,13 @@ export function parseRepsMidpoint(reps: string | undefined): number {
  *  answer — so it's cheaply unit-testable and safe to call straight from
  *  the moment a set is logged, no lookup table or DB round trip needed. */
 export function selectRestSeconds(input: RestDurationInput): number {
-  // A timed hold/cardio bout has no rep count to reason about at all —
-  // these are short, active-recovery-style breaks, not a strength set's
-  // full recovery window. Cardio's own pattern (e.g. a standing-march
-  // bout) gets the shortest break of anything here: the intent there is
-  // sustained-effort conditioning, not maximal output on the next set.
-  if (input.logMetric === 'time') {
-    return input.pattern === 'cardio' ? 30 : 45;
+  // A hold or cardio bout has no rep count to reason about at all — these
+  // are short, active-recovery-style breaks, not a strength set's full
+  // recovery window. Cardio gets the shortest break of anything here: the
+  // intent there is sustained-effort conditioning, not maximal output on
+  // the next set.
+  if (input.logMetric === 'hold' || input.logMetric === 'cardio') {
+    return input.logMetric === 'cardio' ? 30 : 45;
   }
 
   const repsMid = parseRepsMidpoint(input.reps);

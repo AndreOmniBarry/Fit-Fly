@@ -62,15 +62,15 @@ describe('selectRestSeconds', () => {
     expect(restSec).toBeLessThan(180);
   });
 
-  it('a timed isometric hold gets a short, active-recovery-style break', () => {
-    const restSec = selectRestSeconds({ pattern: 'core', logMetric: 'time' });
+  it('an isometric hold gets a short, active-recovery-style break', () => {
+    const restSec = selectRestSeconds({ pattern: 'core', logMetric: 'hold' });
     expect(restSec).toBe(45);
   });
 
-  it('a timed cardio bout gets the shortest break of anything — sustained conditioning, not max output', () => {
-    const restSec = selectRestSeconds({ pattern: 'cardio', logMetric: 'time' });
+  it('a cardio bout gets the shortest break of anything — sustained conditioning, not max output', () => {
+    const restSec = selectRestSeconds({ pattern: 'cardio', logMetric: 'cardio' });
     expect(restSec).toBe(30);
-    expect(restSec).toBeLessThan(selectRestSeconds({ pattern: 'core', logMetric: 'time' }));
+    expect(restSec).toBeLessThan(selectRestSeconds({ pattern: 'core', logMetric: 'hold' }));
   });
 
   it('is a pure function: identical input always gives the identical answer', () => {
@@ -80,7 +80,7 @@ describe('selectRestSeconds', () => {
 
   it('never returns a non-positive or non-finite duration for any real pattern/logMetric combination', () => {
     const patterns = ['squat', 'hinge', 'push', 'pull', 'core', 'cardio'];
-    const metrics = ['reps-weight', 'reps', 'time'];
+    const metrics = ['reps-weight', 'reps', 'hold', 'cardio'];
     const repRanges = [undefined, '3-6', '8-12', '15-20'];
     for (const pattern of patterns) {
       for (const logMetric of metrics) {

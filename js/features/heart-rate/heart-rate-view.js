@@ -5,6 +5,9 @@ import { createCameraPpgSession } from './camera-ppg.js';
 import { connectHeartRateMonitor, isBluetoothAvailable } from './ble-heart-rate.js';
 import { summarizeHeartRateTrend } from './trend.js';
 import { calculateRmssd } from './hrv.js';
+import { classifyHeartRateZone, describeHeartRateZone, isConcerningHeartRateZone } from './hr-zone.js';
+import { calculateAge } from '../onboarding/age.js';
+import { getProfile } from '../../db/repositories/profile.js';
 import {
   HR_SOURCE,
   listRecentHeartRateSamples,
@@ -162,10 +165,17 @@ const SOURCE_LABELS = {
 };
 
 async function renderHistory() {
-  const samples = await listRecentHeartRateSamples(20);
+  const [samples, profile] = await Promise.all([listRecentHeartRateSamples(20), getProfile()]);
   const list = byId('hr-history-list');
 
-  renderTrend(samples);
+  // Real age when the person completed onboarding with a birthdate,
+  // recomputed live rather than trusting profile.age's one-time snapshot
+  // from onboarding day — null (never a guess) when there's no profile at
+  // all, same "recompute, don't fabricate" rule as everywhere else this
+  // app reads age. classifyHeartRateZone already degrades gracefully to a
+  // fixed adult threshold when age is null.
+  const age = profile?.birthdate ? calculateAge(profile.birthdate) : null;
+  renderTrend(samples, age);
 
   if (samples.length === 0) {
     list.innerHTML = '<p class="muted center-text">No readings yet.</p>';
@@ -201,8 +211,11 @@ async function renderHistory() {
 
 /** Real insight from the readings already being auto-saved on every
  *  capture — not just a list to scroll past. Hidden entirely with no
- *  readings yet, rather than showing an empty/zeroed card. */
-function renderTrend(samplesNewestFirst) {
+ *  readings yet, rather than showing an empty/zeroed card.
+ *  @param {number|null} age - the person's real age from their profile's
+ *   birthdate, or null when unknown — passed straight through to
+ *   classifyHeartRateZone, which degrades gracefully either way. */
+function renderTrend(samplesNewestFirst, age) {
   const trend = summarizeHeartRateTrend(samplesNewestFirst);
   const card = byId('hr-trend-card');
   card.hidden = !trend;
@@ -213,6 +226,27 @@ function renderTrend(samplesNewestFirst) {
   const latestBadge = byId('hr-trend-latest-badge');
   latestBadge.className = `data-badge ${isCameraLatest ? 'estimated' : 'measured'}`;
   latestBadge.textContent = isCameraLatest ? `estimated · ${trend.latestConfidence}` : 'measured';
+
+  // A second, separate badge for *which sensing method* produced this
+  // number — measured-vs-estimated already says how much to trust it, but
+  // says nothing about whether it came from a fingertip-over-the-camera
+  // guess, a real chest/wrist strap, or a hand-typed number. Never
+  // conflated with the measured/estimated badge above so neither one has
+  // to carry two different kinds of information at once.
+  byId('hr-trend-source-badge').textContent = SOURCE_LABELS[trend.latestSource] ?? trend.latestSource ?? '—';
+
+  // Resting/elevated/high zone for the latest reading — see hr-zone.js for
+  // the age-based (Tanaka max-HR) math and its no-age fallback. Always
+  // computable whenever there's a latest bpm at all, regardless of source.
+  const zone = classifyHeartRateZone(trend.latest, age);
+  const zoneBadge = byId('hr-trend-zone-badge');
+  zoneBadge.hidden = !zone;
+  if (zone) {
+    zoneBadge.className = `hr-zone-badge ${zone}`;
+    zoneBadge.textContent = `${describeHeartRateZone(zone)} zone`;
+    zoneBadge.classList.toggle('is-concerning', isConcerningHeartRateZone(zone));
+  }
+
   byId('hr-trend-count').textContent = String(trend.sampleCount);
   byId('hr-trend-avg').textContent = `${trend.average} bpm`;
   byId('hr-trend-range').textContent = trend.min === trend.max ? `${trend.min} bpm` : `${trend.min}–${trend.max} bpm`;

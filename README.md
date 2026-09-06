@@ -353,7 +353,6 @@ js/
     dexie.min.mjs, capacitor-core.mjs, fonts/     # vendored libraries + fonts (npm registry, not a live CDN)
 assets/
   icons/                     # app icons
-  exercise-svgs/              # hand-authored exercise demonstration SVGs
 tests/
   unit/                       # Vitest — pure-logic math (BMI/BMR/TDEE, GPS,
                                 # cycle prediction, program generation, 1RM,
@@ -1672,32 +1671,62 @@ live, and why a bare standalone timer wasn't the redesign.
 ## Tailored programs + periodization
 
 `js/features/exercises/exercise-library.js` is a small, curated library —
-12 exercises across six movement patterns (squat, hinge, push, pull,
-core, cardio), each beginner-reachable in at least one entry, each with a
-hand-authored line-art demo SVG under `assets/exercise-svgs/` (loaded
-inline via `js/lib/svg-loader.js` so `stroke="currentColor"` picks up the
-surrounding theme). `js/features/programs/program-generator.js` turns a
-category + experience level + any flagged injury area into a concrete
-week: which exercises (deterministic — same inputs always produce the
-same program, no randomness to fight in tests), how many sets/reps, how
-much rest, and a plain-language "why this" reasoning. Safety routing
+18 exercises across seven movement patterns (squat, hinge, push, pull,
+core, cardio, and mobility), each beginner-reachable in at least one
+entry. `js/features/programs/program-generator.js` turns a category +
+experience level + any flagged injury area into a concrete week: which
+exercises (deterministic — same inputs always produce the same program,
+no randomness to fight in tests), how many sets/reps, how much rest, and
+a plain-language "why this" reasoning. Safety routing
 (`js/features/programs/body-area-tag.js`) maps the onboarding safety
 screen's free-text injury area onto a small keyword-matched tag set and
 excludes any exercise whose `contraindications` include it — under-
 filtering on a miss, never over-filtering.
 
-Every exercise carries a real `logMetric` — a loaded lift (`goblet-squat`,
-`dumbbell-bench-press`, ...) is `reps-weight` and gets a reps *and* a kg
-field, feeding the estimated-1RM readout; a bodyweight movement
-(`glute-bridge`, `push-up`, ...) is `reps` and gets a reps-only form —
-there's no real "kg" for your own bodyweight, so no kg field is rendered
-for one at all, not just left optional; and an isometric hold or timed
-cardio bout (`plank`, `standing-march`) is `time` and gets a seconds-held
-field instead of a rep count that never meant anything for either of
-them. The Programs screen (`js/features/programs/program-view.js`)
-renders a different prescription line and log form per `logMetric`
-rather than the same reps+kg pair regardless of what the exercise
-actually is.
+Every exercise carries a real `logMetric`, and there are four of them,
+not three — a loaded lift (`goblet-squat`, `dumbbell-bench-press`, ...)
+is `reps-weight` and gets a reps *and* a kg field, feeding the
+estimated-1RM readout; a bodyweight movement (`glute-bridge`, `push-up`,
+...) is `reps` and gets a reps-only form — there's no real "kg" for your
+own bodyweight, so no kg field is rendered for one at all, not just left
+optional; a static isometric hold (`plank`, the mobility stretches) is
+`hold` and gets a seconds-held field instead of a rep count that never
+meant anything for it; and a dynamic cardio bout (`standing-march`,
+`jumping-jacks`, `brisk-walk-jog`, ...) is its own `cardio` metric —
+seconds, plus a real optional distance-in-km field for the one exercise
+that actually covers ground (`distanceTrackable: true`), never a
+fabricated distance for a stationary drill. `hold` and `cardio` used to
+be the same `logMetric: 'time'` value doing two genuinely different
+jobs — a near-maximal isometric contraction and a longer sub-maximal
+cardio bout aren't the same prescription, so program-generator.js now
+carries separate `holdSec`/`cardioSec` ranges per category instead of
+one number relabeled. The Programs screen
+(`js/features/programs/program-view.js`) renders a different
+prescription line and log form per `logMetric` rather than the same
+reps+kg pair regardless of what the exercise actually is.
+
+**A real, animated movement demo, keyed by category — not a static
+picture per exercise.** The library's original per-exercise hand-drawn
+SVGs (one static file per exercise id, `assets/exercise-svgs/`) didn't
+scale: every new exercise needed its own bespoke art, and none of them
+actually moved. `js/features/exercises/movement-category.js` maps an
+exercise's own `pattern`/`logMetric` metadata onto one of 8 real movement
+categories (squat, hinge, push, pull, hold, core, cardio, mobility —
+splitting `core` into a static hold and a dynamic drill, since Plank and
+Dead Bug are not the same movement); `js/features/exercises/movement-demo-svg.js`
+is a pure function from category to a small looping stick-figure
+animation (native SVG SMIL, `repeatCount="indefinite"` — no animation
+library, no per-frame JS loop) that actually depicts that pattern's real
+joint action: knees/hips bending for a squat, a hip hinge, elbow-driven
+push/pull cycles, a brisk marching cadence for cardio, a slow arch-and-
+release for mobility, and — deliberately the odd one out — a hold is
+near-static (a slow breathing rise), since a real isometric hold has
+nothing to repeat. Every exercise the library ever gains resolves onto
+one of these automatically from its own real metadata, with zero new art
+required; `getMovementDemoSvgMarkup(category, { reduceMotion })` also
+respects prefers-reduced-motion by returning the same figure at rest,
+tested directly rather than left to fight native SMIL from CSS after the
+fact.
 
 **Logging a set now actually starts the rest it just prescribed —
 the Rest Timer's real justification.** Every generated exercise already
@@ -1719,8 +1748,9 @@ Timer stays, deliberately, for what a generated program's own prescription
 can't cover: an ad hoc rest outside a tracked session, or a custom
 duration.
 
-`js/features/programs/periodization.js` is a standard 4-week mesocycle:
-three weeks of progressive load, then a deload week at reduced volume.
+`js/features/programs/periodization.js` is a standard 4-week mesocycle
+(linear periodization, per the NSCA's own model): three weeks of
+progressive load, then a deload week at reduced volume.
 `js/features/programs/week-number.js` derives which week a person is on
 from how long ago their program started, so the program itself is never
 persisted as static content — `programs` stores just the category,
@@ -1734,6 +1764,20 @@ fully deterministic (the same week always produces the same program,
 nothing to fight in tests) but no longer frozen on the first eligible
 candidate forever, so a program running for months varies its exercise
 selection instead of repeating identically.
+
+**Real progressive overload, not the same numbers for 3 weeks running.**
+`getBlockInfo`'s own `loadMultiplier` (1.0 / 1.05 / 1.1 across a block's 3
+working weeks, then a 0.6 deload) used to be computed and never read by
+anything downstream — every non-deload week of a block prescribed
+identical sets/reps/rest. `generateProgram` now turns it into a plain
+`targetLoadPercent` on the program and every one of its exercises (a
+week-3 lift aims for "roughly 110% of your week-1 working weight/effort")
+plus its own reasoning line explaining why, so a program's second and
+third week are a real, standard-periodization step up from its first,
+not a flat repeat that only changes on the deload. Weeks keep producing
+real, correctly-rotated content indefinitely too — week 20 is block 5,
+week 9 is block 3, and so on, each with its own valid deload cadence and
+exercise selection, never "day 3 forever" once the first mesocycle ends.
 
 **"Build muscle" and "build strength" are genuinely different programs,
 not the same template under two labels.** Both route to the
@@ -1782,15 +1826,25 @@ logged by hand. Both are real gaps now:
   real exercise names and real set counts read straight from the `sets`
   table, not a summary reconstructed from the day's current prescription
   (which may have changed, or may not match what was actually done).
-- **Deliberately not a third "rest day" state.** Programs has no fixed
-  calendar-day schedule to compare against — Day 1/2/3 rotate whenever
-  someone actually shows up, not fixed weekdays — so there is no honest
-  way to say "this was your scheduled rest day" the way a real
-  Monday/Wednesday/Friday plan could. The calendar shows exactly two
-  states: a session happened, or it didn't. An empty day, including
-  today with nothing logged yet, is inert rather than a fabricated
-  "missed workout" — consistent with the app's "never guess, never
-  guilt-trip" rule everywhere else. Retroactive logging (picking a past
+- **A real third state — "rest day" — but an honest one.** Programs has
+  no fixed calendar-day schedule to compare against — Day 1/2/3 rotate
+  whenever someone actually shows up, not fixed weekdays — so there's
+  still no honest way to say "this was your scheduled Tuesday rest day."
+  What *is* honest and easy to verify: whether this program already
+  existed on a given real, non-future date, and whether anything was
+  logged on it. `program-calendar.js`'s `classifyProgramCalendarDay`
+  draws exactly that line — `'logged'` / `'rest'` / `'future'` /
+  `'before-program'` — so a real rest day (dashed border, its own legend
+  entry) only ever appears for a date the program's own `startedAt`
+  already covers, never for a day before the program existed and never
+  invented for the future. An empty future day, or today with nothing
+  logged yet, stays inert rather than a fabricated "missed workout" —
+  consistent with the app's "never guess, never guilt-trip" rule
+  everywhere else. The calendar screen also now shows the same real
+  "this week" goal-proximity bar My Program's own header already
+  displays (`renderCalendarWeeklyProgress`) — a visible progress signal
+  right where a spread of real days is on screen to judge it against,
+  not stranded on a separate screen. Retroactive logging (picking a past
   date to log a session for, the way Sleep's own History screen allows)
   was deliberately left out of this round too: every strength session
   currently assumes "now" end to end (`createSession`'s own

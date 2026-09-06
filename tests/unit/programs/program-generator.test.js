@@ -174,14 +174,89 @@ describe('generateProgram: per-exercise logMetric', () => {
     }
   });
 
-  it('a timed exercise (plank) is prescribed a real holdSec range, not a rep count relabeled', () => {
+  it('a held exercise (plank) is prescribed a real holdSec range, not a rep count relabeled', () => {
     // rehab-recuperation's mobility days include core work — plank is a
     // real, beginner-eligible, no-contraindication candidate for it.
     const program = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner' });
     const plank = program.days.flatMap((d) => d.exercises).find((e) => e.exerciseId === 'plank');
     expect(plank).toBeDefined();
-    expect(plank.logMetric).toBe('time');
+    expect(plank.logMetric).toBe('hold');
     expect(plank.holdSec).toMatch(/^\d+-\d+$/);
+  });
+
+  it('a cardio exercise is prescribed a real cardioSec range, genuinely different from a hold\'s holdSec', () => {
+    const program = generateProgram({ category: 'endurance', experienceLevel: 'beginner' });
+    const cardioExercise = program.days.flatMap((d) => d.exercises).find((e) => e.logMetric === 'cardio');
+    expect(cardioExercise).toBeDefined();
+    expect(cardioExercise.cardioSec).toMatch(/^\d+-\d+$/);
+    expect(cardioExercise.cardioSec).not.toBe(cardioExercise.holdSec);
+  });
+
+  it('a real mobility-pattern exercise leads day 1 of a mobility-heavy program', () => {
+    const program = generateProgram({ category: 'rehab-recuperation', experienceLevel: 'beginner' });
+    const day1 = program.days[0];
+    const mobilityExercise = day1.exercises.find((e) => ['cat-cow-stretch', 'hip-flexor-stretch', 'thoracic-rotation-stretch'].includes(e.exerciseId));
+    expect(mobilityExercise).toBeDefined();
+  });
+});
+
+describe('generateProgram: progressive overload (targetLoadPercent)', () => {
+  it('load target grows across the working weeks of a block, then drops on the deload', () => {
+    const week1 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 1 });
+    const week2 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 2 });
+    const week3 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 3 });
+    const week4 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 4 });
+
+    expect(week1.targetLoadPercent).toBe(100);
+    expect(week2.targetLoadPercent).toBeGreaterThan(week1.targetLoadPercent);
+    expect(week3.targetLoadPercent).toBeGreaterThan(week2.targetLoadPercent);
+    expect(week4.targetLoadPercent).toBeLessThan(week1.targetLoadPercent); // the deload
+
+    // Carried onto every individual exercise too, not just the program root.
+    for (const day of week3.days) {
+      for (const exercise of day.exercises) {
+        expect(exercise.targetLoadPercent).toBe(week3.targetLoadPercent);
+      }
+    }
+  });
+
+  it('explains the load target in plain language only on a real progression week', () => {
+    const week1 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 1 });
+    const week3 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 3 });
+    const week4 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 4 });
+
+    expect(week1.reasoning.some((l) => l.includes('week-1 working weight'))).toBe(false);
+    expect(week3.reasoning.some((l) => l.includes('week-1 working weight'))).toBe(true);
+    expect(week4.reasoning.some((l) => l.includes('week-1 working weight'))).toBe(false); // deload has its own note instead
+  });
+});
+
+describe('generateProgram: a program keeps producing real, varied content well past week 3', () => {
+  it('week 5 (block 2) still generates a full, valid program with rotated exercises and its own progression', () => {
+    const week1 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 1 });
+    const week5 = generateProgram({ category: 'hypertrophy', experienceLevel: 'advanced', weekNumber: 5 }); // block 2, week 1 of block
+
+    expect(week5.blockNumber).toBe(2);
+    expect(week5.days.length).toBe(week1.days.length);
+    for (const day of week5.days) {
+      expect(day.exercises.length).toBeGreaterThan(0);
+    }
+    // Real exercise variation across blocks, not day 1-3 repeating forever.
+    const week1Ids = week1.days.flatMap((d) => d.exercises.map((e) => e.exerciseId));
+    const week5Ids = week5.days.flatMap((d) => d.exercises.map((e) => e.exerciseId));
+    expect(week5Ids).not.toEqual(week1Ids);
+  });
+
+  it('a much later week (month 5) still produces a valid, non-throwing program with correct block math', () => {
+    const week20 = generateProgram({ category: 'endurance', experienceLevel: 'intermediate', weekNumber: 20 });
+    expect(week20.blockNumber).toBe(5);
+    expect(week20.weekInBlock).toBe(4);
+    expect(week20.isDeload).toBe(true);
+    for (const day of week20.days) {
+      for (const exercise of day.exercises) {
+        expect(exercise.sets).toBeGreaterThanOrEqual(1);
+      }
+    }
   });
 });
 

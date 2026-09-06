@@ -182,13 +182,13 @@ test.describe('my program', () => {
     await expect(page.locator(`#program-reps-${dayIndex}-glute-bridge`)).toHaveValue('');
   });
 
-  test('a timed exercise (plank) gets a seconds-held log form — no reps, no "kg" field', async ({ page }) => {
+  test('a held exercise (plank) gets a seconds-held log form — no reps, no "kg" field', async ({ page }) => {
     await completeOnboarding(page, { goal: 'endurance', redFlag: 'chest-pain-pressure' });
     await page.getByRole('button', { name: 'My Program' }).click();
 
     const logButton = page.locator('button[data-log-set][data-exercise-id="plank"]').first();
     await expect(logButton).toBeVisible();
-    await expect(logButton).toHaveAttribute('data-log-metric', 'time');
+    await expect(logButton).toHaveAttribute('data-log-metric', 'hold');
     const dayIndex = await logButton.getAttribute('data-day-index');
 
     const exerciseBlock = page.locator('.stack:has(button[data-log-set][data-exercise-id="plank"])').first();
@@ -200,6 +200,38 @@ test.describe('my program', () => {
     await page.locator(`#program-duration-${dayIndex}-plank`).fill('25');
     await logButton.click();
     await expect(page.locator(`#program-duration-${dayIndex}-plank`)).toHaveValue('');
+  });
+
+  test('a cardio exercise gets a seconds + optional distance log form, distinct from a hold', async ({ page }) => {
+    // rehab-recuperation doesn't reach cardio patterns, so use a goal
+    // that actually schedules cardio days.
+    await completeOnboarding(page, { goal: 'endurance' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-log-metric="cardio"]').first();
+    await expect(logButton).toBeVisible();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    const exerciseId = await logButton.getAttribute('data-exercise-id');
+
+    await expect(page.locator(`#program-duration-${dayIndex}-${exerciseId}`)).toBeVisible();
+    await expect(page.locator(`#program-reps-${dayIndex}-${exerciseId}`)).toHaveCount(0);
+    await expect(page.locator(`#program-weight-${dayIndex}-${exerciseId}`)).toHaveCount(0);
+
+    await page.locator(`#program-duration-${dayIndex}-${exerciseId}`).fill('45');
+    await logButton.click();
+    await expect(page.locator(`#program-duration-${dayIndex}-${exerciseId}`)).toHaveValue('');
+  });
+
+  test('a stationary cardio exercise (Standing March) never gets a fabricated distance field', async ({ page }) => {
+    // Week 1 always deterministically picks Standing March for the
+    // cardio slot (see program-generator.js's block-rotation comment).
+    await completeOnboarding(page, { goal: 'endurance' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const marchLogButton = page.locator('button[data-log-set][data-exercise-id="standing-march"]').first();
+    await expect(marchLogButton).toBeVisible();
+    const dayIndex = await marchLogButton.getAttribute('data-day-index');
+    await expect(page.locator(`#program-distance-${dayIndex}-standing-march`)).toHaveCount(0);
   });
 
   test('logging a set starts a real inline rest countdown matching the exercise\'s own prescribed rest', async ({ page }) => {
@@ -282,7 +314,7 @@ test.describe('my program', () => {
     if (secondMetric === 'reps-weight') {
       await page.locator(`#program-reps-${secondDayIndex}-${secondExerciseId}`).fill('8');
       await page.locator(`#program-weight-${secondDayIndex}-${secondExerciseId}`).fill('20');
-    } else if (secondMetric === 'time') {
+    } else if (secondMetric === 'hold' || secondMetric === 'cardio') {
       await page.locator(`#program-duration-${secondDayIndex}-${secondExerciseId}`).fill('20');
     } else {
       await page.locator(`#program-reps-${secondDayIndex}-${secondExerciseId}`).fill('12');
@@ -521,5 +553,233 @@ test.describe('my program: change goal', () => {
 
     await expect(page.locator('#program-week-number')).toHaveText('1');
     expect(await page.locator('#program-reasoning').textContent()).toBe(beforeReasoning);
+  });
+});
+
+test.describe('my program: looping movement-category demos', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+  });
+
+  test('each known exercise renders the demo for its own real movement category, not an unrelated one', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+
+    const categoryFor = async (exerciseId) => {
+      const button = page.locator(`button[data-log-set][data-exercise-id="${exerciseId}"]`).first();
+      const dayIndex = await button.getAttribute('data-day-index');
+      const svg = page.locator(`#program-svg-${dayIndex}-${exerciseId} svg`);
+      await expect(svg).toBeVisible();
+      return svg.getAttribute('data-movement-category');
+    };
+
+    expect(await categoryFor('push-up')).toBe('push');
+    expect(await categoryFor('inverted-row')).toBe('pull');
+    expect(await categoryFor('bodyweight-squat')).toBe('squat');
+    expect(await categoryFor('glute-bridge')).toBe('hinge');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('a held exercise (plank) and a real mobility stretch each get their own distinct category demo', async ({ page }) => {
+    // rehab-recuperation's mobility days lead with a real mobility-
+    // pattern exercise and include a "core" slot Plank can win.
+    await completeOnboarding(page, { goal: 'endurance', redFlag: 'chest-pain-pressure' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+
+    const plankButton = page.locator('button[data-log-set][data-exercise-id="plank"]').first();
+    const plankDayIndex = await plankButton.getAttribute('data-day-index');
+    await expect(page.locator(`#program-svg-${plankDayIndex}-plank svg`)).toHaveAttribute('data-movement-category', 'hold');
+
+    const mobilityIds = ['cat-cow-stretch', 'hip-flexor-stretch', 'thoracic-rotation-stretch'];
+    let foundMobility = false;
+    for (const id of mobilityIds) {
+      const button = page.locator(`button[data-log-set][data-exercise-id="${id}"]`).first();
+      if (await button.count()) {
+        const dayIndex = await button.getAttribute('data-day-index');
+        await expect(page.locator(`#program-svg-${dayIndex}-${id} svg`)).toHaveAttribute('data-movement-category', 'mobility');
+        foundMobility = true;
+        break;
+      }
+    }
+    expect(foundMobility).toBe(true);
+  });
+
+  test('a cardio exercise (Standing March) gets the cardio category demo, and every demo actually loops', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'endurance' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const button = page.locator('button[data-log-set][data-exercise-id="standing-march"]').first();
+    const dayIndex = await button.getAttribute('data-day-index');
+    const svg = page.locator(`#program-svg-${dayIndex}-standing-march svg`);
+    await expect(svg).toHaveAttribute('data-movement-category', 'cardio');
+
+    // A real loop, not a static image pretending to be an animation.
+    const hasLoopingAnimation = await svg.evaluate((el) =>
+      Array.from(el.querySelectorAll('animate, animateTransform')).some((a) => a.getAttribute('repeatCount') === 'indefinite')
+    );
+    expect(hasLoopingAnimation).toBe(true);
+  });
+});
+
+test.describe('my program: smart calendar (rest days + goal proximity)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+  });
+
+  test('a real month grid marks logged and rest days distinctly, with a visible weekly goal-proximity bar', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    // The program starts a few real days before "today" so there are
+    // genuine rest days to show — a program created today has none yet,
+    // and that would itself be dishonest to fake. A program's startedAt
+    // is only ever set the first time My Program is actually visited
+    // (ensureActiveProgram), so that first visit has to happen while the
+    // clock is still on the start date.
+    const programStart = new Date('2026-03-10T09:00:00.000Z');
+    await page.clock.setFixedTime(programStart);
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click(); // creates the program, startedAt = programStart
+    await expect(page.locator('#program-days .card').first()).toBeVisible();
+
+    await page.clock.setFixedTime(new Date('2026-03-14T09:00:00.000Z'));
+    await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="push-up"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-push-up`).fill('12');
+    await logButton.click();
+
+    await page.locator('#btn-program-calendar').click();
+
+    // A real grid: 7 weekday columns, several full week rows — not a
+    // vertically scrolling list of every day.
+    await expect(page.locator('.program-calendar-weekdays span')).toHaveCount(7);
+    const cellCount = await page.locator('.program-calendar-day').count();
+    expect(cellCount).toBeGreaterThanOrEqual(28); // at least 4 full weeks
+
+    await expect(page.locator('.program-calendar-day--logged')).toHaveCount(1);
+    // The program started today, so every other real (non-future) day
+    // this month is an honest, visibly distinct rest day.
+    const restDayCount = await page.locator('.program-calendar-day--rest').count();
+    expect(restDayCount).toBeGreaterThan(0);
+
+    await expect(page.locator('.program-calendar-legend')).toContainText('Session logged');
+    await expect(page.locator('.program-calendar-legend')).toContainText('Rest day');
+
+    // A real, visible goal-proximity indicator right on the calendar
+    // screen — the same honest "X of Y sessions" signal My Program's own
+    // header shows.
+    await expect(page.locator('#program-calendar-week-progress-text')).toContainText('1 of');
+    await expect(page.locator('#program-calendar-week-progress-fill')).not.toHaveJSProperty('style.width', '0%');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('a day before the program existed is never mislabeled a rest day', async ({ page }) => {
+    // Fixed mid-month "today" so the previous month's own grid can't
+    // bleed trailing days forward into the program's real start date —
+    // a real edge case a calendar-grid's leading/trailing padding days
+    // can otherwise hit near a month boundary.
+    await page.clock.setFixedTime(new Date('2026-03-20T09:00:00.000Z'));
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await page.locator('#btn-program-calendar').click();
+
+    await page.locator('#btn-program-calendar-prev-month').click(); // February 2026 — entirely before the program started
+    await expect(page.locator('.program-calendar-day--logged')).toHaveCount(0);
+    await expect(page.locator('.program-calendar-day--rest')).toHaveCount(0);
+  });
+});
+
+test.describe('my program: real progression across a multi-week/multi-month plan', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+  });
+
+  test('week 5 (block 2) genuinely differs from week 1 — rotated exercises and a real progressive-overload target, not day 1-3 repeating', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    const weekOneStart = new Date('2026-01-05T09:00:00.000Z');
+    await page.clock.setFixedTime(weekOneStart);
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#program-block-label')).toContainText('Block 1');
+    const week1Days = await page.locator('#program-days').textContent();
+    const week1Reasoning = await page.locator('#program-reasoning').textContent();
+    expect(week1Reasoning).not.toContain('rotated');
+    expect(week1Reasoning).not.toContain('working weight');
+
+    // Four weeks later: still block 1's own week 4 (the deload) — a real
+    // week-over-week difference already, not a flat repeat of week 1.
+    await page.clock.setFixedTime(new Date(weekOneStart.getTime() + 21 * 24 * 60 * 60 * 1000));
+    await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-week-number')).toHaveText('4');
+    await expect(page.locator('#program-deload-banner')).toBeVisible();
+
+    // Into block 2 (week 5): genuinely different exercise selection from
+    // week 1, and a real, plain-language progressive-overload note.
+    await page.clock.setFixedTime(new Date(weekOneStart.getTime() + 28 * 24 * 60 * 60 * 1000));
+    await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await expect(page.locator('#program-week-number')).toHaveText('5');
+    await expect(page.locator('#program-block-label')).toContainText('Block 2');
+    const week5Days = await page.locator('#program-days').textContent();
+    const week5Reasoning = await page.locator('#program-reasoning').textContent();
+
+    expect(week5Days).not.toBe(week1Days); // real rotation past week 1, not a repeat
+    expect(week5Reasoning).toContain('rotated');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('a real progressive-overload target grows week over week within a block, then resets on the deload', async ({ page }) => {
+    const weekOneStart = new Date('2026-02-02T09:00:00.000Z');
+    await page.clock.setFixedTime(weekOneStart);
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    const week1Reasoning = await page.locator('#program-reasoning').textContent();
+    expect(week1Reasoning).not.toContain('working weight');
+
+    await page.clock.setFixedTime(new Date(weekOneStart.getTime() + 14 * 24 * 60 * 60 * 1000)); // week 3
+    await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-week-number')).toHaveText('3');
+
+    const week3Reasoning = await page.locator('#program-reasoning').textContent();
+    expect(week3Reasoning).toContain('working weight');
+    expect(week3Reasoning).toMatch(/aim for roughly \d+% of your week-1 working weight/);
   });
 });

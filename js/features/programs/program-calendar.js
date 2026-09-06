@@ -54,3 +54,30 @@ export function weeklySessionProgress(sessionDates, todayDate, plannedDaysPerWee
   const percent = plannedDaysPerWeek > 0 ? Math.min(100, Math.round((completed / plannedDaysPerWeek) * 100)) : 0;
   return { completed, planned: plannedDaysPerWeek, percent };
 }
+
+/** A real, honest third calendar-day state — 'rest' — alongside 'logged'
+ *  and 'future': a real calendar day, on or after this program's own
+ *  start date, up to and including today, that simply has no session
+ *  logged on it. This is different from the "no schedule to compare
+ *  against" problem the original two-state design (see program-view.js's
+ *  own comment) was avoiding: that was about never inventing a
+ *  fictitious fixed weekday schedule ("this was your scheduled Tuesday
+ *  rest day") — this only ever claims what's real and easy to verify:
+ *  "this program existed on this date, and nothing was logged." A day
+ *  before the program started isn't a missed day at all (there was
+ *  nothing to miss yet), so it gets its own 'before-program' state
+ *  rather than being lumped in with real rest days.
+ *
+ * @param {object} input
+ * @param {string} input.date - YYYY-MM-DD
+ * @param {boolean} input.hasSession
+ * @param {boolean} input.isFuture
+ * @param {string} input.programStartDate - YYYY-MM-DD, local
+ * @returns {'logged'|'future'|'before-program'|'rest'}
+ */
+export function classifyProgramCalendarDay({ date, hasSession, isFuture, programStartDate }) {
+  if (hasSession) return 'logged';
+  if (isFuture) return 'future';
+  if (programStartDate && date < programStartDate) return 'before-program';
+  return 'rest';
+}

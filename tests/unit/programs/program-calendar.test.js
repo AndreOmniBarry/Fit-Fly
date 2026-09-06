@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  classifyProgramCalendarDay,
   currentWeekRange,
   localDateFromIso,
   sessionDatesForProgram,
@@ -71,5 +72,34 @@ describe('weeklySessionProgress', () => {
 
   it('never divides by zero if a program somehow has no training days this week', () => {
     expect(weeklySessionProgress(new Set(), '2026-03-18', 0)).toEqual({ completed: 0, planned: 0, percent: 0 });
+  });
+});
+
+describe('classifyProgramCalendarDay', () => {
+  const base = { date: '2026-03-15', programStartDate: '2026-03-01' };
+
+  it('a day with a logged session is "logged", regardless of anything else', () => {
+    expect(classifyProgramCalendarDay({ ...base, hasSession: true, isFuture: false })).toBe('logged');
+    expect(classifyProgramCalendarDay({ ...base, hasSession: true, isFuture: true })).toBe('logged');
+  });
+
+  it('a future day with nothing logged is "future" — nothing to claim about it yet', () => {
+    expect(classifyProgramCalendarDay({ ...base, hasSession: false, isFuture: true })).toBe('future');
+  });
+
+  it('a real past/today day within the program\'s own window with nothing logged is a real "rest" day', () => {
+    expect(classifyProgramCalendarDay({ ...base, hasSession: false, isFuture: false })).toBe('rest');
+  });
+
+  it('a day before the program even started is "before-program", never a missed/rest day', () => {
+    expect(
+      classifyProgramCalendarDay({ date: '2026-02-20', programStartDate: '2026-03-01', hasSession: false, isFuture: false })
+    ).toBe('before-program');
+  });
+
+  it('with no known program start date, any non-future empty day is honestly a rest day', () => {
+    expect(
+      classifyProgramCalendarDay({ date: '2026-01-01', programStartDate: null, hasSession: false, isFuture: false })
+    ).toBe('rest');
   });
 });

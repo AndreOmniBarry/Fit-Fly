@@ -437,6 +437,11 @@ textarea.input{
 .program-calendar-day--future{ background:transparent; }
 .program-calendar-day--today{ border-color:var(--accent); border-width:2px; }
 .program-calendar-day--logged{ background:var(--accent-soft); border-color:var(--accent); }
+/* A real rest day (this program already existed, nothing was logged) —
+   visibly its own state, not just "not logged" left unstyled: a dashed
+   border reads as "this day is accounted for" without borrowing the
+   solid accent fill a real logged session earns. */
+.program-calendar-day--rest{ border-style:dashed; color:var(--ink-muted); }
 .program-calendar-day-dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); }
 
 .program-calendar-legend{
@@ -445,3 +450,4 @@ textarea.input{
 }
 .program-calendar-legend span{ display:flex; align-items:center; gap:5px; }
 .program-calendar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; font-style:normal; background:var(--accent); }
+.program-calendar-dot--rest{ background:transparent; border:1.5px dashed var(--ink-muted); }

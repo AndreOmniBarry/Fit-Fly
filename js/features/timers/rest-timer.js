@@ -3,6 +3,7 @@ import { attachTilt } from '../../lib/tilt.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { createCountdown, formatDuration } from '../../lib/timer.js';
 import { playCompletionBeep, primeAudio, vibrateDevice } from '../../lib/audio-cue.js';
+import { getNotificationPermission, showNotification } from '../../lib/notifications.js';
 
 const DEFAULT_DURATION_S = 60;
 // Purely a re-render cadence, not the time source — see js/lib/timer.js's
@@ -62,6 +63,13 @@ export function initRestTimerFeature() {
     byId('btn-rest-toggle').textContent = 'Start';
     playCompletionBeep();
     vibrateDevice();
+    // Same system-notification plumbing the in-program rest timer reuses
+    // (js/lib/notifications.js, already used by Hydration/Goals) — a real
+    // cue for anyone who's tabbed away, not just the beep/vibrate above.
+    // Best-effort only: silently does nothing if it was never granted.
+    if (getNotificationPermission() === 'granted') {
+      showNotification('Rest complete!', { body: 'Your rest timer just finished.', tag: 'fit-fly-rest-timer' });
+    }
   }
 
   const presetChips = initChipGroup(byId('rest-presets'), {

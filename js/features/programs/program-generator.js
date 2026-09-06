@@ -8,6 +8,7 @@
 import { EXERCISE_LIBRARY } from '../exercises/exercise-library.js';
 import { getBlockInfo } from './periodization.js';
 import { getCooldown, getWarmup } from './warmup-cooldown.js';
+import { selectRestSeconds } from '../timers/rest-duration.js';
 
 const DIFFICULTY_ALLOWANCE = Object.freeze({
   beginner: ['beginner'],
@@ -54,30 +55,40 @@ const CATEGORY_DAY_PLANS = Object.freeze({
 // builds up, same shape as a beginner's rep count — see
 // exercise-library.js's own comment on why these needed splitting out
 // from reps in the first place).
+//
+// Deliberately no `restSec` here any more — rest used to be one flat
+// number per category, applied to every exercise in every slot
+// regardless of what it actually was (a heavy loaded lift and a
+// bodyweight core hold, resting the exact same amount). That's exactly
+// the "a phone timer could do this" complaint: a fixed number a person
+// could just as well set on their own watch. Actual per-exercise rest is
+// now computed by rest-duration.js's selectRestSeconds() below, from
+// what the set genuinely was — its movement pattern, whether it was
+// externally loaded, and the rep range it was just prescribed at.
 const CATEGORY_PRESCRIPTIONS = Object.freeze({
-  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20', cardioSec: '30-45', restSec: 60 },
-  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30', cardioSec: '45-60', restSec: 45 },
-  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30', cardioSec: '40-55', restSec: 75 },
-  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15', cardioSec: '20-30', restSec: 60 },
-  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45', cardioSec: '45-60', restSec: 90 },
+  'sedentary-start': { sets: 2, reps: '10-15', holdSec: '15-20', cardioSec: '30-45' },
+  'cut-fat-loss': { sets: 3, reps: '12-15', holdSec: '20-30', cardioSec: '45-60' },
+  recomposition: { sets: 3, reps: '8-12', holdSec: '20-30', cardioSec: '40-55' },
+  'rehab-recuperation': { sets: 2, reps: '10-12', holdSec: '10-15', cardioSec: '20-30' },
+  hypertrophy: { sets: 4, reps: '8-12', holdSec: '30-45', cardioSec: '45-60' },
   // Endurance gets the longest cardio bouts of any category on purpose —
   // building the aerobic base is the entire point of this category (see
   // CATEGORY_REASONING below), so its cardio prescription is the one
   // place that actually leans into real duration rather than a short
   // accessory bout.
-  endurance: { sets: 2, reps: '15-20', holdSec: '30-45', cardioSec: '60-90', restSec: 30 },
+  endurance: { sets: 2, reps: '15-20', holdSec: '30-45', cardioSec: '60-90' },
 });
 
 // A real strength-training prescription, per the NSCA's own guidelines —
-// lower reps at heavier intent, more sets, meaningfully longer rest
-// (2-5min for real neuromuscular recovery between near-maximal efforts,
-// not the ~90s hypertrophy rest above) — this is what actually makes
+// lower reps at heavier intent, more sets — this is what actually makes
 // "build strength" a different program from "build muscle", not a
 // re-skinned copy of it. Timed holds get proportionally longer too:
 // a strength-focused isometric still aims for near-maximal tension, held
 // briefly, not hypertrophy's longer time-under-tension. Cardio isn't the
-// point of a strength focus, so its cardioSec stays modest.
-const STRENGTH_FOCUS_PRESCRIPTION = Object.freeze({ sets: 5, reps: '3-6', holdSec: '20-30', cardioSec: '30-45', restSec: 180 });
+// point of a strength focus, so its cardioSec stays modest. Its longer
+// real rest between sets falls out of selectRestSeconds() below, from
+// the much lower rep range alone — not a separate number maintained here.
+const STRENGTH_FOCUS_PRESCRIPTION = Object.freeze({ sets: 5, reps: '3-6', holdSec: '20-30', cardioSec: '30-45' });
 
 const CATEGORY_REASONING = Object.freeze({
   'sedentary-start': 'Two full-body sessions a week, light volume — building the habit and a base matters more than the exact numbers right now.',
@@ -180,7 +191,11 @@ export function generateProgram({
         reps: prescription.reps,
         holdSec: prescription.holdSec,
         cardioSec: prescription.cardioSec,
-        restSec: prescription.restSec,
+        restSec: selectRestSeconds({
+          pattern: exercise.pattern,
+          logMetric: exercise.logMetric,
+          reps: prescription.reps,
+        }),
         targetLoadPercent,
       })),
     };

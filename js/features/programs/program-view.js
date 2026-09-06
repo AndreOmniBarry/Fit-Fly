@@ -4,6 +4,7 @@ import { animateCountUp } from '../../lib/count-up.js';
 import { initChipGroup } from '../../lib/chip-group.js';
 import { createCountdown, formatDuration } from '../../lib/timer.js';
 import { playCompletionBeep, primeAudio, vibrateDevice } from '../../lib/audio-cue.js';
+import { getNotificationPermission, showNotification } from '../../lib/notifications.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment, recordCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import { listInjuryScreens } from '../../db/repositories/injury-screens.js';
@@ -86,6 +87,15 @@ let calendarSessions = [];
 let calendarPlannedDaysPerWeek = 0;
 let calendarYear = 0;
 let calendarMonth = 0; // 0-indexed, same convention as Date/calendar-grid.js
+
+// How many sets have been logged this visit for each rendered exercise
+// occurrence ("${dayIndex}:${exerciseId}" -> count) — purely so the rest
+// row below it can say *which* set it's resting after ("Set 2"), not
+// just that some rest is happening. Reset alongside #program-days itself
+// (renderProgramScreen replaces it wholesale), so a fresh visit starts
+// every occurrence back at zero rather than remembering a prior visit's
+// count against a row that no longer exists.
+let setCountByRow = new Map();
 
 export function initProgramFeature() {
   byId('btn-home-program').addEventListener('click', async () => {
@@ -191,7 +201,7 @@ export function initProgramFeature() {
       if (!(durationSec >= 1)) return;
       await logSet(exerciseId, { durationSec });
       durationInput.value = '';
-      startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
+      startInlineRestTimer(dayIndex, exerciseId, Number(restSec), nextSetNumber(dayIndex, exerciseId));
       await renderWeeklyProgress(); // this week's real count just changed
       return;
     }
@@ -227,7 +237,7 @@ export function initProgramFeature() {
       await logSet(exerciseId, { reps });
     }
     repsInput.value = '';
-    startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
+    startInlineRestTimer(dayIndex, exerciseId, Number(restSec), nextSetNumber(dayIndex, exerciseId));
     await renderWeeklyProgress(); // this week's real count just changed
   });
 }
@@ -264,6 +274,7 @@ async function getInjuryBodyAreaTags() {
 
 async function renderProgramScreen() {
   stopInlineRestTimer(); // #program-days is about to be replaced wholesale below
+  setCountByRow = new Map();
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
   if (!profile || !assignment) return;
 
@@ -328,6 +339,22 @@ function restRowId(dayIndex, exerciseId) {
 }
 function restDisplayId(dayIndex, exerciseId) {
   return `program-rest-display-${dayIndex}-${exerciseId}`;
+}
+function restSetLabelId(dayIndex, exerciseId) {
+  return `program-rest-set-${dayIndex}-${exerciseId}`;
+}
+function rowKey(dayIndex, exerciseId) {
+  return `${dayIndex}:${exerciseId}`;
+}
+/** Increments and returns the number of sets logged this visit for one
+ *  rendered exercise occurrence — purely display context for the rest
+ *  row ("Set 2"), never read back for anything that needs to be
+ *  authoritative (that's listSetsForExercise, from the real DB). */
+function nextSetNumber(dayIndex, exerciseId) {
+  const key = rowKey(dayIndex, exerciseId);
+  const count = (setCountByRow.get(key) ?? 0) + 1;
+  setCountByRow.set(key, count);
+  return count;
 }
 
 function renderDay(day) {
@@ -410,9 +437,9 @@ function renderExercise(dayIndex, exercise) {
         ${logInputs}
         <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-rest-sec="${exercise.restSec}">Log</button>
       </div>
-      <div class="row-between program-rest-timer" id="${restRowId(dayIndex, exercise.exerciseId)}" hidden>
+      <div class="row-between program-rest-timer" id="${restRowId(dayIndex, exercise.exerciseId)}" data-exercise-name="${exercise.name}" hidden>
         <span class="row" style="gap:6px;">
-          <span class="muted" style="font-size:var(--fs-xs);">Rest</span>
+          <span class="muted" style="font-size:var(--fs-xs);">Resting — ${exercise.name}<span id="${restSetLabelId(dayIndex, exercise.exerciseId)}"></span></span>
           <strong id="${restDisplayId(dayIndex, exercise.exerciseId)}" style="font-variant-numeric:tabular-nums;"></strong>
         </span>
         <button type="button" class="btn btn-ghost" data-skip-rest>Skip</button>
@@ -623,10 +650,12 @@ function stopInlineRestTimer() {
  *  whichever exercise a set was just logged for. This is the actual point
  *  of a rest timer in a real strength session — every generated exercise
  *  already prescribes its own rest (program-generator.js's restSec,
- *  printed right next to the Log button) that used to go nowhere: resting
- *  correctly meant remembering that number and re-typing it into the
- *  separate, generic Rest Timer screen. Logging a set now starts that
- *  exact rest automatically, in place, with zero extra taps.
+ *  chosen per-exercise by rest-duration.js's selectRestSeconds — shorter
+ *  for high-rep/isolation work, longer for a heavy loaded compound lift —
+ *  and printed right next to the Log button) that used to go nowhere:
+ *  resting correctly meant remembering that number and re-typing it into
+ *  the separate, generic Rest Timer screen. Logging a set now starts
+ *  that exact rest automatically, in place, with zero extra taps.
  *
  *  Only one shows at a time (the standalone Rest Timer screen — still
  *  reachable from the Fitness Toolkit home list, see rest-timer.js — is
@@ -634,14 +663,23 @@ function stopInlineRestTimer() {
  *  duration, resting between exercises this program didn't prescribe a
  *  number for). Logging a different exercise's set replaces whichever
  *  countdown was already showing, the same way a lifter only ever rests
- *  from one lift at a time. */
-function startInlineRestTimer(dayIndex, exerciseId, restSec) {
+ *  from one lift at a time.
+ *
+ *  `setNumber` is purely the row's own display context (see
+ *  nextSetNumber's doc comment) — which exercise, and which set of it,
+ *  this particular rest period belongs to, printed right on the row
+ *  itself rather than left to be inferred from scroll position alone. */
+function startInlineRestTimer(dayIndex, exerciseId, restSec, setNumber) {
   stopInlineRestTimer();
   if (!(restSec > 0)) return; // nothing prescribed to count down from
 
   const row = byId(restRowId(dayIndex, exerciseId));
   const display = byId(restDisplayId(dayIndex, exerciseId));
+  const setLabel = byId(restSetLabelId(dayIndex, exerciseId));
   if (!row || !display) return;
+
+  const exerciseName = row.dataset.exerciseName ?? 'your next set';
+  if (setLabel) setLabel.textContent = ` · Set ${setNumber}`;
 
   const countdown = createCountdown(restSec * 1000);
   countdown.start();
@@ -656,6 +694,21 @@ function startInlineRestTimer(dayIndex, exerciseId, restSec) {
       display.textContent = 'Rest complete!';
       playCompletionBeep();
       vibrateDevice();
+      // A real cue that doesn't depend on staring at this screen: audio +
+      // vibration above cover "not looking at the phone right now", and
+      // this covers "not even looking at this browser tab right now" —
+      // the same system-notification plumbing Hydration/Goals already
+      // use (js/lib/notifications.js), reused rather than rebuilt, and
+      // just as best-effort/silent when it's unsupported or was never
+      // granted (nothing here ever prompts for permission on its own).
+      if (getNotificationPermission() === 'granted') {
+        showNotification('Rest complete!', {
+          body: `Time for set ${setNumber + 1} of ${exerciseName}.`,
+          tag: 'fit-fly-rest-timer',
+        });
+      }
+      const liveRegion = byId('program-rest-live');
+      if (liveRegion) liveRegion.textContent = `Rest complete — time for your next set of ${exerciseName}.`;
       // Auto-hides shortly after, rather than sitting there indefinitely
       // — but only if a newer timer (a different exercise's set) hasn't
       // already taken over this same row's slot in the meantime.

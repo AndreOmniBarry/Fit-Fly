@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectRestSeconds } from '../../js/features/timers/rest-duration.js';
 
 async function clearAppDb(page) {
   await page.evaluate(
@@ -271,9 +272,79 @@ test.describe('my program', () => {
     expect(initialRemaining).toBeLessThanOrEqual(Number(restSec));
     expect(initialRemaining).toBeGreaterThan(Number(restSec) - 3);
 
+    // Not one fixed default — a real, heavier-lift-appropriate duration
+    // computed from what was actually just logged (a loaded compound
+    // press at hypertrophy reps), matching rest-duration.js's own answer.
+    expect(Number(restSec)).toBe(selectRestSeconds({ pattern: 'push', logMetric: 'reps-weight', reps: '8-12' }));
+    expect(Number(restSec)).toBeGreaterThanOrEqual(120); // a real heavy-compound-range rest, not a generic 60-90s default
+
+    // Clear about which exercise/set this rest period belongs to, not
+    // just that some rest is happening.
+    await expect(restRow).toContainText('Resting — Dumbbell Bench Press');
+    await expect(restRow).toContainText('Set 1');
+
     // It's a real countdown, not a static label.
     const firstReading = await restDisplay.textContent();
     await expect.poll(async () => restDisplay.textContent()).not.toBe(firstReading);
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('the end-of-rest cue fires — visible completion text, a screen-reader announcement, and a reused system notification', async ({
+    page,
+    context,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    // Granted ahead of time so the cue's system-notification path
+    // (js/lib/notifications.js — the same plumbing Hydration/Goals
+    // already use) actually fires instead of silently no-op'ing.
+    await context.grantPermissions(['notifications']);
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    // Fake timers so a real (heavy-compound, 2min+) rest period can be
+    // fast-forwarded through instead of actually waited out — see
+    // focus.spec.js's own use of page.clock for the same reason.
+    await page.clock.install();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const restSec = Number(await logButton.getAttribute('data-rest-sec'));
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+
+    const sawNotification = page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const OriginalNotification = window.Notification;
+          window.Notification = new Proxy(OriginalNotification, {
+            construct(target, args) {
+              resolve({ title: args[0], body: args[1]?.body });
+              return new target(...args);
+            },
+          });
+        })
+    );
+
+    await logButton.click();
+    const restDisplay = page.locator(`#program-rest-display-${dayIndex}-dumbbell-bench-press`);
+    await expect(restDisplay).toBeVisible();
+
+    await page.clock.runFor((restSec + 1) * 1000);
+
+    await expect(restDisplay).toHaveText('Rest complete!');
+    await expect(page.locator('#program-rest-live')).toContainText('Rest complete');
+    await expect(page.locator('#program-rest-live')).toContainText('Dumbbell Bench Press');
+
+    const notification = await sawNotification;
+    expect(notification.title).toBe('Rest complete!');
+    expect(notification.body).toContain('Dumbbell Bench Press');
 
     expect(consoleErrors).toEqual([]);
   });

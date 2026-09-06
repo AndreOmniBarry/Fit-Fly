@@ -1,5 +1,3 @@
-import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   DIFFICULTY,
@@ -10,8 +8,7 @@ import {
   MOVEMENT_PATTERNS,
 } from '../../../js/features/exercises/exercise-library.js';
 import { BODY_AREA_TAGS } from '../../../js/features/programs/body-area-tag.js';
-
-const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url));
+import { categorizeExercise, MOVEMENT_CATEGORIES } from '../../../js/features/exercises/movement-category.js';
 
 describe('EXERCISE_LIBRARY data integrity', () => {
   it('has unique ids', () => {
@@ -56,9 +53,9 @@ describe('EXERCISE_LIBRARY data integrity', () => {
     }
   });
 
-  it('every demoSvg path points at a real file that exists on disk', () => {
+  it('every entry resolves to a real, recognized movement-demo category — no exercise left un-animatable', () => {
     for (const exercise of EXERCISE_LIBRARY) {
-      expect(existsSync(REPO_ROOT + exercise.demoSvg)).toBe(true);
+      expect(MOVEMENT_CATEGORIES).toContain(categorizeExercise(exercise));
     }
   });
 
@@ -69,6 +66,12 @@ describe('EXERCISE_LIBRARY data integrity', () => {
         (e) => e.pattern === pattern && e.difficulty === 'beginner'
       );
       expect(hasBeginnerOption).toBe(true);
+    }
+  });
+
+  it('only a real cardio exercise can be marked distance-trackable', () => {
+    for (const exercise of EXERCISE_LIBRARY) {
+      if (exercise.distanceTrackable) expect(exercise.logMetric).toBe('cardio');
     }
   });
 

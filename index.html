@@ -2673,17 +2673,21 @@
   </section>
 
   <!-- PROGRAM: CALENDAR — real activity at a glance, month by month.
-       Only two honest states per day: a session was logged, or it
-       wasn't — never a third "this was your scheduled rest day" state,
-       since Programs has no fixed day-to-date schedule to compare
-       against (Day 1/2/3 rotate whenever someone actually shows up, not
-       fixed weekdays — see program-view.js's own comment). Not a
-       mini-app-night screen (Programs lives in the light/dark adaptive
-       Fitness Toolkit), so this gets its own token-based palette rather
-       than a mini-app's fixed night surface — same real month-grid math
-       as Sleep/Cycle Tracker's own calendars (js/lib/calendar-grid.js),
-       just its own skin, the same "shared math, separate presentation"
-       split those two already established between each other. -->
+       Three honest states per day: a session was logged, a real rest
+       day (this program already existed on that date and nothing was
+       logged), or future/before-this-program's-start days with nothing
+       to claim either way — never a fabricated "this was your scheduled
+       Tuesday" fixed-weekday claim, since Programs has no fixed
+       day-to-date schedule to compare against (Day 1/2/3 rotate whenever
+       someone actually shows up, not fixed weekdays — see
+       program-calendar.js's classifyProgramCalendarDay for exactly where
+       that line is drawn). Not a mini-app-night screen (Programs lives
+       in the light/dark adaptive Fitness Toolkit), so this gets its own
+       token-based palette rather than a mini-app's fixed night surface —
+       same real month-grid math as Sleep/Cycle Tracker's own calendars
+       (js/lib/calendar-grid.js), just its own skin, the same "shared
+       math, separate presentation" split those two already established
+       between each other. -->
   <section class="screen" id="screen-program-calendar" hidden>
     <div class="row-between">
       <h2 style="margin:0;">Calendar</h2>
@@ -2700,6 +2704,17 @@
       </button>
     </div>
 
+    <!-- Same real "this week" goal-proximity number as My Program's own
+         header card (program-calendar.js's weeklySessionProgress) — a
+         visible goal-proximity indicator right where a spread of real
+         days is on screen to judge it against. -->
+    <div class="card stack" style="margin-top:var(--space-4);">
+      <p class="muted" id="program-calendar-week-progress-text" style="margin:0;">—</p>
+      <div class="goal-progress-track">
+        <div class="goal-progress-fill" id="program-calendar-week-progress-fill" style="width:0%"></div>
+      </div>
+    </div>
+
     <div class="program-calendar-weekdays" style="margin-top:var(--space-4);" aria-hidden="true">
       <span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span>
     </div>
@@ -2707,6 +2722,7 @@
 
     <div class="program-calendar-legend" style="margin-top:var(--space-4);">
       <span><i class="program-calendar-dot"></i> Session logged</span>
+      <span><i class="program-calendar-dot program-calendar-dot--rest"></i> Rest day</span>
     </div>
 
     <div class="card stack" id="program-calendar-day-detail" hidden style="margin-top:var(--space-4);">

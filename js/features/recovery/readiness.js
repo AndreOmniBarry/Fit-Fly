@@ -44,10 +44,21 @@ function loadScore(recentSessionCount) {
  * @param {number|null} [input.energyLevel] - 1-5
  * @param {number|null} [input.sorenessLevel] - 1-5
  * @param {number} [input.recentSessionCount] - sessions in roughly the last 2 days
+ * @param {number|null} [input.sleepDebtMinutes] - rolling shortfall from Sleep's own
+ *   calculateSleepDebt (see sleep-debt.js), if the person has been logging real
+ *   nights there. Purely a reasoning input, not a scoring one — last night's
+ *   actual hours already drive the score; this only adds context for *why* a
+ *   short night hits harder than usual, without double-counting it.
  * @returns {{score: number, category: 'low'|'moderate'|'high', reasoning: string[]}|null}
  *   null if there's not enough self-reported input to say anything
  */
-export function calculateReadiness({ sleepHours = null, energyLevel = null, sorenessLevel = null, recentSessionCount = 0 }) {
+export function calculateReadiness({
+  sleepHours = null,
+  energyLevel = null,
+  sorenessLevel = null,
+  recentSessionCount = 0,
+  sleepDebtMinutes = null,
+}) {
   const components = {
     sleep: sleepScore(sleepHours),
     energy: energyScore(energyLevel),
@@ -64,7 +75,7 @@ export function calculateReadiness({ sleepHours = null, energyLevel = null, sore
 
   const category = score < 50 ? 'low' : score < 75 ? 'moderate' : 'high';
 
-  return { score, category, reasoning: buildReasoning(components, category) };
+  return { score, category, reasoning: buildReasoning(components, category, sleepDebtMinutes) };
 }
 
 /** A plain-language nudge for the category alone — used wherever a
@@ -84,11 +95,19 @@ export function readinessActionSuggestion(category) {
   }
 }
 
-function buildReasoning(components, category) {
+// A debt below this isn't worth calling out on its own — an hour or so
+// spread across several nights is normal drift, not a real deficit.
+const NOTABLE_SLEEP_DEBT_MINUTES = 60;
+
+function buildReasoning(components, category, sleepDebtMinutes) {
   const reasoning = [];
 
   if (components.sleep != null && components.sleep < 60) {
     reasoning.push('Sleep was on the short side — that\'s usually the biggest lever for how you\'ll feel.');
+  }
+  if (sleepDebtMinutes != null && sleepDebtMinutes >= NOTABLE_SLEEP_DEBT_MINUTES) {
+    const hours = Math.round((sleepDebtMinutes / 60) * 10) / 10;
+    reasoning.push(`You're also carrying about ${hours}h of sleep debt from recent nights — that compounds beyond just last night.`);
   }
   if (components.soreness != null && components.soreness < 60) {
     reasoning.push('You\'re carrying some soreness, worth working around today.');

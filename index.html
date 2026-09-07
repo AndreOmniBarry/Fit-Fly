@@ -2694,11 +2694,12 @@
     </div>
 
     <p class="muted">
-      Sleep, how you feel, and how much you've trained the last couple of
-      days, blended into one score — not a medical measure, just an honest
-      nudge for whether today's a day to push or to ease up. Log a
-      check-in here and it shows up right on My Program, next to today's
-      actual session.
+      Real sleep (pulled from your Sleep log when you've got one, plus your
+      own sleep debt trend), how you feel, and how much you've trained the
+      last couple of days — blended into one score with a plain-language
+      "here's what to actually do" underneath it. Not a medical measure,
+      just an honest nudge. Log a check-in here and it shows up right on
+      My Program, next to today's actual session.
     </p>
 
     <div class="card card-accent stack tilt-card tilt-enter" id="readiness-result" hidden>
@@ -2708,6 +2709,7 @@
           <span class="data-badge estimated" id="readiness-category">—</span>
         </div>
         <p id="readiness-score">—</p>
+        <p class="readiness-suggestion" id="readiness-suggestion" style="margin:0; font-weight:600;">—</p>
         <ul id="readiness-reasoning" class="stack" style="margin:0; padding-left:1.2em;"></ul>
       </span>
     </div>
@@ -2718,6 +2720,7 @@
         <div class="field">
           <label for="readiness-sleep">Hours of sleep last night</label>
           <input class="input" type="number" id="readiness-sleep" min="0" max="16" step="0.5" placeholder="e.g. 7.5">
+          <span class="muted" id="readiness-sleep-hint" style="font-size:var(--fs-sm);" hidden>From your Sleep log — edit if it's off.</span>
         </div>
         <div class="field">
           <label id="lbl-readiness-energy">Energy today</label>

@@ -34,8 +34,16 @@ export async function updateGoal(id, patch, db = getDb()) {
  *  run's route on its own record): only ever read back as a whole to
  *  draw this one goal's own history, never queried across goals. */
 export async function logGoalProgress(id, value, db = getDb()) {
+  return logGoalProgressAt(id, value, nowIso(), db);
+}
+
+/** Same as logGoalProgress, with an explicit `loggedAt` instead of "now"
+ *  — used to seed a real multi-day streak in tests without waiting for
+ *  actual days to pass. Not used by any UI flow: a person can only ever
+ *  log progress as of right now. */
+export async function logGoalProgressAt(id, value, loggedAt, db = getDb()) {
   const goal = await db.goals.get(id);
-  const history = [...(goal?.history ?? []), { value, loggedAt: nowIso() }];
+  const history = [...(goal?.history ?? []), { value, loggedAt }];
   await db.goals.update(id, { currentValue: value, history });
   return db.goals.get(id);
 }

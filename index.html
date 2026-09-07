@@ -1153,15 +1153,12 @@
       </div>
     </div>
 
-    <div style="display:flex; flex-direction:column; gap:12px; margin-top:var(--space-4);">
-      <span style="font-size:12.5px; font-weight:600; color:var(--meditate-ink-muted); letter-spacing:0.04em;">GUIDED MEDITATIONS</span>
-      <div class="focus-sound-grid" id="meditate-meditations-grid"></div>
-    </div>
-
-    <div style="display:flex; flex-direction:column; gap:12px; margin-top:var(--space-4);">
-      <span style="font-size:12.5px; font-weight:600; color:var(--meditate-ink-muted); letter-spacing:0.04em;">BREATHWORK</span>
-      <div class="focus-sound-grid" id="meditate-breathwork-grid"></div>
-    </div>
+    <!-- Populated by meditate-view.ts's buildCategorySections() from
+         MEDITATE_CATEGORIES (meditations.ts) — one heading + grid per
+         real, distinct technique/use-case (stress & difficult emotions,
+         self-compassion & connection, focus & grounding, sleep prep,
+         breathwork), never a single undifferentiated list. -->
+    <div id="meditate-categories"></div>
 
     <p class="safety-flag" style="margin-top:var(--space-4);">
       <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>

@@ -31,6 +31,17 @@ import {
   type KokoroVoiceId,
 } from './kokoro-voice.js';
 
+// How long a Kokoro attempt gets to produce its first real sound before
+// speak() gives up on it and speaks the line the reliable way instead.
+// Generous relative to a typical short guided-session beat, but bounded:
+// the very first sentence generated right after a fresh model load pays
+// a real, one-time WASM warm-up cost on top of normal per-sentence
+// inference, and on a phone that can genuinely take longer than the beat
+// itself lasts — see kokoro-voice.ts's speakWithKokoro() doc comment for
+// what silently waiting on it instead would actually do (go silent for
+// the rest of the session, not just the one slow attempt).
+const KOKORO_FIRST_AUDIO_TIMEOUT_MS = 2500;
+
 export const VOICE_ENGINE_PREF_KEY = 'voice-engine';
 export type VoiceEngine = 'system' | 'kokoro';
 
@@ -183,11 +194,32 @@ export function speak(
   if (getVoiceEngine() === 'kokoro') {
     primeKokoroAudio();
     if (isKokoroReady()) {
-      void speakWithKokoro(text, { voice: kokoroVoice ?? getSavedKokoroVoice(), speed: rate }).catch(() => {
+      let audioStarted = false;
+      void speakWithKokoro(text, {
+        voice: kokoroVoice ?? getSavedKokoroVoice(),
+        speed: rate,
+        onAudioStart: () => {
+          audioStarted = true;
+        },
+      }).catch(() => {
         // A load that was ready a moment ago can still fail mid-generation
         // (e.g. the tab reclaimed memory) — fall back rather than go silent.
-        speakWithSystemVoice(text, { rate, pitch });
+        // Only if nothing from this attempt was ever actually heard: the
+        // timeout below already owns that decision once real audio has
+        // started, so this and the timeout never both speak the same line.
+        if (!audioStarted) speakWithSystemVoice(text, { rate, pitch });
       });
+      // See KOKORO_FIRST_AUDIO_TIMEOUT_MS's own comment: give this a real,
+      // bounded window to actually start producing sound before falling
+      // back, rather than risking it arrive only once a later beat's own
+      // speak() call has already superseded it (kokoro-voice.ts's
+      // speakToken) — audibly late beats a permanently silent session.
+      setTimeout(() => {
+        if (!audioStarted) {
+          stopKokoroSpeaking();
+          speakWithSystemVoice(text, { rate, pitch });
+        }
+      }, KOKORO_FIRST_AUDIO_TIMEOUT_MS);
       return;
     }
     // Fire-and-forget on purpose (this line already fell back to the

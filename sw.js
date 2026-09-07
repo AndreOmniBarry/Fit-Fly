@@ -30,7 +30,19 @@
 // (see README's "no bundler" section) — bump CACHE_VERSION by hand
 // whenever a precached shell file's content changes, so installed PWAs
 // pick up the update instead of serving a stale shell forever.
-const CACHE_VERSION = 'v1';
+//
+// This actually matters more than the paragraph above makes it sound:
+// a browser's update-check for a service worker is a byte-for-byte diff
+// of this very file against what's installed. CACHE_VERSION sat at 'v1'
+// through this entire project's build history — every deploy shipped
+// real changes to index.html/main.js/the CSS, but because THIS file
+// never changed, no browser ever saw a reason to install a new worker,
+// so skipWaiting()/clients.claim() below never actually ran even once.
+// Every installed PWA has been quietly stuck on whatever it first
+// cached, with only individual already-fetched JS modules opportunistically
+// refreshing via the fetch handler's stale-while-revalidate — never the
+// shell itself. Bump this on every real deploy from here on.
+const CACHE_VERSION = 'v2';
 const CACHE_NAME = `fit-fly-${CACHE_VERSION}`;
 
 const APP_SHELL = [

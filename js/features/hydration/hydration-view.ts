@@ -1,10 +1,11 @@
-// Hydration: a real running total for today, drawn as a human figure
-// that fills with water — the fill's y/height are set from the actual
-// ml logged vs. the daily goal, the same "real attribute drives the
-// data, CSS only eases it" language as Sleep's score ring and Steps'
-// goal ring. The little scrolling wave riding the surface is the one
-// purely decorative touch (see mini-apps.css) — it never encodes data
-// itself, just tracks the fill's real top edge.
+// Hydration: a real running total for today, drawn as a glass that
+// fills with water — the fill's y/height are set from the actual ml
+// logged vs. the daily goal, the same "real attribute drives the data,
+// CSS only eases it" language as Sleep's score ring and Steps' goal
+// ring. The scrolling wave riding the surface, and its tilt-reactive
+// lean when the device tilts (see .hydration-liquid-tilt in
+// mini-apps.css), are purely decorative — they never encode data
+// themselves, just track the fill's real top edge.
 import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';

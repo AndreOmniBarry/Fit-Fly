@@ -1873,13 +1873,23 @@
         </g>
         <ellipse class="hydration-glass-rim" cx="50" cy="15" rx="27" ry="3.4"/>
         <g clip-path="url(#hydrationFigureClip)">
-          <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="160" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
-          <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(160px);">
-            <g class="hydration-wave-scroll hydration-wave-scroll--back">
-              <path d="M0 6 Q12.5 -4 25 6 T50 6 T75 6 T100 6 T125 6 T150 6 T175 6 T200 6 V16 H0 Z"/>
-            </g>
-            <g class="hydration-wave-scroll hydration-wave-scroll--front">
-              <path d="M0 3 Q10 -3.5 20 3 T40 3 T60 3 T80 3 T100 3 T120 3 T140 3 T160 3 T180 3 T200 3 V16 H0 Z"/>
+          <!-- hydration-liquid-tilt rotates the fill + wave together around
+               the liquid's own current center (transform-box:fill-box —
+               see mini-apps.css) using the same --tilt-ry reading the rest
+               of this screen's cards already get from attachTilt() below —
+               real device tilt reads as the water inside actually leaning
+               with it, the way it would in a real glass, clipped to the
+               glass outline by the parent clip-path so it never spills
+               past the drawn walls. -->
+          <g class="hydration-liquid-tilt" id="hydration-liquid-tilt">
+            <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="160" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
+            <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(160px);">
+              <g class="hydration-wave-scroll hydration-wave-scroll--back">
+                <path d="M0 6 Q12.5 -4 25 6 T50 6 T75 6 T100 6 T125 6 T150 6 T175 6 T200 6 V16 H0 Z"/>
+              </g>
+              <g class="hydration-wave-scroll hydration-wave-scroll--front">
+                <path d="M0 3 Q10 -3.5 20 3 T40 3 T60 3 T80 3 T100 3 T120 3 T140 3 T160 3 T180 3 T200 3 V16 H0 Z"/>
+              </g>
             </g>
           </g>
           <g clip-path="url(#hydrationWaterClip)">
@@ -2987,6 +2997,9 @@
       <ul id="program-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>
     </div>
 
+    <p class="muted" style="font-size:var(--fs-sm);">
+      Log the reps/weight, hold, or cardio you actually did on each set below — it's not a checkbox for its own sake. It's what "Week 2 of this block" above is actually built on (your real numbers set next week's target load), what estimated-1RM readouts are calculated from, and the only thing your Calendar and Readiness banner have to go on. Skip it and the workout still happened — but next week's plan stops adjusting to your real effort.
+    </p>
     <div class="stack tilt-stagger" id="program-days"></div>
     <span class="visually-hidden" id="program-rest-live" role="status" aria-live="polite"></span>
   </section>

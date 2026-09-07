@@ -54,9 +54,22 @@ export function initStepsFeature() {
     const tilt = attachTilt(stepsScreen);
     stepsScreen.addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
     byId('steps-goal-input').setAttribute('placeholder', String(getGoal()));
+    // The plain-web branch here isn't a missed feature to build around —
+    // it's a real platform wall. iOS Safari (and every website inside it,
+    // installed-PWA or not) has no API to read the step count the phone's
+    // own coprocessor is already keeping, and no way to keep a page running
+    // once it's backgrounded or the screen locks — Apple reserves both to
+    // native, App-Store-distributed apps with HealthKit access. This app
+    // has no iOS native build (see native-pedometer.js's own header:
+    // Android only, via a real custom Capacitor plugin, which is why that
+    // platform *does* get true background counting below). So on iPhone,
+    // "log it manually" doesn't mean the phone is starting from scratch —
+    // it means copying the number the phone was going to track either way,
+    // since this web app has no way in to it. See README's "Platform
+    // notes" for the same caveat spelled out for the whole app.
     byId('steps-background-note-text').textContent = isNativeStepCounterAvailable()
         ? 'Once background counting is turned on below, this device keeps counting your real steps even with the screen locked or the app closed — the same architecture Run mode\'s own background GPS uses.'
-        : "A live walk only counts steps while this screen stays open and active — there's no passive, background pedometer here (this web app has no way to keep running once you switch apps or lock your phone). For a full day's real total, log it manually from your phone's own step count.";
+        : "A live walk only counts steps while this screen stays open and active — there's no passive, background pedometer here. This isn't a missing feature: a website has no way to keep running once you switch apps or lock your phone, and no way to read the step count your phone is already keeping on its own (iOS in particular reserves that to native, App Store apps). For a full day's real total, log it manually from your phone's own step count — you're not tracking anything new by hand, just copying a number your phone already has.";
     // ---------- live walk (web) / background counting (native) ----------
     if (isNativeStepCounterAvailable()) {
         void initNativeBackgroundCounting();
@@ -66,7 +79,7 @@ export function initStepsFeature() {
     }
     else {
         byId('steps-live-status').textContent =
-            "This browser doesn't support live motion sensing — log today's total manually instead.";
+            "This browser doesn't support live motion sensing (iOS Safari doesn't offer it to any website) — log today's total manually instead, copying it from your phone's own step counter.";
         byId('btn-steps-live-toggle').disabled = true;
     }
     byId('btn-steps-live-toggle').addEventListener('click', () => {

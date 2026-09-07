@@ -22,6 +22,28 @@ export interface SleepLog {
   loggedAt: string;
 }
 
+/** A daytime/afternoon nap — a second, distinct session from the night's
+ *  own SleepLog, so a person can have both on the same `date` (naps live
+ *  in their own store, js/db/repositories/nap-logs.ts, precisely so they
+ *  never collide with sleepLogs' one-row-per-date key). Deliberately
+ *  leaner than SleepLog (no quality rating, no notes) — a nap is a quick
+ *  "I napped, here's roughly how long" log, not a full sleep diary entry.
+ *  Several can exist for the same date (someone naps twice), same
+ *  "multiple real entries per day" shape as nutritionEntries/
+ *  hydrationEntries. */
+export interface NapLog {
+  id: string;
+  date: string;
+  /** Same UTC-wall-clock-encoding contract as SleepLog's bedTime/wakeTime
+   *  — see that doc comment. Nulled out only if a caller ever saves a
+   *  nap with just a duration and no clock times (not exercised by the
+   *  current UI, which always collects both). */
+  startTime: string | null;
+  endTime: string | null;
+  durationMinutes: number;
+  loggedAt: string;
+}
+
 export type SleepCategory = 'poor' | 'fair' | 'good' | 'great';
 
 export interface SleepScoreComponents {

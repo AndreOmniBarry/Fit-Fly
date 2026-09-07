@@ -7,14 +7,17 @@ import { initChipGroup } from '../../lib/chip-group.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
 import { getSleepLogForDate, listAllSleepLogs, listRecentSleepLogs, listSleepLogsInRange, saveSleepLog, } from '../../db/repositories/sleep-logs.js';
+import { listNapLogsForDate, listNapLogsInRange, saveNapLog, } from '../../db/repositories/nap-logs.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { calculateAge } from '../onboarding/age.js';
 import { calculateSleepScore } from './sleep-score.js';
-import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
+import { describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
+import { calculateSleepDebtWithNaps, describeNapDebtCredit } from './nap-debt.js';
 import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
 import { bucketSleepInsightNights, buildSleepInsightAreaGeometry } from './sleep-insight-chart.js';
-import { computeSleepLogTimes } from './sleep-duration.js';
+import { computeNapTimes, computeSleepLogTimes } from './sleep-duration.js';
+import { describeNapsForDate } from './nap-summary.js';
 import { formatMonthLabel, getMonthGridDays, monthDateRange } from '../../lib/calendar-grid.js';
 import { formatClockTime, formatDurationHM, formatTimeInputValue } from './format.js';
 import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
@@ -63,12 +66,23 @@ const RING_RADIUS = 86;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 export function initSleepFeature() {
     let recentLogs = [];
+    // Naps logged across recentLogs' own date window — fetched alongside it
+    // in loadDashboard, so calculateSleepDebtWithNaps always has a real,
+    // already-loaded set to credit against by the time Insights is opened
+    // (same "populated during loadDashboard, read synchronously later"
+    // contract recentLogs itself already follows).
+    let recentNaps = [];
     let viewedDate = todayDateString();
     let viewedLog = null;
+    // Every nap logged for viewedDate specifically — a night's own log and
+    // its date's naps are two independent things, so this is tracked apart
+    // from viewedLog and never folds into it.
+    let viewedNaps = [];
     let profileAge = null;
     let historyYear = 0;
     let historyMonth = 0; // 0-11
     let historyLogs = [];
+    let historyNapDates = new Set();
     // The Insights chart's own state — a module-scoped cache of every
     // logged night (so switching W/M/6M/Y re-renders instantly from data
     // already fetched, same "cache the whole history, re-render on chip
@@ -111,6 +125,24 @@ export function initSleepFeature() {
         byId('sleep-dashboard-result').hidden = true;
         byId('btn-sleep-log-save').textContent =
             viewedDate === todayDateString() ? 'Save last night' : `Log ${formatHeaderDate(viewedDate)}`;
+    }
+    /** Renders the nap card for whatever date is currently viewed — honest
+     *  either way: a real "also napped for X" summary when one exists, an
+     *  explicit "not logged yet" otherwise, never silence. Also resets the
+     *  inline nap form back to closed/blank, the same "fresh state per
+     *  viewed date" contract loadDashboard already applies to the night
+     *  form. */
+    function renderNapCard() {
+        const summaryEl = byId('sleep-nap-summary');
+        const emptyEl = byId('sleep-nap-empty');
+        const description = describeNapsForDate(viewedNaps);
+        summaryEl.textContent = description ?? '';
+        summaryEl.hidden = description == null;
+        emptyEl.hidden = description != null;
+        byId('sleep-nap-form').hidden = true;
+        byId('sleep-nap-start').value = '';
+        byId('sleep-nap-end').value = '';
+        byId('err-sleep-nap').hidden = true;
     }
     function renderWeekStrip() {
         const container = byId('sleep-week-bars');
@@ -171,9 +203,27 @@ export function initSleepFeature() {
         const isToday = date === todayDateString();
         byId('sleep-dashboard-date').textContent = isToday ? formatHeaderDate(date) : formatHeaderDate(date, { withYear: true });
         byId('sleep-dashboard-greeting').textContent = isToday ? greetingForNow() : `Editing ${formatHeaderDate(date)}`;
-        const [log, recent] = await Promise.all([getSleepLogForDate(date), listRecentSleepLogs(14)]);
+        const [log, recent, napsForDate] = await Promise.all([
+            getSleepLogForDate(date),
+            listRecentSleepLogs(14),
+            listNapLogsForDate(date),
+        ]);
         viewedLog = log ?? null;
         recentLogs = recent;
+        viewedNaps = napsForDate;
+        // recentNaps only needs the real coverage recentLogs itself spans —
+        // fetched as one range query (like listSleepLogsInRange) rather than
+        // per-date, since a night without a nap is the common case and this
+        // avoids N queries for N nights.
+        if (recentLogs.length > 0) {
+            const oldest = recentLogs[recentLogs.length - 1];
+            const newest = recentLogs[0];
+            recentNaps = await listNapLogsInRange(oldest.date, newest.date);
+        }
+        else {
+            recentNaps = [];
+        }
+        renderNapCard();
         if (viewedLog) {
             renderResult(viewedLog);
         }
@@ -194,13 +244,19 @@ export function initSleepFeature() {
     function renderInsights() {
         const streak = calculateLoggingStreak(recentLogs);
         animateCountUp(byId('sleep-insight-streak'), streak);
-        const debt = calculateSleepDebt(recentLogs.slice(0, 7));
+        // Nap-aware debt: exactly calculateSleepDebt's own arithmetic, plus
+        // each night's own logged naps credited back per nap-debt.ts's rule —
+        // a night with no naps that same date gets zero credit and reads
+        // identically to plain calculateSleepDebt (see that module's own
+        // doc comment on why this is additive, not a replacement).
+        const debt = calculateSleepDebtWithNaps(recentLogs.slice(0, 7), recentNaps);
         const debtEl = byId('sleep-insight-debt');
         if (debt.nightsConsidered === 0)
             debtEl.textContent = '—';
         else
             animateCountUp(debtEl, debt.debtMinutes, { formatter: formatDurationHM });
-        debtEl.title = describeSleepDebt(debt);
+        const napCreditNote = describeNapDebtCredit(debt.napCreditMinutes);
+        debtEl.title = napCreditNote ? `${describeSleepDebt(debt)} ${napCreditNote}` : describeSleepDebt(debt);
         renderInsightFactors();
         byId('sleep-insight-empty').hidden = recentLogs.length > 0;
         void loadInsightChart();
@@ -384,7 +440,12 @@ export function initSleepFeature() {
      *  with the new year/month; nothing else needs to change. */
     async function loadHistoryMonth() {
         const { start, end } = monthDateRange(historyYear, historyMonth);
-        historyLogs = await listSleepLogsInRange(start, end);
+        const [logs, naps] = await Promise.all([
+            listSleepLogsInRange(start, end),
+            listNapLogsInRange(start, end),
+        ]);
+        historyLogs = logs;
+        historyNapDates = new Set(naps.map((nap) => nap.date));
         renderHistoryCalendar();
     }
     function renderHistoryCalendar() {
@@ -410,14 +471,19 @@ export function initSleepFeature() {
                 category = scoreLogInContext({ durationMinutes: log.durationMinutes, quality: log.quality }, log.date).category;
                 classes.push('sleep-calendar-day--logged', `sleep-calendar-day--${category}`);
             }
+            const napped = historyNapDates.has(day.date);
+            if (napped)
+                classes.push('sleep-calendar-day--napped');
             cell.className = classes.join(' ');
             cell.disabled = day.isFuture;
             const dayNumber = Number(day.date.slice(-2));
             const dot = log ? '<span class="sleep-calendar-day-dot"></span>' : '';
             cell.innerHTML = `<span>${dayNumber}</span>${dot}`;
-            cell.setAttribute('aria-label', log
-                ? `${formatHeaderDate(day.date, { withYear: true })}, logged, ${CATEGORY_LABEL[category]}`
-                : `${formatHeaderDate(day.date, { withYear: true })}, not logged`);
+            const nightLabel = log
+                ? `logged, ${CATEGORY_LABEL[category]}`
+                : 'not logged';
+            const napLabel = napped ? ', also napped' : '';
+            cell.setAttribute('aria-label', `${formatHeaderDate(day.date, { withYear: true })}, ${nightLabel}${napLabel}`);
             if (!day.isFuture) {
                 cell.addEventListener('click', () => {
                     showScreen('screen-sleep-dashboard');
@@ -518,6 +584,47 @@ export function initSleepFeature() {
         viewedLog = saved;
         recentLogs = [saved, ...recentLogs.filter((l) => l.date !== date)];
         renderResult(saved);
+    });
+    // Nap: a real, separate quick action — its own toggle button, its own
+    // form, its own save handler, never routed through sleep-log-form's
+    // night-only submit above. Toggling reveals/hides the inline form; a
+    // fresh loadDashboard (a new viewed date) always closes it again via
+    // renderNapCard.
+    byId('btn-sleep-nap-toggle').addEventListener('click', () => {
+        const form = byId('sleep-nap-form');
+        form.hidden = !form.hidden;
+    });
+    byId('sleep-nap-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const errEl = byId('err-sleep-nap');
+        const startClock = byId('sleep-nap-start').value;
+        const endClock = byId('sleep-nap-end').value;
+        if (!startClock || !endClock) {
+            errEl.hidden = false;
+            return;
+        }
+        let times;
+        try {
+            times = computeNapTimes(viewedDate, startClock, endClock);
+        }
+        catch {
+            errEl.hidden = false;
+            return;
+        }
+        if (times.durationMinutes <= 0) {
+            errEl.hidden = false;
+            return;
+        }
+        errEl.hidden = true;
+        const saved = await saveNapLog({
+            date: viewedDate,
+            startTime: times.startTime,
+            endTime: times.endTime,
+            durationMinutes: times.durationMinutes,
+        });
+        viewedNaps = [...viewedNaps, saved];
+        recentNaps = [...recentNaps, saved];
+        renderNapCard();
     });
     byId('btn-sleep-edit-log').addEventListener('click', () => {
         if (!viewedLog)

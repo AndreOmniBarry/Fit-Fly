@@ -110,6 +110,66 @@ test.describe('hydration', () => {
     await expect(page.locator('#hub-hydration-sub')).toHaveText('1-day streak', { timeout: 3000 });
   });
 
+  test('the week strip shows 7 real days, lighting up only the ones that actually met goal', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { addHydrationEntry } = await import('/js/db/repositories/hydration.js');
+      const today = new Date().toISOString().slice(0, 10);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await addHydrationEntry({ amountMl: 2500, date: today }); // above the default 2,200ml goal
+      await addHydrationEntry({ amountMl: 800, date: yesterday.toISOString().slice(0, 10) }); // logged, but short
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Hydration' }).click();
+
+    const cells = page.locator('#hydration-week-strip .week-strip-cell');
+    await expect(cells).toHaveCount(7);
+    await expect(cells.last()).toHaveClass(/week-strip-cell--met/); // today
+    const secondToLast = cells.nth(5);
+    await expect(secondToLast).toHaveClass(/week-strip-cell--logged/);
+    await expect(secondToLast).not.toHaveClass(/week-strip-cell--met/);
+  });
+
+  test('the personal-record toast never fires with no prior history — a first logged day is not a "record"', async ({ page }) => {
+    await page.locator('.hydration-quick-log-btn[data-ml="750"]').click();
+    await expect(page.locator('#hydration-today-ml')).toHaveText('750', { timeout: 3000 });
+    await expect(page.locator('#hydration-record-toast')).toBeHidden();
+  });
+
+  test('the personal-record toast fires exactly on the real log that beats the real all-time best, and never fires again the same day', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { addHydrationEntry } = await import('/js/db/repositories/hydration.js');
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await addHydrationEntry({ amountMl: 2000, date: yesterday.toISOString().slice(0, 10) });
+    });
+    await page.reload();
+    await page.getByRole('button', { name: 'Hydration' }).click();
+
+    // Below the prior 2,000ml record — no celebration yet.
+    await page.locator('.hydration-quick-log-btn[data-ml="500"]').click();
+    await expect(page.locator('#hydration-today-ml')).toHaveText('500', { timeout: 3000 });
+    await expect(page.locator('#hydration-record-toast')).toBeHidden();
+
+    // This log pushes today's real total (500 + 1600 = 2100) past the
+    // real prior record of 2,000ml — the celebration fires now.
+    await page.locator('#hydration-custom-ml').fill('1600');
+    await page.locator('#btn-hydration-custom-save').click();
+    await expect(page.locator('#hydration-today-ml')).toHaveText('2,100', { timeout: 3000 });
+    await expect(page.locator('#hydration-record-toast')).toBeVisible();
+    await expect(page.locator('#hydration-record-toast-text')).toContainText('2,100');
+
+    // A later log the same day, already past the record, must not
+    // re-trigger it — hide the toast manually first so a stale "still
+    // visible from before" reading can't be mistaken for a real re-fire.
+    await page.evaluate(() => {
+      document.getElementById('hydration-record-toast').hidden = true;
+    });
+    await page.locator('.hydration-quick-log-btn[data-ml="250"]').click();
+    await expect(page.locator('#hydration-today-ml')).toHaveText('2,350', { timeout: 3000 });
+    await expect(page.locator('#hydration-record-toast')).toBeHidden();
+  });
+
   test('back returns to the Hub', async ({ page }) => {
     await page.locator('#btn-hydration-back').click();
     await expect(page.getByRole('button', { name: 'Sleep' })).toBeVisible();

@@ -19,7 +19,7 @@ export function isNativeBackgroundGeoAvailable() {
 
 /**
  * @param {object} callbacks
- * @param {(point: {lat:number, lon:number, accuracyM:number|null, tMs:number}) => void} callbacks.onPosition
+ * @param {(point: {lat:number, lon:number, accuracyM:number|null, altitudeM:number|null, altitudeAccuracyM:number|null, tMs:number}) => void} callbacks.onPosition
  * @param {(error: Error) => void} callbacks.onError
  * @returns {Promise<{stop: () => void}|null>} null if unsupported or
  *   the watcher genuinely failed to start (permission denied, etc. —
@@ -56,6 +56,11 @@ export async function startNativeBackgroundWatch({ onPosition, onError }) {
           lat: location.latitude,
           lon: location.longitude,
           accuracyM: location.accuracy ?? null,
+          // Real altitude readings, when the device's own GPS/barometer
+          // fix reports one — see gps-elevation.js for how (honestly)
+          // little of the time that actually happens.
+          altitudeM: location.altitude ?? null,
+          altitudeAccuracyM: location.altitudeAccuracy ?? null,
           tMs: location.time,
         });
       }

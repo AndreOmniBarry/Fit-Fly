@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lastNDaysRange, summarizeWeeklyNutrition } from '../../../js/features/nutrition/weekly-trend.js';
+import { groupCaloriesByDate, lastNDaysRange, summarizeWeeklyNutrition } from '../../../js/features/nutrition/weekly-trend.js';
 
 describe('lastNDaysRange', () => {
   it('spans exactly `days` calendar days ending on `today`, inclusive', () => {
@@ -61,5 +61,28 @@ describe('summarizeWeeklyNutrition', () => {
     const entries = [{ date: '2026-03-14', calories: 500 }];
     const result = summarizeWeeklyNutrition(entries, 7);
     expect(result.avgFiberG).toBe(0);
+  });
+});
+
+describe('groupCaloriesByDate', () => {
+  it('sums multiple entries on the same day into one real daily calorie total', () => {
+    const entries = [
+      { date: '2026-03-15', calories: 500 },
+      { date: '2026-03-15', calories: 700 },
+      { date: '2026-03-14', calories: 1200 },
+    ];
+    const totals = groupCaloriesByDate(entries);
+    expect(totals.get('2026-03-15')).toBe(1200);
+    expect(totals.get('2026-03-14')).toBe(1200);
+    expect(totals.size).toBe(2);
+  });
+
+  it('is empty with nothing logged', () => {
+    expect(groupCaloriesByDate([]).size).toBe(0);
+  });
+
+  it('treats a missing calories field as 0 rather than NaN', () => {
+    const totals = groupCaloriesByDate([{ date: '2026-03-14' }]);
+    expect(totals.get('2026-03-14')).toBe(0);
   });
 });

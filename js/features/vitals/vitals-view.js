@@ -1,5 +1,8 @@
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
+import { bucketDailyPoints, formatBucketAxisLabel, formatBucketDetailLabel, timeRangeBounds, timeRangeDescription, } from '../../lib/time-range.js';
 import { setVitalsTileSubtitle } from '../hub/hub-view.js';
 import { connectBloodPressureMonitor, isBluetoothAvailable as isBleAvailableForBp } from './ble-blood-pressure.js';
 import { connectPulseOximeterMonitor, isBluetoothAvailable as isBleAvailableForSpo2 } from './ble-pulse-oximeter.js';
@@ -7,8 +10,8 @@ import { BP_SOURCE, listRecentBloodPressureSamples, recordBloodPressureSample, }
 import { SPO2_SOURCE, listRecentSpo2Samples, recordSpo2Sample } from '../../db/repositories/spo2.js';
 import { categorizeBloodPressure, describeBloodPressureCategory, isConcerningBloodPressure } from './blood-pressure-category.js';
 import { categorizeSpo2, describeSpo2Category, isConcerningSpo2 } from './spo2-category.js';
-import { summarizeBloodPressureTrend } from './blood-pressure-trend.js';
-import { summarizeSpo2Trend } from './spo2-trend.js';
+import { groupBloodPressureByDate, summarizeBloodPressureTrend } from './blood-pressure-trend.js';
+import { groupSpo2ByDate, summarizeSpo2Trend } from './spo2-trend.js';
 import { calculateVitalsStreak } from './vitals-streak.js';
 function byId(id) {
     const el = document.getElementById(id);
@@ -16,6 +19,13 @@ function byId(id) {
         throw new Error(`vitals-view: missing #${id}`);
     return el;
 }
+// The range charts' own state — see steps-view.ts's identical comment;
+// same reasoning, same default range. Two independent ranges since blood
+// pressure and SpO2 are two unrelated metrics with their own history.
+let bpRange = 'W';
+let spo2Range = 'W';
+let cachedBpSamples = [];
+let cachedSpo2Samples = [];
 const SOURCE_LABEL = { manual: 'Manual', ble: 'BLE Device' };
 function formatDateLabel(recordedAt) {
     return new Date(recordedAt).toLocaleString(undefined, {
@@ -131,17 +141,40 @@ export function initVitalsFeature() {
     byId('btn-home-vitals').addEventListener('click', () => {
         void refreshAll();
     });
+    // ---------- trend ranges ----------
+    initChipGroup(byId('vitals-bp-range'), {
+        initial: bpRange,
+        onChange: (value) => {
+            bpRange = value;
+            renderBpRangeChart(cachedBpSamples);
+        },
+    });
+    initChipGroup(byId('vitals-spo2-range'), {
+        initial: spo2Range,
+        onChange: (value) => {
+            spo2Range = value;
+            renderSpo2RangeChart(cachedSpo2Samples);
+        },
+    });
     void refreshAll();
 }
 async function refreshAll() {
+    // A wide fetch — the same "everything, filtered client-side" shape
+    // Steps'/Hydration's own listAll*Entries() take — so the range charts
+    // below can genuinely cover a full year, not just whatever a small
+    // fixed limit happened to include.
     const [bpSamples, spo2Samples] = await Promise.all([
-        listRecentBloodPressureSamples(20),
-        listRecentSpo2Samples(20),
+        listRecentBloodPressureSamples(500),
+        listRecentSpo2Samples(500),
     ]);
+    cachedBpSamples = bpSamples;
+    cachedSpo2Samples = spo2Samples;
     renderBpTrend(bpSamples);
-    renderBpHistory(bpSamples);
+    renderBpRangeChart(bpSamples);
+    renderBpHistory(bpSamples.slice(0, 20));
     renderSpo2Trend(spo2Samples);
-    renderSpo2History(spo2Samples);
+    renderSpo2RangeChart(spo2Samples);
+    renderSpo2History(spo2Samples.slice(0, 20));
     renderStats(bpSamples, spo2Samples);
 }
 function renderStats(bpSamples, spo2Samples) {
@@ -180,14 +213,42 @@ function renderBpTrend(samplesNewestFirst) {
         const sign = trend.deltaSystolicFromPrevious > 0 ? '+' : '';
         deltaEl.textContent = `${sign}${trend.deltaSystolicFromPrevious} systolic since last`;
     }
-    const maxValue = Math.max(...trend.systolicSparklineOldestFirst);
-    byId('vitals-bp-trend-bars').innerHTML = trend.systolicSparklineOldestFirst
-        .map((value, i) => {
-        const isLatest = i === trend.systolicSparklineOldestFirst.length - 1;
-        const heightPct = Math.max(8, Math.round((value / maxValue) * 100));
-        return `<div class="vitals-trend-bar-col"><div class="vitals-trend-bar${isLatest ? ' is-latest' : ''}" style="height:${heightPct}%" title="${value} mmHg"></div></div>`;
-    })
-        .join('');
+}
+/** A real D/W/M/6M/Y systolic trend (see js/lib/time-range.js), replacing
+ *  what used to be a fixed "last 10 raw readings" sparkline — several
+ *  readings on the same day now average into one real daily point
+ *  (groupBloodPressureByDate) instead of every reading getting its own
+ *  bar regardless of how long ago it was. Only systolic gets its own bar
+ *  height — the same "one hue, one series" rule every other trend-chart.js
+ *  screen already follows — but each tooltip still names the real
+ *  diastolic average alongside it. */
+function renderBpRangeChart(samplesNewestFirst) {
+    const bounds = timeRangeBounds(bpRange, new Date().toISOString().slice(0, 10));
+    byId('vitals-bp-range-copy').textContent = timeRangeDescription(bpRange);
+    const inRange = samplesNewestFirst.filter((s) => {
+        const date = s.recordedAt.slice(0, 10);
+        return date >= bounds.start && date <= bounds.end;
+    });
+    const dailyAverages = groupBloodPressureByDate(inRange);
+    const systolicDaily = [...dailyAverages.entries()].map(([date, v]) => ({ date, value: v.avgSystolic }));
+    const diastolicDaily = [...dailyAverages.entries()].map(([date, v]) => ({ date, value: v.avgDiastolic }));
+    const systolicBuckets = bucketDailyPoints(systolicDaily, bounds.bucket);
+    const diastolicByKey = new Map(bucketDailyPoints(diastolicDaily, bounds.bucket).map((b) => [b.key, b.value]));
+    const isBucketed = bounds.bucket !== 'day';
+    renderTrendChart(byId('vitals-bp-range-chart'), {
+        points: systolicBuckets.map((bucket) => {
+            const diastolic = diastolicByKey.get(bucket.key) ?? bucket.value;
+            return {
+                key: bucket.key,
+                value: bucket.value,
+                axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+                tooltipValue: `${Math.round(bucket.value)}/${Math.round(diastolic)} mmHg${isBucketed ? '/day avg' : ''}`,
+                tooltipDetail: formatBucketDetailLabel(bucket.key, bounds.bucket),
+            };
+        }),
+        accentVar: '--vitals-accent',
+        emptyMessage: 'Log a reading on a second day to start a trend.',
+    });
 }
 function renderSpo2Trend(samplesNewestFirst) {
     const trend = summarizeSpo2Trend(samplesNewestFirst);
@@ -214,14 +275,32 @@ function renderSpo2Trend(samplesNewestFirst) {
         const sign = trend.deltaFromPrevious > 0 ? '+' : '';
         deltaEl.textContent = `${sign}${trend.deltaFromPrevious}% since last`;
     }
-    const maxValue = Math.max(...trend.sparklineOldestFirst);
-    byId('vitals-spo2-trend-bars').innerHTML = trend.sparklineOldestFirst
-        .map((value, i) => {
-        const isLatest = i === trend.sparklineOldestFirst.length - 1;
-        const heightPct = Math.max(8, Math.round((value / maxValue) * 100));
-        return `<div class="vitals-trend-bar-col"><div class="vitals-trend-bar${isLatest ? ' is-latest' : ''}" style="height:${heightPct}%" title="${value}%"></div></div>`;
-    })
-        .join('');
+}
+/** A real D/W/M/6M/Y SpO2 trend (see js/lib/time-range.js), replacing
+ *  what used to be a fixed "last 10 raw readings" sparkline — same
+ *  reasoning as renderBpRangeChart. */
+function renderSpo2RangeChart(samplesNewestFirst) {
+    const bounds = timeRangeBounds(spo2Range, new Date().toISOString().slice(0, 10));
+    byId('vitals-spo2-range-copy').textContent = timeRangeDescription(spo2Range);
+    const inRange = samplesNewestFirst.filter((s) => {
+        const date = s.recordedAt.slice(0, 10);
+        return date >= bounds.start && date <= bounds.end;
+    });
+    const dailyAverages = groupSpo2ByDate(inRange);
+    const daily = [...dailyAverages.entries()].map(([date, spo2]) => ({ date, value: spo2 }));
+    const buckets = bucketDailyPoints(daily, bounds.bucket);
+    const isBucketed = bounds.bucket !== 'day';
+    renderTrendChart(byId('vitals-spo2-range-chart'), {
+        points: buckets.map((bucket) => ({
+            key: bucket.key,
+            value: bucket.value,
+            axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+            tooltipValue: `${Math.round(bucket.value)}%${isBucketed ? '/day avg' : ''}`,
+            tooltipDetail: formatBucketDetailLabel(bucket.key, bounds.bucket),
+        })),
+        accentVar: '--vitals-accent',
+        emptyMessage: 'Log a reading on a second day to start a trend.',
+    });
 }
 function renderBpHistory(samples) {
     const list = byId('vitals-bp-history-list');

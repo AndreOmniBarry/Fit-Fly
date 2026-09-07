@@ -55,3 +55,19 @@ export function summarizeWeeklyNutrition(entriesInWindow, dayCount = DEFAULT_WIN
     avgFiberG: Math.round(sum('fiberG') / daysLogged),
   };
 }
+
+/** Real per-day calorie totals within an already-queried date range — the
+ *  basis for a genuine D/W/M/6M/Y calorie trend (see js/lib/time-range.js)
+ *  instead of just a fixed 7-day average, the same "group before
+ *  bucketing" principle as Hydration's own groupHydrationByDate (several
+ *  logged foods in a day add up to one real daily total).
+ * @param {{date:string, calories:number}[]} entriesInRange
+ * @returns {Map<string, number>} 'YYYY-MM-DD' -> that day's total calories
+ */
+export function groupCaloriesByDate(entriesInRange) {
+  const totals = new Map();
+  for (const entry of entriesInRange) {
+    totals.set(entry.date, (totals.get(entry.date) ?? 0) + (entry.calories ?? 0));
+  }
+  return totals;
+}

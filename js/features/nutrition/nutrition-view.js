@@ -2,12 +2,21 @@ import { showScreen } from '../../lib/router.js';
 import { escapeHtml } from '../../lib/html.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
+import {
+  bucketDailyPoints,
+  formatBucketAxisLabel,
+  formatBucketDetailLabel,
+  timeRangeBounds,
+  timeRangeDescription,
+} from '../../lib/time-range.js';
 import { calculateBmr, calculateTdee, calorieTargetForCategory, tdeeConfidenceBand } from './bmr-tdee.js';
 import { calculateMacroTargets, proteinGPerKgForCategory } from './macro-targets.js';
 import { buildNutritionReasoning } from './nutrition-reasoning.js';
 import { searchFoods } from './food-search.js';
 import { computeRecentFoods } from './recent-foods.js';
-import { lastNDaysRange, summarizeWeeklyNutrition } from './weekly-trend.js';
+import { groupCaloriesByDate, lastNDaysRange, summarizeWeeklyNutrition } from './weekly-trend.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import {
@@ -28,6 +37,14 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+// The trend chart's own state — see steps-view.ts's identical comment;
+// same reasoning, same default range. Re-fetched on every render (see
+// renderCalorieTrend) rather than cached, since nutrition's own logging
+// volume is small enough that a fresh IndexedDB query on every range
+// switch is genuinely cheap, and it guarantees the chart never goes
+// stale after an add/delete elsewhere on the screen.
+let nutritionTrendRange = 'W';
+
 export function initNutritionFeature() {
   // Search results are kept here (not re-parsed from the DOM) so a tap
   // just looks the chosen one up by index.
@@ -38,10 +55,19 @@ export function initNutritionFeature() {
     // renderToday/renderWeeklyTrend read for their "vs target" lines —
     // it has to finish first, not race the rest in one Promise.all.
     await renderTargets();
-    await Promise.all([renderToday(), renderWeeklyTrend(), renderRecent(), renderFavorites()]);
+    await Promise.all([renderToday(), renderWeeklyTrend(), renderCalorieTrend(), renderRecent(), renderFavorites()]);
     showScreen('screen-nutrition');
   });
   byId('btn-nutrition-back').addEventListener('click', () => showScreen('screen-home'));
+
+  // ---------- calorie trend range ----------
+  initChipGroup(byId('nutrition-trend-range'), {
+    initial: nutritionTrendRange,
+    onChange: (value) => {
+      nutritionTrendRange = value;
+      renderCalorieTrend();
+    },
+  });
 
   // Same spatial-tilt language as the Fitness Toolkit home list — scoped
   // to just this screen.
@@ -149,7 +175,7 @@ export function initNutritionFeature() {
     const food = currentRecentFoods[Number(button.dataset.recentIndex)];
     if (!food) return;
     await addNutritionEntry({ date: todayIsoDate(), ...pickFoodFields(food) });
-    await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
+    await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend(), renderCalorieTrend()]);
   });
 
   // ---------- favorites (one-tap log, or remove) ----------
@@ -159,7 +185,7 @@ export function initNutritionFeature() {
       const favorite = currentFavorites.find((f) => f.id === logButton.dataset.logFavoriteId);
       if (favorite) {
         await addNutritionEntry({ date: todayIsoDate(), ...pickFoodFields(favorite) });
-        await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
+        await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend(), renderCalorieTrend()]);
       }
       return;
     }
@@ -207,7 +233,7 @@ export function initNutritionFeature() {
     });
 
     clearForm();
-    await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
+    await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend(), renderCalorieTrend()]);
   });
 }
 
@@ -332,7 +358,7 @@ async function renderToday() {
   list.querySelectorAll('[data-delete-id]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       await deleteNutritionEntry(btn.dataset.deleteId);
-      await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend()]);
+      await Promise.all([renderToday(), renderRecent(), renderWeeklyTrend(), renderCalorieTrend()]);
     });
   });
 }
@@ -357,6 +383,37 @@ async function renderWeeklyTrend() {
   byId('nutrition-weekly-days-logged').textContent = `${trend.daysLogged}/${trend.dayCount} days`;
   byId('nutrition-weekly-avg-protein').textContent = `${trend.avgProteinG}g`;
   byId('nutrition-weekly-avg-fiber').textContent = `${trend.avgFiberG}g`;
+}
+
+/** A real D/W/M/6M/Y calorie trend (see js/lib/time-range.js), the
+ *  visual chart the fixed 7-day "This week" card above never had — same
+ *  daily-for-D/W/M, weekly-for-6M, monthly-for-Y bucketing convention
+ *  Steps/Hydration already use. Compared against the same calorie
+ *  target the "Today"/"This week" cards already show, via the chart's
+ *  own reference line. */
+async function renderCalorieTrend() {
+  const bounds = timeRangeBounds(nutritionTrendRange, todayIsoDate());
+  byId('nutrition-trend-range-copy').textContent = timeRangeDescription(nutritionTrendRange);
+
+  const entries = await listNutritionEntriesInRange(bounds.start, bounds.end);
+  const dailyTotals = groupCaloriesByDate(entries);
+  const daily = [...dailyTotals.entries()].map(([date, calories]) => ({ date, value: calories }));
+  const buckets = bucketDailyPoints(daily, bounds.bucket);
+  const isBucketed = bounds.bucket !== 'day';
+  const target = currentTargets?.band.central;
+
+  renderTrendChart(byId('nutrition-trend-chart'), {
+    points: buckets.map((bucket) => ({
+      key: bucket.key,
+      value: bucket.value,
+      axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+      tooltipValue: `${Math.round(bucket.value).toLocaleString()} kcal${isBucketed ? '/day avg' : ''}`,
+      tooltipDetail: formatBucketDetailLabel(bucket.key, bounds.bucket),
+    })),
+    accentVar: '--accent',
+    referenceValue: target,
+    emptyMessage: 'Log a second day to start a trend.',
+  });
 }
 
 async function renderRecent() {

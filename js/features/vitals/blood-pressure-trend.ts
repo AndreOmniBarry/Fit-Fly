@@ -58,3 +58,36 @@ export function summarizeBloodPressureTrend(
     diastolicSparklineOldestFirst: [...diastolics].reverse(),
   };
 }
+
+export interface BloodPressureDateGroupable {
+  systolic: number;
+  diastolic: number;
+  recordedAt: string;
+}
+
+export interface DailyBloodPressureAverage {
+  avgSystolic: number;
+  avgDiastolic: number;
+}
+
+/** Averages same-day readings into one real daily systolic/diastolic pair
+ *  — several readings in a day shouldn't multiply-count in a day's trend
+ *  point, the same "group before bucketing" principle as Hydration's own
+ *  groupHydrationByDate. The basis for a real D/W/M/6M/Y trend (see
+ *  js/lib/time-range.js) instead of a fixed "last N readings" sparkline. */
+export function groupBloodPressureByDate(samples: BloodPressureDateGroupable[]): Map<string, DailyBloodPressureAverage> {
+  const totals = new Map<string, { sysSum: number; diaSum: number; count: number }>();
+  for (const sample of samples) {
+    const date = sample.recordedAt.slice(0, 10);
+    const bucket = totals.get(date) ?? { sysSum: 0, diaSum: 0, count: 0 };
+    bucket.sysSum += sample.systolic;
+    bucket.diaSum += sample.diastolic;
+    bucket.count += 1;
+    totals.set(date, bucket);
+  }
+  const averages = new Map<string, DailyBloodPressureAverage>();
+  for (const [date, { sysSum, diaSum, count }] of totals) {
+    averages.set(date, { avgSystolic: sysSum / count, avgDiastolic: diaSum / count });
+  }
+  return averages;
+}

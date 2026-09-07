@@ -17,7 +17,16 @@ import {
 } from './run-units.js';
 import { drawRoute } from './route-canvas.js';
 import { detectNewPRs, longestRun } from './personal-records.js';
+import { groupRunsByDate } from './run-trend.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import {
+  bucketDailyPoints,
+  formatBucketAxisLabel,
+  formatBucketDetailLabel,
+  timeRangeBounds,
+  timeRangeDescription,
+} from '../../lib/time-range.js';
 import { assessGpsSignalQuality } from './gps-signal-quality.js';
 import { isNativeBackgroundGeoAvailable, startNativeBackgroundWatch } from './native-background-geo.js';
 import { estimateRunCalories } from './run-calorie-estimate.js';
@@ -26,6 +35,14 @@ import { getProfile } from '../../db/repositories/profile.js';
 import { setRunTileSubtitle } from '../hub/hub-view.js';
 
 const DEFAULT_TILE_SUBTITLE = 'GPS-tracked, live pace & splits';
+
+// The trend chart's own state — see steps-view.ts's identical comment;
+// same reasoning, same default range. `cachedRuns`/`cachedUnit` let the
+// chip group's onChange re-render the chart without a fresh DB round
+// trip every time someone just switches the range.
+let runTrendRange = 'W';
+let cachedRuns = [];
+let cachedUnit = 'km';
 
 /** Updates the Hub tile with the most recent real run — distance and
  *  date, the same "real number or an honest default, never a fabricated
@@ -373,6 +390,15 @@ export function initRunFeature() {
   });
   byId('btn-run-history-back').addEventListener('click', () => showScreen('screen-hub'));
 
+  // ---------- trend range ----------
+  initChipGroup(byId('run-trend-range'), {
+    initial: runTrendRange,
+    onChange: (value) => {
+      runTrendRange = value;
+      renderRunTrend(cachedRuns, cachedUnit);
+    },
+  });
+
   // A backgrounded tab drops the wake lock automatically (spec behavior)
   // — re-request it once the person comes back, if a run is still going.
   document.addEventListener('visibilitychange', () => {
@@ -464,29 +490,49 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }
   renderSplitsList(byId('run-summary-splits'), splits, unit);
 }
 
-/** A real distance-per-run trend (last 8 runs, oldest to newest) plus a
- *  real "best run" badge — the all-time longest run, from the whole
- *  history (`runs`, from listAllRuns()), the same personal-record source
- *  as the live PR badge a run's own summary screen already shows
+/** A real D/W/M/6M/Y distance trend, bucketed appropriately for the
+ *  selected range (see js/lib/time-range.js — same daily-for-D/W/M,
+ *  weekly-for-6M, monthly-for-Y convention Steps/Hydration already use),
+ *  plus a real "best run" badge — the all-time longest run, from the
+ *  whole history (`runs`, from listAllRuns()), the same personal-record
+ *  source as the live PR badge a run's own summary screen already shows
  *  (detectNewPRs/longestRun in personal-records.js) rather than a second,
  *  differently-scoped notion of "best" invented just for this chart. */
 function renderRunTrend(runs, unit) {
+  cachedRuns = runs;
+  cachedUnit = unit;
+
   const card = byId('run-trend-card');
   card.hidden = runs.length === 0;
   if (runs.length === 0) return;
 
-  const chronological = [...runs].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+  const bounds = timeRangeBounds(runTrendRange, new Date().toISOString().slice(0, 10));
+  byId('run-trend-range-copy').textContent = timeRangeDescription(runTrendRange);
+
+  const inRange = runs.filter((run) => {
+    const date = run.startedAt.slice(0, 10);
+    return date >= bounds.start && date <= bounds.end;
+  });
+  const dailyTotals = groupRunsByDate(inRange);
+  const daily = [...dailyTotals.entries()].map(([date, distanceMeters]) => ({ date, value: distanceMeters }));
+  const buckets = bucketDailyPoints(daily, bounds.bucket);
+  const isBucketed = bounds.bucket !== 'day';
+
   const best = longestRun(runs);
-  const window = chronological.slice(-8);
+  const bestDate = best?.startedAt.slice(0, 10);
 
   renderTrendChart(byId('run-trend-chart'), {
-    points: window.map((run) => ({
-      key: run.id,
-      value: run.distanceMeters,
-      axisLabel: new Date(run.startedAt).toLocaleDateString(undefined, { day: 'numeric' }),
-      highlighted: run.id === best?.id,
-      tooltipValue: formatDistanceForUnit(run.distanceMeters, unit),
-      tooltipDetail: `${new Date(run.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}${run.id === best?.id ? ' · Longest run' : ''}`,
+    points: buckets.map((bucket) => ({
+      key: bucket.key,
+      value: bucket.value,
+      axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+      // A "longest run" bar only means something at real daily
+      // granularity — a 6M/Y bucket already averages several days
+      // together, so highlighting one there would misleadingly imply
+      // the whole averaged span was the record.
+      highlighted: bounds.bucket === 'day' && bucket.key === bestDate,
+      tooltipValue: `${formatDistanceForUnit(bucket.value, unit)}${isBucketed ? '/day avg' : ''}`,
+      tooltipDetail: `${formatBucketDetailLabel(bucket.key, bounds.bucket)}${bounds.bucket === 'day' && bucket.key === bestDate ? ' · Longest run' : ''}`,
     })),
     accentVar: '--run-accent',
     emptyMessage: 'Log a second run to start a trend.',

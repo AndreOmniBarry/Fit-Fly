@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeSpo2Trend } from '../../../js/features/vitals/spo2-trend.js';
+import { groupSpo2ByDate, summarizeSpo2Trend } from '../../../js/features/vitals/spo2-trend.js';
 
 describe('summarizeSpo2Trend', () => {
   it('is null with no readings at all', () => {
@@ -41,5 +41,23 @@ describe('summarizeSpo2Trend', () => {
     expect(result.sampleCount).toBe(3);
     expect(result.min).toBe(96);
     expect(result.average).toBe(97); // (96+97+98)/3, not including 1
+  });
+});
+
+describe('groupSpo2ByDate', () => {
+  it('averages multiple same-day readings into one real daily SpO2%', () => {
+    const samples = [
+      { spo2: 96, recordedAt: '2026-03-15T08:00:00.000Z' },
+      { spo2: 98, recordedAt: '2026-03-15T20:00:00.000Z' },
+      { spo2: 97, recordedAt: '2026-03-14T08:00:00.000Z' },
+    ];
+    const averages = groupSpo2ByDate(samples);
+    expect(averages.get('2026-03-15')).toBe(97);
+    expect(averages.get('2026-03-14')).toBe(97);
+    expect(averages.size).toBe(2);
+  });
+
+  it('is empty with no samples', () => {
+    expect(groupSpo2ByDate([]).size).toBe(0);
   });
 });

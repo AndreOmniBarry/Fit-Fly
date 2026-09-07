@@ -1,9 +1,18 @@
 import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
+import { initChipGroup } from '../../lib/chip-group.js';
+import { renderTrendChart } from '../../lib/trend-chart.js';
+import {
+  bucketDailyPoints,
+  formatBucketAxisLabel,
+  formatBucketDetailLabel,
+  timeRangeBounds,
+  timeRangeDescription,
+} from '../../lib/time-range.js';
 import { createCameraPpgSession } from './camera-ppg.js';
 import { connectHeartRateMonitor, isBluetoothAvailable } from './ble-heart-rate.js';
-import { summarizeHeartRateTrend } from './trend.js';
+import { groupHeartRateByDate, summarizeHeartRateTrend } from './trend.js';
 import { calculateRmssd } from './hrv.js';
 import { classifyHeartRateZone, describeHeartRateZone, isConcerningHeartRateZone } from './hr-zone.js';
 import { calculateAge } from '../onboarding/age.js';
@@ -17,6 +26,12 @@ import {
 function byId(id) {
   return document.getElementById(id);
 }
+
+// The range chart's own state — see steps-view.ts's identical comment;
+// same reasoning, same default range. `cachedSamples` lets the chip
+// group's onChange re-render the chart without a fresh DB round trip.
+let hrRange = 'W';
+let cachedSamples = [];
 
 export function initHeartRateFeature() {
   let activeCameraSession = null;
@@ -33,6 +48,15 @@ export function initHeartRateFeature() {
   byId('btn-home-heart-rate').addEventListener('click', async () => {
     await renderHistory();
     showScreen('screen-heart-rate');
+  });
+
+  // ---------- trend range ----------
+  initChipGroup(byId('hr-range'), {
+    initial: hrRange,
+    onChange: (value) => {
+      hrRange = value;
+      renderRangeChart(cachedSamples);
+    },
   });
   byId('btn-hr-back').addEventListener('click', () => {
     activeCameraSession?.cancel();
@@ -165,7 +189,11 @@ const SOURCE_LABELS = {
 };
 
 async function renderHistory() {
-  const [samples, profile] = await Promise.all([listRecentHeartRateSamples(20), getProfile()]);
+  // A wide fetch — the same "everything, filtered client-side" shape
+  // Steps'/Hydration's own listAll*Entries() take — so the range chart
+  // below can genuinely cover a full year, not just whatever a small
+  // fixed limit happened to include.
+  const [samples, profile] = await Promise.all([listRecentHeartRateSamples(500), getProfile()]);
   const list = byId('hr-history-list');
 
   // Real age when the person completed onboarding with a birthdate,
@@ -176,13 +204,19 @@ async function renderHistory() {
   // fixed adult threshold when age is null.
   const age = profile?.birthdate ? calculateAge(profile.birthdate) : null;
   renderTrend(samples, age);
+  cachedSamples = samples;
+  renderRangeChart(samples);
 
-  if (samples.length === 0) {
+  // The plain scrollable list stays capped at a scannable recent handful
+  // — the wider fetch above exists for the range chart, not to flood
+  // this list with a year of readings.
+  const recentForList = samples.slice(0, 20);
+  if (recentForList.length === 0) {
     list.innerHTML = '<p class="muted center-text">No readings yet.</p>';
     return;
   }
 
-  list.innerHTML = samples
+  list.innerHTML = recentForList
     .map((sample) => {
       const badgeClass = sample.source === HR_SOURCE.CAMERA_PPG ? 'estimated' : 'measured';
       const badgeText =
@@ -261,12 +295,35 @@ function renderTrend(samplesNewestFirst, age) {
     deltaEl.textContent = `${sign}${trend.deltaFromPrevious} bpm since last`;
   }
 
-  const maxBpm = Math.max(...trend.sparklineOldestFirst);
-  byId('hr-trend-bars').innerHTML = trend.sparklineOldestFirst
-    .map((bpm, i) => {
-      const isLatest = i === trend.sparklineOldestFirst.length - 1;
-      const heightPct = Math.max(8, Math.round((bpm / maxBpm) * 100));
-      return `<div class="hr-trend-bar-col"><div class="hr-trend-bar${isLatest ? ' is-latest' : ''}" style="height:${heightPct}%" title="${bpm} bpm"></div></div>`;
-    })
-    .join('');
+}
+
+/** A real D/W/M/6M/Y bpm trend (see js/lib/time-range.js), replacing what
+ *  used to be a fixed "last 10 raw readings" sparkline — several
+ *  readings on the same day now average into one real daily point
+ *  (groupHeartRateByDate) instead of every reading getting its own bar
+ *  regardless of how long ago it was. */
+function renderRangeChart(samplesNewestFirst) {
+  const bounds = timeRangeBounds(hrRange, new Date().toISOString().slice(0, 10));
+  byId('hr-range-copy').textContent = timeRangeDescription(hrRange);
+
+  const inRange = samplesNewestFirst.filter((s) => {
+    const date = s.recordedAt.slice(0, 10);
+    return date >= bounds.start && date <= bounds.end;
+  });
+  const dailyAverages = groupHeartRateByDate(inRange);
+  const daily = [...dailyAverages.entries()].map(([date, bpm]) => ({ date, value: bpm }));
+  const buckets = bucketDailyPoints(daily, bounds.bucket);
+  const isBucketed = bounds.bucket !== 'day';
+
+  renderTrendChart(byId('hr-range-chart'), {
+    points: buckets.map((bucket) => ({
+      key: bucket.key,
+      value: bucket.value,
+      axisLabel: formatBucketAxisLabel(bucket.key, bounds.bucket),
+      tooltipValue: `${Math.round(bucket.value)} bpm${isBucketed ? '/day avg' : ''}`,
+      tooltipDetail: formatBucketDetailLabel(bucket.key, bounds.bucket),
+    })),
+    accentVar: '--accent',
+    emptyMessage: 'Log a reading on a second day to start a trend.',
+  });
 }

@@ -175,6 +175,66 @@ test.describe('run mode', () => {
     await expect(page.locator('#run-best-text')).toContainText('21.00 km');
   });
 
+  test('the trend range defaults to a real 7-day week, with no "D" chip (one distance total per day can never form a trend)', async ({
+    page,
+  }) => {
+    await page.evaluate(async () => {
+      const { saveCompletedRun } = await import('/js/db/repositories/runs.js');
+      await saveCompletedRun({ distanceMeters: 3000, durationMs: 900_000, avgPaceSecPerKm: 300, startedAt: new Date().toISOString() });
+    });
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Run History' }).click();
+
+    await expect(page.locator('#run-trend-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#run-trend-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#run-trend-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('switching the trend range updates the explanatory copy for every real range', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { saveCompletedRun } = await import('/js/db/repositories/runs.js');
+      await saveCompletedRun({ distanceMeters: 3000, durationMs: 900_000, avgPaceSecPerKm: 300, startedAt: new Date().toISOString() });
+    });
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Run History' }).click();
+
+    const ranges = [
+      ['M', 'Last 30 days.'],
+      ['6M', 'Last 6 months, grouped by week.'],
+      ['Y', 'Last 12 months, grouped by month.'],
+      ['W', 'Last 7 days.'],
+    ];
+    for (const [value, copy] of ranges) {
+      await page.locator(`#run-trend-range button[data-value="${value}"]`).click();
+      await expect(page.locator('#run-trend-range-copy')).toHaveText(copy);
+      await expect(page.locator(`#run-trend-range button[data-value="${value}"]`)).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    }
+  });
+
+  test('a run outside the selected 7-day window drops out of the chart, but a real run within it still shows', async ({
+    page,
+  }) => {
+    await page.evaluate(async () => {
+      const { saveCompletedRun } = await import('/js/db/repositories/runs.js');
+      // Well outside any real 7-day window — the W-range chart must not
+      // show it, even though the best-run badge (a separate, whole-
+      // history fact) still does.
+      await saveCompletedRun({ distanceMeters: 21000, durationMs: 7_000_000, avgPaceSecPerKm: 330, startedAt: '2020-01-01T08:00:00.000Z' });
+      await saveCompletedRun({ distanceMeters: 5000, durationMs: 1_500_000, avgPaceSecPerKm: 300, startedAt: new Date().toISOString() });
+    });
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Run History' }).click();
+
+    // Just the one real run inside the default week — not enough for a
+    // trend (a single point), so the chart's own honest empty state
+    // shows instead of a misleading single bar.
+    await expect(page.locator('#run-trend-chart')).toContainText('Log a second run');
+    await expect(page.locator('#run-best-text')).toContainText('21.00 km');
+  });
+
   test('leaving mid-run prompts a confirmation', async ({ page, context }) => {
     await page.locator('#btn-home-run').click();
     await page.getByRole('button', { name: 'Start' }).click();

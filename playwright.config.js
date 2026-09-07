@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+// Overridable via PORT so a local run can dodge shared-port contention
+// (e.g. several sandboxed agent worktrees all defaulting to 4173 at
+// once) without touching the default CI/local behavior.
 const PORT = Number(process.env.PORT) || 4173;
 
 export default defineConfig({

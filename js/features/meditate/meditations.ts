@@ -7,11 +7,26 @@
 // technique for something everyone feels sometimes — they never suggest
 // there's something wrong with the person using them.
 //
+// The library spans five real, distinct frameworks (see MEDITATE_CATEGORIES
+// below), not one wellness voice reskinned repeatedly:
+//   - MBSR (Kabat-Zinn) — the body scan, and the breath-focused attention
+//     "A Quiet Mind" builds on.
+//   - CBT/ACT-adjacent techniques — RAIN and acceptance-based coping with
+//     what is/isn't in your control.
+//   - Kristin Neff's self-compassion research, plus metta/loving-kindness
+//     as a separate, outward-facing practice with its own evidence base.
+//   - Named breathing protocols with a physiological mechanism — 4-7-8,
+//     the physiological sigh, box breathing, and Progressive Muscle
+//     Relaxation (Jacobson) for sleep.
+// Each build*() function's doc comment below names its specific source.
+//
 // This is real support, not a substitute for a therapist, and it never
-// claims otherwise — see the crisis-resources note on the Meditate
-// screen and the same "Not medical advice" framing the whole app
-// carries. If you're in crisis, this app says so plainly and points
-// toward real help, not a breathing exercise.
+// claims otherwise — see the "not a substitute for a therapist or a
+// diagnosis" note on the Meditate screen and the same "Not medical
+// advice" framing the whole app carries. This screen deliberately does
+// not carry crisis-line content (a 988-style mention was removed from
+// here in an earlier pass) — it stays a wellness practice, not a stand-in
+// for a crisis resource or clinical care.
 import { breathBeat, proseBeat } from '../../lib/guided-session.js';
 import type { GuidedSession, SessionBeat } from '../../lib/guided-session.js';
 
@@ -35,6 +50,7 @@ function buildSadness(): GuidedSession {
   ];
   return {
     id: 'sadness',
+    category: 'stress',
     name: 'Sitting with Sadness',
     description: 'A four-step way to sit with sadness instead of pushing it away.',
     basis: 'RAIN (Recognize, Allow, Investigate, Nurture) — a widely-taught mindfulness approach to difficult emotion.',
@@ -61,6 +77,7 @@ function buildAnger(): GuidedSession {
   ];
   return {
     id: 'anger',
+    category: 'stress',
     name: 'Working with Anger',
     description: 'Notice anger\'s physical signature, and create a real pause before reacting.',
     basis: 'Body-awareness plus extended-exhale breathing — a standard combination for down-regulating physiological arousal before responding.',
@@ -89,6 +106,7 @@ function buildGrief(): GuidedSession {
   ];
   return {
     id: 'grief',
+    category: 'stress',
     name: 'A Meditation for Grief',
     description: 'A steady anchor — breath, sound, or touch — to hold onto inside grief.',
     basis: 'Grounding-anchor mindfulness, the common technique across mindfulness-based approaches to bereavement support.',
@@ -113,6 +131,7 @@ function buildChange(): GuidedSession {
   ];
   return {
     id: 'change',
+    category: 'stress',
     name: 'Adapting to Change',
     description: 'Steadying through uncertainty by separating what you can and can\'t control.',
     basis: 'Acceptance-based coping — distinguishing controllable from uncontrollable, a core technique from CBT/ACT.',
@@ -142,6 +161,7 @@ function buildAnxiety(): GuidedSession {
   ];
   return {
     id: 'anxiety',
+    category: 'stress',
     name: 'Easing Anxiety',
     description: 'Breath awareness and a brief body scan, to interrupt a worry spiral.',
     basis: 'Breath-focused attention plus body scanning — a standard combination for shifting attention off racing thoughts.',
@@ -165,6 +185,7 @@ function buildSelfCompassion(): GuidedSession {
   ];
   return {
     id: 'self-compassion',
+    category: 'connection',
     name: 'A Self-Compassion Break',
     description: 'Three steps — mindfulness, common humanity, kindness — for a hard moment.',
     basis: "Kristin Neff's self-compassion break, one of the most widely-studied structured self-compassion practices.",
@@ -198,6 +219,7 @@ function buildLovingKindness(): GuidedSession {
   ];
   return {
     id: 'loving-kindness',
+    category: 'connection',
     name: 'Loving-Kindness',
     description: 'Traditional phrases of goodwill, offered outward from yourself to everyone.',
     basis: 'Metta (loving-kindness meditation) — a traditional practice with its own distinct evidence base; Fredrickson et al. (2008) found sustained practice increased positive emotion and social connection.',
@@ -221,6 +243,7 @@ function buildGratitude(): GuidedSession {
   ];
   return {
     id: 'gratitude',
+    category: 'connection',
     name: 'A Gratitude Practice',
     description: 'A specific, not generic, reflection on what\'s actually going right.',
     basis: 'Structured gratitude reflection — research on gratitude practice consistently finds specificity matters more than quantity.',
@@ -243,6 +266,7 @@ function buildResilience(): GuidedSession {
   ];
   return {
     id: 'resilience',
+    category: 'connection',
     name: 'Building Resilience',
     description: 'Recalling real evidence of your own capacity to get through hard things.',
     basis: 'Strengths-recall, a standard resilience-building technique distinct from generic positive thinking.',
@@ -272,6 +296,7 @@ function buildQuietMind(): GuidedSession {
   ];
   return {
     id: 'quiet-mind',
+    category: 'focus',
     name: 'A Quiet Mind',
     description: 'Foundational breath-awareness — the practice nearly everything else builds on.',
     basis: 'Basic mindfulness of breath (anapanasati / breath-focused mindfulness), the foundational technique across most meditation traditions.',
@@ -291,9 +316,78 @@ function buildQuickReset(): GuidedSession {
   ];
   return {
     id: 'quick-reset',
+    category: 'focus',
     name: 'A Quick Reset',
     description: 'One real, fully-noticed breath — for when there\'s genuinely no time to spare.',
     basis: 'A minimal single-cycle extended-exhale breath, the smallest unit of the technique behind every longer breathwork practice here.',
+    beats,
+  };
+}
+
+/** The MBSR body scan — Jon Kabat-Zinn's foundational Mindfulness-Based
+ *  Stress Reduction practice, and one of MBSR's two core formal exercises
+ *  alongside sitting meditation. Attention moves sequentially through the
+ *  body, region by region, simply noticing whatever sensation (or absence
+ *  of sensation) is there — no attempt to relax or change anything, which
+ *  is what distinguishes it from progressive muscle relaxation below. */
+function buildBodyScan(): GuidedSession {
+  const beats: SessionBeat[] = [
+    proseBeat('Lie down or sit somewhere supported, and let your eyes close.', 2),
+    proseBeat("We're going to move attention slowly through your body, one region at a time. Nothing to fix, just to notice.", 3),
+    proseBeat('Start with your left foot. Toes, the sole, the top of the foot. Whatever is there — warmth, pressure, nothing at all.', 4),
+    proseBeat('If you notice nothing, that\'s a real, valid observation too. Just move on.', 3),
+    proseBeat('Up to your left ankle and calf. Notice, without trying to change anything you find.', 3.5),
+    proseBeat('Your left knee and thigh. Just attention, resting there for a moment.', 3),
+    proseBeat('Now the same journey up your right leg — foot, calf, knee, thigh. Take your time.', 3.5),
+    proseBeat("Your hips and lower back, wherever they're making contact with what's beneath you.", 3.5),
+    proseBeat('Your belly, rising and falling on its own. Your chest, doing the same.', 3),
+    proseBeat('Your hands — palms, fingers, the backs of your hands. Then up through your arms to your shoulders.', 4),
+    proseBeat('Your neck and throat. Your jaw — a common place to hold tension without noticing.', 3.5),
+    proseBeat('Your face — eyes, forehead, scalp. And finally, the whole body at once, as one field of sensation.', 4),
+    proseBeat("You didn't need to change anything to do this practice right. Noticing was the entire task.", 3.5),
+    proseBeat('Let your eyes open whenever you\'re ready.', 2),
+  ];
+  return {
+    id: 'body-scan',
+    category: 'focus',
+    name: 'Full Body Scan',
+    description: 'Attention moved slowly, region by region, through the whole body.',
+    basis: "The MBSR body scan (Jon Kabat-Zinn) — one of Mindfulness-Based Stress Reduction's two core formal practices, alongside sitting meditation.",
+    beats,
+  };
+}
+
+/** Progressive Muscle Relaxation (Edmund Jacobson, 1938) adapted for
+ *  pre-sleep wind-down — tensing, then releasing, each major muscle group
+ *  in sequence. The deliberate tense/release contrast (not just "relax")
+ *  is what distinguishes PMR from the body scan above, and is
+ *  well-supported as a pre-sleep technique for reducing the physical
+ *  arousal that keeps a racing body from settling into sleep. */
+function buildSleepWindDown(): GuidedSession {
+  const group = (name: string) => [
+    proseBeat(`Now, ${name}. Squeeze — not painfully, just firmly — and hold it.`, 4),
+    proseBeat('Hold that tension a moment longer...', 3),
+    proseBeat('And release, all at once. Let it go completely loose. Notice the difference.', 6),
+  ];
+  const beats: SessionBeat[] = [
+    proseBeat('Lie down in bed, in whatever position feels right for sleep.', 2),
+    proseBeat("We're going to tense, then release, each part of your body in turn. The release is the point — notice how different loose feels from tense.", 4),
+    ...group('curl your toes and tighten your feet'),
+    ...group('tighten your calves and thighs'),
+    ...group('clench your hands into fists and tighten your arms'),
+    ...group('press your shoulders up toward your ears'),
+    ...group('scrunch your face — eyes, jaw, forehead, all of it'),
+    proseBeat('Let your whole body settle now, heavier than before, into whatever is holding you up.', 4),
+    breathBeat('One slow breath in through your nose', 'in', 4),
+    breathBeat('And a long, slow breath out — let your body sink further', 'out', 7),
+    proseBeat('There\'s nowhere else to be right now. Let your mind follow your body toward rest.', 3.5),
+  ];
+  return {
+    id: 'sleep-wind-down',
+    category: 'sleep',
+    name: 'Wind-Down for Sleep',
+    description: 'Tense, then release, each muscle group — a real pre-sleep relaxation technique.',
+    basis: "Progressive Muscle Relaxation (Edmund Jacobson, 1938), adapted for pre-sleep wind-down — the tense/release contrast is well-supported for reducing pre-sleep physical arousal.",
     beats,
   };
 }
@@ -313,6 +407,7 @@ function buildFourSevenEight(): GuidedSession {
   beats.push(proseBeat('Let your breathing return to normal. Even a few rounds is real.', 1.5));
   return {
     id: 'four-seven-eight',
+    category: 'breathwork',
     name: '4-7-8 Breathing',
     description: 'Inhale 4, hold 7, exhale 8 — often called the "relaxing breath."',
     basis: '4-7-8 breathing, shown in controlled studies to improve heart-rate variability and lower blood pressure via extended-exhale vagal activation.',
@@ -341,6 +436,7 @@ function buildPhysiologicalSigh(): GuidedSession {
   beats.push(proseBeat('Let your breath settle back to normal. That\'s the whole technique.', 1.5));
   return {
     id: 'physiological-sigh',
+    category: 'breathwork',
     name: 'Physiological Sigh',
     description: 'A double inhale, then one long exhale — a fast-acting mood and stress reset.',
     basis: 'Cyclic sighing (the physiological sigh) — a 2023 Stanford study found it improved mood more than mindfulness meditation over a month of daily practice.',
@@ -366,6 +462,7 @@ function buildBoxBreathing(): GuidedSession {
   beats.push(proseBeat("Let your breath return to normal whenever you're ready.", 1.5));
   return {
     id: 'box-breathing',
+    category: 'breathwork',
     name: 'Box Breathing',
     description: 'Four equal counts — in, hold, out, hold — a steady pattern built for real stress.',
     basis: 'Box (square) breathing — a tactical breathing technique used in military and first-responder stress-inoculation training for its equal, sustainable phase lengths.',
@@ -375,6 +472,7 @@ function buildBoxBreathing(): GuidedSession {
 
 export const MEDITATIONS: readonly GuidedSession[] = Object.freeze([
   buildQuietMind(),
+  buildBodyScan(),
   buildSadness(),
   buildAnger(),
   buildGrief(),
@@ -385,6 +483,7 @@ export const MEDITATIONS: readonly GuidedSession[] = Object.freeze([
   buildGratitude(),
   buildResilience(),
   buildQuickReset(),
+  buildSleepWindDown(),
 ]);
 
 export const BREATHWORK: readonly GuidedSession[] = Object.freeze([
@@ -398,3 +497,59 @@ export const ALL_MEDITATE_SESSIONS: readonly GuidedSession[] = Object.freeze([..
 export function getMeditateSession(id: string): GuidedSession | undefined {
   return ALL_MEDITATE_SESSIONS.find((s) => s.id === id);
 }
+
+/** Real, distinct use-cases — not five reskins of the same content. Each
+ *  session above is tagged with exactly one of these (see its `category`
+ *  field), and the picker (meditate-view.ts) renders one section per
+ *  category, in this order, rather than one undifferentiated grid. */
+export type MeditateCategoryId = 'stress' | 'connection' | 'focus' | 'sleep' | 'breathwork';
+
+interface MeditateCategoryMeta {
+  id: MeditateCategoryId;
+  label: string;
+  description: string;
+}
+
+const CATEGORY_META: readonly MeditateCategoryMeta[] = Object.freeze([
+  {
+    id: 'stress',
+    label: 'Working With Stress & Difficult Emotions',
+    description: 'RAIN, cognitive reframing, and grounding for anger, anxiety, sadness, grief, and change.',
+  },
+  {
+    id: 'connection',
+    label: 'Self-Compassion & Connection',
+    description: "Kristin Neff's self-compassion break, loving-kindness, gratitude, and resilience.",
+  },
+  {
+    id: 'focus',
+    label: 'Focus & Grounding',
+    description: 'Breath-focused attention and the MBSR body scan — the "home base" practices.',
+  },
+  {
+    id: 'sleep',
+    label: 'Sleep Prep',
+    description: 'Progressive muscle relaxation to wind the body down before sleep.',
+  },
+  {
+    id: 'breathwork',
+    label: 'Breathwork',
+    description: 'Named, structured breathing patterns — 4-7-8, the physiological sigh, and box breathing.',
+  },
+]);
+
+export interface MeditateCategory extends MeditateCategoryMeta {
+  sessions: readonly GuidedSession[];
+}
+
+/** Every session grouped under its real category, in a fixed, meaningful
+ *  order — this, not MEDITATIONS/BREATHWORK, is what the picker UI should
+ *  render from. MEDITATIONS/BREATHWORK stay exported for the trend/test
+ *  code that only needs the flat "is this a sit or a breathing exercise"
+ *  split. */
+export const MEDITATE_CATEGORIES: readonly MeditateCategory[] = Object.freeze(
+  CATEGORY_META.map((meta) => ({
+    ...meta,
+    sessions: Object.freeze(ALL_MEDITATE_SESSIONS.filter((s) => s.category === meta.id)),
+  }))
+);

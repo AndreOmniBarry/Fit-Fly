@@ -116,15 +116,20 @@ test.describe('goals', () => {
     await page.locator('#goal-start').fill('0');
     await page.locator('#btn-goal-create').click();
 
-    await expect(page.locator('.trend-chart')).toHaveCount(0); // no history yet at all
+    // Scoped to #screen-goals: .trend-chart is the shared app-wide chart
+    // component (js/lib/trend-chart.js) other mini-apps (Sleep, Hydration,
+    // ...) also render into their own always-in-DOM-but-hidden screens, so
+    // an unscoped page-wide locator picks those up too.
+    const goalsScreen = page.locator('#screen-goals');
+    await expect(goalsScreen.locator('.trend-chart')).toHaveCount(0); // no history yet at all
 
     await page.locator('[data-progress-input]').fill('1');
     await page.locator('[data-log-progress-id]').click();
-    await expect(page.locator('.trend-chart')).toContainText('Log progress twice to see a trend.');
+    await expect(goalsScreen.locator('.trend-chart')).toContainText('Log progress twice to see a trend.');
 
     await page.locator('[data-progress-input]').fill('2');
     await page.locator('[data-log-progress-id]').click();
-    await expect(page.locator('.trend-chart-bar')).toHaveCount(2);
+    await expect(goalsScreen.locator('.trend-chart-bar')).toHaveCount(2);
   });
 
   test('validation blocks creating an incomplete goal', async ({ page }) => {

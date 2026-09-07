@@ -1117,6 +1117,19 @@
 .sleep-calendar-day--logged.sleep-calendar-day--good .sleep-calendar-day-dot{ background:var(--sleep-accent); }
 .sleep-calendar-day--logged.sleep-calendar-day--great .sleep-calendar-day-dot{ background:var(--success); }
 
+/* A day with a nap logged gets a small separate mark in the corner —
+   deliberately not another color of the same night-score dot (that dot
+   answers "how was the night", this answers an independent yes/no "was
+   there also a nap"), so the two never look like they're the same
+   metric. */
+.sleep-calendar-day{ position:relative; }
+.sleep-calendar-day--napped::after{
+  content:''; position:absolute; top:4px; right:4px;
+  width:5px; height:5px; border-radius:50%;
+  background:var(--sleep-accent-2, var(--sleep-accent));
+  box-shadow:0 0 0 1.5px var(--sleep-card-bg);
+}
+
 .sleep-calendar-legend{
   display:flex; flex-wrap:wrap; gap:14px;
   font-size:11.5px; color:var(--sleep-ink-muted);
@@ -1127,6 +1140,17 @@
 .sleep-calendar-dot[data-category="good"]{ background:var(--sleep-accent); }
 .sleep-calendar-dot[data-category="fair"]{ background:var(--warning); }
 .sleep-calendar-dot[data-category="poor"]{ background:var(--danger); }
+.sleep-calendar-nap-mark{
+  display:inline-block; width:7px; height:7px; border-radius:50%; font-style:normal;
+  background:var(--sleep-accent-2, var(--sleep-accent));
+}
+
+/* ---------- Nap: a real, separate quick action, not a hidden mode of
+   the night form above it (see index.html) ---------- */
+.sleep-nap-card{
+  background:var(--sleep-card-bg); border:1px solid var(--sleep-card-border);
+  border-radius:16px; padding:14px;
+}
 
 /* ============================================================================
    FOCUS
@@ -1198,6 +1222,14 @@
   width:34px; height:34px; border-radius:11px;
   display:flex; align-items:center; justify-content:center;
   background:var(--meditate-accent-soft); color:var(--meditate-accent);
+}
+
+/* One section per real category (MEDITATE_CATEGORIES in meditations.ts),
+   built by meditate-view.ts's buildCategorySections() — same label style
+   the screen used inline before categories existed. */
+.meditate-category{ display:flex; flex-direction:column; gap:12px; margin-top:var(--space-4); }
+.meditate-category-label{
+  font-size:12.5px; font-weight:600; color:var(--meditate-ink-muted); letter-spacing:0.04em;
 }
 
 .focus-timer-row{ display:flex; gap:8px; }

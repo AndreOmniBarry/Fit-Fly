@@ -1,3 +1,23 @@
+// Why this doesn't have photo-based calorie scanning: it was researched
+// and deliberately scoped out, not skipped. Accurate food-photo calorie
+// estimation needs two things this app has neither of — (1) a food
+// classifier good enough to tell a mixed home-cooked dish apart from
+// its hundred near-neighbors, which in practice means a paid cloud
+// vision API (the accurate consumer apps all use one) or bundling a
+// large on-device model with materially worse accuracy, and (2) portion
+// *mass* from a single 2D photo, which is a genuinely unsolved problem
+// without a depth sensor or a reference object in frame (see the
+// ECCV "Computer vision-based food calorie estimation" survey and the
+// mobile-app teardowns that reach the same conclusion). This app has no
+// budget for a paid vision API and no credentials for one, so building
+// this would mean either faking a result behind a spinner or shipping a
+// low-accuracy on-device guess dressed up as a real number — both are
+// exactly the fabricated-precision this app refuses to show anywhere
+// else (see bmr-tdee.js's confidence bands). Rather than fake it, this
+// builds the fallback the product review explicitly asked for instead:
+// real guidance plus sourced per-100g reference data for the regional
+// dishes that don't show up in a typical food database — see
+// regional-staples.js and the "Can't find your dish?" panel below.
 import { showScreen } from '../../lib/router.js';
 import { escapeHtml } from '../../lib/html.js';
 import { attachTilt } from '../../lib/tilt.js';
@@ -8,6 +28,8 @@ import { buildNutritionReasoning } from './nutrition-reasoning.js';
 import { searchFoods } from './food-search.js';
 import { computeRecentFoods } from './recent-foods.js';
 import { lastNDaysRange, summarizeWeeklyNutrition } from './weekly-trend.js';
+import { COOKING_OIL_KCAL_PER_TABLESPOON, REGIONAL_STAPLE_FOODS } from './regional-staples.js';
+import { DEFAULT_PORTION_GRAMS, scalePortion } from './portion-scaling.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { getLatestCategoryAssignment } from '../../db/repositories/category-assignments.js';
 import {
@@ -32,6 +54,21 @@ export function initNutritionFeature() {
   // Search results are kept here (not re-parsed from the DOM) so a tap
   // just looks the chosen one up by index.
   let lastSearchResults = [];
+
+  // The per-100g food most recently picked (an Open Food Facts result or
+  // a regional staple from the "can't find your dish" guidance below) —
+  // set on a pick, read by the portion-grams field to rescale the form
+  // whenever it changes, and cleared once something's actually added so
+  // a leftover base doesn't silently rescale a manually-typed entry.
+  let currentPortionBase = null;
+
+  // The regional-staples guidance list is static, curated data — render
+  // its chips once rather than re-deriving them on every screen visit.
+  byId('nutrition-oil-kcal').textContent = String(COOKING_OIL_KCAL_PER_TABLESPOON);
+  byId('nutrition-regional-chips').innerHTML = REGIONAL_STAPLE_FOODS.map(
+    (food, i) =>
+      `<button type="button" class="chip" data-regional-index="${i}" title="${escapeHtml(food.region)}">${escapeHtml(food.name)}</button>`
+  ).join('');
 
   byId('btn-home-nutrition').addEventListener('click', async () => {
     // renderTargets sets the module-level currentTargets that
@@ -72,6 +109,35 @@ export function initNutritionFeature() {
       byId(id).value = '';
     }
     byId('nutrition-portion-hint').hidden = true;
+    byId('nutrition-portion-grams-wrap').hidden = true;
+    byId('nutrition-portion-note').hidden = true;
+    currentPortionBase = null;
+  }
+
+  /** A per-100g pick (an Open Food Facts result or a regional staple) —
+   *  fills the form at the default 100g, arms the portion-grams field to
+   *  rescale it, and surfaces the staple's own caveat (if any) instead
+   *  of a one-size-fits-all hint. */
+  function selectPortionBasedFood(food, note = null) {
+    currentPortionBase = food;
+    byId('nutrition-portion-grams').value = String(DEFAULT_PORTION_GRAMS);
+    fillForm({
+      name: food.name,
+      calories: food.caloriesPer100g,
+      proteinG: food.proteinGPer100g,
+      carbsG: food.carbsGPer100g,
+      fatG: food.fatGPer100g,
+      fiberG: food.fiberGPer100g,
+    });
+    // A per-100g pick is never "however much you actually ate" — this
+    // stays visible until Add or a clear, same rule as the portion
+    // field itself, so it's never silently logged as-is.
+    byId('nutrition-portion-hint').hidden = false;
+    byId('nutrition-portion-grams-wrap').hidden = false;
+    byId('nutrition-portion-note').hidden = !note;
+    byId('nutrition-portion-note').textContent = note ?? '';
+    byId('nutrition-search-results').innerHTML = '';
+    byId('nutrition-name').focus();
   }
 
   // ---------- search (Open Food Facts) ----------
@@ -125,21 +191,34 @@ export function initNutritionFeature() {
     if (!button) return;
     const food = lastSearchResults[Number(button.dataset.searchResultIndex)];
     if (!food) return;
+    selectPortionBasedFood(food);
+  });
 
-    fillForm({
-      name: food.name,
-      calories: food.caloriesPer100g,
-      proteinG: food.proteinGPer100g,
-      carbsG: food.carbsGPer100g,
-      fatG: food.fatGPer100g,
-      fiberG: food.fiberGPer100g,
-    });
-    // A search result is per 100g of the product, not "however much you
-    // actually ate" — this stays visible until Add or a clear, so it's
-    // never silently logged as-is.
-    byId('nutrition-portion-hint').hidden = false;
-    byId('nutrition-search-results').innerHTML = '';
-    byId('nutrition-name').focus();
+  // ---------- "can't find your dish" regional staples guidance ----------
+  // Static, curated reference data (see regional-staples.js) — searched
+  // by dish name via its aliases, not just the staple's own name, so
+  // tapping in from "injera" or "fufu" works the way someone would
+  // actually think to look for it.
+  byId('nutrition-regional-chips').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-regional-index]');
+    if (!button) return;
+    const staple = REGIONAL_STAPLE_FOODS[Number(button.dataset.regionalIndex)];
+    if (!staple) return;
+    selectPortionBasedFood(staple, staple.note ?? null);
+  });
+
+  // ---------- portion scaling (per-100g pick -> grams actually eaten) ----------
+  byId('nutrition-portion-grams').addEventListener('input', () => {
+    if (!currentPortionBase) return;
+    const scaled = scalePortion(currentPortionBase, Number(byId('nutrition-portion-grams').value));
+    // An empty/zero/invalid grams field leaves the last valid scaled
+    // figures in place rather than zeroing them out mid-edit.
+    if (!scaled) return;
+    byId('nutrition-calories').value = String(scaled.calories);
+    byId('nutrition-protein').value = String(scaled.proteinG);
+    byId('nutrition-carbs').value = String(scaled.carbsG);
+    byId('nutrition-fat').value = String(scaled.fatG);
+    byId('nutrition-fiber').value = String(scaled.fiberG);
   });
 
   // ---------- recent (one-tap — exact amounts already logged before) ----------

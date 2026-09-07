@@ -294,25 +294,45 @@ let speakToken = 0;
  *  thing generating them separately loses — a real pause where a person
  *  would actually breathe. Throws if the model isn't loaded yet — callers
  *  (voice-guide.ts) are expected to have awaited ensureKokoroLoaded()
- *  first and to fall back to Web Speech otherwise. */
+ *  first and to fall back to Web Speech otherwise.
+ *
+ *  `onAudioStart` fires exactly once, the moment the first clip of this
+ *  call actually begins playing — not when generation finishes, and not
+ *  when the promise this function returns resolves (that's the whole
+ *  utterance, every sentence). voice-guide.ts's speak() races this
+ *  against a real timeout: the very first sentence Kokoro ever generates
+ *  after a fresh model load pays a real, one-time WASM warm-up cost on
+ *  top of normal per-sentence inference, and on a phone that cost can
+ *  genuinely exceed a short guided-session beat's own duration. Without
+ *  this signal, that first attempt would still be generating when the
+ *  next beat's own speak() call increments speakToken — silently
+ *  superseding it via the checks below before it's ever audible, and
+ *  every beat after it inherits the exact same race, going silent for
+ *  the rest of the session instead of just the one slow attempt. */
 export async function speakWithKokoro(
   text: string,
-  { voice = DEFAULT_KOKORO_VOICE, speed = 1 }: { voice?: KokoroVoiceId; speed?: number } = {}
+  {
+    voice = DEFAULT_KOKORO_VOICE,
+    speed = 1,
+    onAudioStart,
+  }: { voice?: KokoroVoiceId; speed?: number; onAudioStart?: () => void } = {}
 ): Promise<void> {
   if (!loadedInstance) throw new Error('Kokoro is not loaded yet — call ensureKokoroLoaded() first.');
   const tts = loadedInstance;
   const token = ++speakToken;
   const pauseMs = breathPauseMs(speed);
+  let firstClip = true;
 
   for await (const { audio } of tts.stream(text, { voice, speed })) {
     if (token !== speakToken) return; // superseded by a newer speakWithKokoro()/stopKokoroSpeaking() call
-    await playBlob(audio.toBlob(), token);
+    await playBlob(audio.toBlob(), token, firstClip ? onAudioStart : undefined);
+    firstClip = false;
     if (token !== speakToken) return;
     await new Promise((resolve) => setTimeout(resolve, pauseMs));
   }
 }
 
-async function playBlob(blob: Blob, token: number): Promise<void> {
+async function playBlob(blob: Blob, token: number, onAudioStart?: () => void): Promise<void> {
   primeKokoroAudio(); // best-effort: re-resume in case the context lapsed since the last prime
   const ctx = sharedAudioCtx;
   if (!ctx) return; // Web Audio unsupported — silent, same best-effort contract as every other Web API wrapper here
@@ -336,6 +356,7 @@ async function playBlob(blob: Blob, token: number): Promise<void> {
       resolve();
     };
     source.start();
+    onAudioStart?.();
   });
 }
 

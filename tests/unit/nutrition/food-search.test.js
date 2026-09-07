@@ -84,4 +84,29 @@ describe('searchFoods', () => {
     // globalThis.fetch (which would attempt a real network call).
     await expect(searchFoods('anything', { fetchImpl: null })).rejects.toThrow(/fetch/i);
   });
+
+  it('reports an honest timeout, not a stuck spinner, for a request that never resolves at all', async () => {
+    vi.useFakeTimers();
+    try {
+      const fetchImpl = vi.fn(
+        (_url, { signal } = {}) =>
+          new Promise((_resolve, reject) => {
+            signal?.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+          })
+      );
+      const resultPromise = searchFoods('anything', { fetchImpl });
+      const assertion = expect(resultPromise).rejects.toThrow(/timed out/i);
+      await vi.runAllTimersAsync();
+      await assertion;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('targets the current, documented Open Food Facts endpoint, not the deprecated cgi/search.pl script', async () => {
+    const fetchImpl = fakeFetch({ products: [] });
+    await searchFoods('anything', { fetchImpl });
+    expect(fetchImpl.mock.calls[0][0]).toContain('/api/v2/search');
+    expect(fetchImpl.mock.calls[0][0]).not.toContain('cgi/search.pl');
+  });
 });

@@ -3,6 +3,7 @@ import {
   calculateProgressPercent,
   daysUntilDeadline,
   isGoalAchieved,
+  remainingToTarget,
 } from '../../../js/features/goals/goal-progress.js';
 
 describe('calculateProgressPercent', () => {
@@ -46,6 +47,25 @@ describe('isGoalAchieved', () => {
     expect(isGoalAchieved({ direction: 'decrease', currentValue: 70, targetValue: 70 })).toBe(true);
     expect(isGoalAchieved({ direction: 'decrease', currentValue: 69, targetValue: 70 })).toBe(true);
     expect(isGoalAchieved({ direction: 'decrease', currentValue: 71, targetValue: 70 })).toBe(false);
+  });
+});
+
+describe('remainingToTarget: honest "how close am I" framing, not just a percentage', () => {
+  it('is the real distance left for an increasing goal', () => {
+    expect(remainingToTarget({ direction: 'increase', currentValue: 3, targetValue: 5 })).toBe(2);
+  });
+
+  it('is the real distance left for a decreasing goal (e.g. weight loss)', () => {
+    expect(remainingToTarget({ direction: 'decrease', currentValue: 75, targetValue: 70 })).toBe(5);
+  });
+
+  it('is 0 once the target is reached, never negative from overshoot', () => {
+    expect(remainingToTarget({ direction: 'increase', currentValue: 12, targetValue: 10 })).toBe(0);
+    expect(remainingToTarget({ direction: 'decrease', currentValue: 65, targetValue: 70 })).toBe(0);
+  });
+
+  it('rounds to one decimal place, no fake extra precision', () => {
+    expect(remainingToTarget({ direction: 'increase', currentValue: 1, targetValue: 5.05 })).toBe(4.1);
   });
 });
 

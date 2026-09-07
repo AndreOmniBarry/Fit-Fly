@@ -1510,23 +1510,30 @@ for status.
 ## Hydration
 
 The Hub's seventh tile: a running daily total logged from real serving
-sizes or a custom amount, drawn as a human figure that actually fills
-with water as the day's log grows — not a decorative animation loop, a
-real reading of today's total against the daily goal.
+sizes or a custom amount, drawn as a glass that actually fills with
+water as the day's log grows — not a decorative animation loop, a real
+reading of today's total against the daily goal.
 
-**A real fill, not a trick of CSS.** The figure is one clipped SVG
-silhouette (`#hydrationFigureClip`) with a `<rect>` behind it
+**A real fill, not a trick of CSS.** The glass is one clipped SVG
+outline (`#hydrationFigureClip`) with a `<rect>` behind it
 (`#hydration-water-fill`) whose `y` and `height` attributes are set
 directly from `todayMl / goal`, the exact same "real attribute drives the
 data, CSS only eases the transition" technique as Sleep's score ring and
 Steps' goal ring — the ring's `stroke-dashoffset`, this screen's `y`/
-`height`, never a competing value fighting the JS-driven fill. The one
-purely decorative piece is the small wave riding the water's surface
-(`.hydration-wave-scroll`'s own looping `@keyframes`, positioned by JS to
-track the fill's real top edge but animated by CSS) — it never encodes
-data itself, and `prefers-reduced-motion` turns it (and the fill's own
-eased transition) off entirely, jumping straight to the real value like
-every other kinetic reading in this app.
+`height`, never a competing value fighting the JS-driven fill. Everything
+else layered on top of that one real number is pure decoration: the
+small wave riding the water's surface (`.hydration-wave-scroll`'s own
+looping `@keyframes`, positioned by JS to track the fill's real top edge
+but animated by CSS, with a slight vertical breathe alongside its
+horizontal scroll so it doesn't read as a mechanical loop), and the
+whole fill+wave group's tilt-reactive lean when the device physically
+tilts (`.hydration-liquid-tilt`, driven by the same `--tilt-ry` reading
+this screen's cards already get from `attachTilt()`, pivoted around the
+liquid's own current center via `transform-box:fill-box` rather than a
+fixed point in the glass). None of it encodes data itself, and
+`prefers-reduced-motion` turns all of it (and the fill's own eased
+transition) off entirely, jumping straight to the real value like every
+other kinetic reading in this app.
 
 **A real, cited daily goal, not the popular "8 glasses a day."** The
 default suggested goal (2,200ml, user-editable) is drawn from the

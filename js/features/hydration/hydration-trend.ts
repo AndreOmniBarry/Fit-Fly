@@ -56,3 +56,20 @@ export function averageHydrationPerLoggedDay(entries: HydrationEntryLike[], days
   const sum = [...totals.values()].reduce((a, b) => a + b, 0);
   return Math.round(sum / totals.size);
 }
+
+/** The "personal record" celebration moment's own real trigger — true
+ *  exactly on the single log that pushes today's real running total past
+ *  the real prior all-time best (from every other logged day, never
+ *  including today, which is still accumulating). Never fires again for a
+ *  later drink the same day once already past it (todayMlBeforeThisLog is
+ *  already above the record by then), and never fires on someone's very
+ *  first-ever logged day — priorBestExcludingToday is null with no prior
+ *  history, so there's honestly no record yet to beat. */
+export function crossesNewPersonalRecord(
+  todayMlBeforeThisLog: number,
+  todayMlAfterThisLog: number,
+  priorBestExcludingToday: number | null
+): boolean {
+  if (priorBestExcludingToday == null) return false;
+  return todayMlBeforeThisLog <= priorBestExcludingToday && todayMlAfterThisLog > priorBestExcludingToday;
+}

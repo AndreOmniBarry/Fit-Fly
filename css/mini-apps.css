@@ -759,6 +759,28 @@
   .steps-live-dot{ animation:none; opacity:.9; }
 }
 
+/* Step Trail — a real winding path toward today's goal. Every marker's
+   position is a real SVGPathElement.getPointAtLength() call in
+   steps-view.ts, driven by today's real steps/goal fraction
+   (js/features/steps/step-journey.ts); this block is purely presentational
+   (stroke/fill/motion), never a second source of position. */
+.step-trail{ width:100%; height:auto; overflow:visible; }
+.step-trail-path{
+  fill:none; stroke:rgba(255,255,255,0.14); stroke-width:2.5; stroke-linecap:round;
+  stroke-dasharray:1 7;
+}
+.step-trail-milestone{ color:rgba(255,255,255,0.22); transition:color .5s ease; }
+.step-trail-milestone--reached{ color:var(--steps-accent); }
+.step-trail-walker{
+  color:var(--steps-accent);
+  filter:drop-shadow(0 0 4px color-mix(in srgb, var(--steps-accent) 60%, transparent));
+  transition:transform .7s cubic-bezier(.22,1,.36,1);
+}
+@media (prefers-reduced-motion: reduce){
+  .step-trail-walker{ transition:none; }
+  .step-trail-milestone{ transition:none; }
+}
+
 /* ============================================================================
    HYDRATION — a human silhouette that fills with real water as the day's
    intake rises toward its goal. The fill's own y/height are real
@@ -865,6 +887,17 @@
   .hydration-wave-scroll--back, .hydration-wave-scroll--front, .hydration-bubble{ animation:none; opacity:0; }
   .hydration-splash-ring.is-active{ animation:none; }
   .hydration-water-fill, .hydration-wave-position{ transition:none; }
+  .hydration-record-toast.is-active{ animation:none; }
+}
+
+/* The personal-record celebration moment — a real, one-shot toast that
+   fires only on the exact log crossing a real all-time best (see
+   crossesNewPersonalRecord in hydration-trend.ts). */
+.hydration-record-toast.is-active{ animation:hydration-record-pop 500ms cubic-bezier(.34,1.56,.64,1); }
+@keyframes hydration-record-pop{
+  0%{ transform:scale(.92); opacity:0; }
+  60%{ transform:scale(1.02); opacity:1; }
+  100%{ transform:scale(1); opacity:1; }
 }
 .hydration-figure-value{
   margin-top:10px;
@@ -1370,6 +1403,32 @@
 @media (prefers-reduced-motion: reduce){
   .trend-chart-bar-fill{ transition:none; }
 }
+
+/* ============================================================================
+   SHARED WEEK STRIP — Steps'/Hydration's own "last 7 real days" recap
+   (js/lib/week-strip.ts builds this structure; --week-strip-accent is set
+   per mini-app the same way --trend-chart-accent is above). Three real
+   states per cell, never a fabricated in-between: bare/dim with nothing
+   logged that day, a soft fill once logged but short of goal, full accent
+   once goal was actually met.
+   ========================================================================== */
+.week-strip{ display:flex; gap:8px; }
+.week-strip-cell{
+  flex:1; aspect-ratio:1; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,0.03); border:1.5px dashed rgba(255,255,255,0.12);
+  color:rgba(255,255,255,0.25);
+}
+.week-strip-cell--logged{
+  background:color-mix(in srgb, var(--week-strip-accent) 16%, transparent);
+  border-style:solid; border-color:color-mix(in srgb, var(--week-strip-accent) 35%, transparent);
+  color:color-mix(in srgb, var(--week-strip-accent) 70%, white 10%);
+}
+.week-strip-cell--met{
+  background:var(--week-strip-accent); border-style:solid; border-color:var(--week-strip-accent);
+  color:#0b120e;
+}
+.week-strip-cell--today{ box-shadow:0 0 0 2px rgba(255,255,255,0.35); }
 
 /* ============================================================================
    BADGES — a real grid of earned/locked tier cards. Reuses the shared

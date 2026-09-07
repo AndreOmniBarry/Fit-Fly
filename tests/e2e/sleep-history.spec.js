@@ -147,6 +147,22 @@ test.describe('sleep history', () => {
     await expect(page.locator('#sleep-log-form')).toBeHidden();
   });
 
+  test('a day with a nap logged shows a real nap indicator in the calendar, honestly, even without a night log', async ({ page }) => {
+    // Log only a nap for today — no night log at all — and confirm
+    // History still honestly reflects it rather than dropping it because
+    // there's no "main" sleepLogs row for the date.
+    await page.locator('#btn-sleep-nap-toggle').click();
+    await page.locator('#sleep-nap-start').fill('14:00');
+    await page.locator('#sleep-nap-end').fill('14:30');
+    await page.getByRole('button', { name: 'Save nap' }).click();
+
+    await page.locator('#btn-sleep-dashboard-date').click();
+    const todayCell = page.locator('.sleep-calendar-day--today');
+    await expect(todayCell).toHaveClass(/sleep-calendar-day--napped/);
+    await expect(todayCell).not.toHaveClass(/sleep-calendar-day--logged/); // no night log this time
+    await expect(todayCell).toHaveAttribute('aria-label', /also napped/i);
+  });
+
   test('future days are not tappable', async ({ page }) => {
     await page.locator('#btn-sleep-dashboard-date').click();
     const future = page.locator('.sleep-calendar-day--future').first();

@@ -469,4 +469,48 @@ export function defineSchema(db) {
     noiseMonitorSamples: '++id, sessionId, recordedAt',
     hearingScreeningTests: 'id, completedAt',
   });
+
+  // v18 — Sleep naps: a daytime/afternoon nap logged as its own session,
+  // distinct from sleepLogs' one-per-calendar-date nightly record. Naps
+  // get their own store rather than a field on sleepLogs because
+  // sleepLogs is keyed by `date` alone (one row per night) — a nap on the
+  // same calendar date as a night's log would either collide with that
+  // key or force a breaking change to every sleepLogs reader/writer.
+  // Instead this follows nutritionEntries/hydrationEntries' own shape:
+  // several real entries can exist for one date (someone can log more
+  // than one nap), auto-incrementing id, `date` + `loggedAt` indexed for
+  // the same per-day and chronological queries those stores already
+  // support (see js/db/repositories/nap-logs.js).
+  db.version(18).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+    noiseMonitorSessions: 'id, startedAt',
+    noiseMonitorSamples: '++id, sessionId, recordedAt',
+    hearingScreeningTests: 'id, completedAt',
+
+    napLogs: '++id, date, loggedAt',
+  });
 }

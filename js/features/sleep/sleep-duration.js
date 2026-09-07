@@ -50,4 +50,24 @@ export function computeSleepLogTimes(wakeDate, bedTimeClock, wakeTimeClock) {
     const durationMinutes = Math.round((Date.parse(wakeTime) - Date.parse(bedTime)) / 60_000);
     return { bedTime, wakeTime, durationMinutes };
 }
+/**
+ * @param date The nap's date (YYYY-MM-DD).
+ * @param startClock "HH:MM", 24-hour.
+ * @param endClock "HH:MM", 24-hour.
+ *
+ * Unlike computeSleepLogTimes, a nap doesn't get the "before-noon means
+ * after-midnight" bedtime inference — a daytime/afternoon nap starts and
+ * ends on the same calendar date by definition, so both clock times are
+ * anchored to `date` directly. A non-positive result means the caller
+ * entered an end time at or before the start (validated before saving,
+ * same as a night's log).
+ */
+export function computeNapTimes(date, startClock, endClock) {
+    const start = parseClock(startClock);
+    const end = parseClock(endClock);
+    const startTime = toIso(date, start.hours, start.minutes);
+    const endTime = toIso(date, end.hours, end.minutes);
+    const durationMinutes = Math.round((Date.parse(endTime) - Date.parse(startTime)) / 60_000);
+    return { startTime, endTime, durationMinutes };
+}
 //# sourceMappingURL=sleep-duration.js.map

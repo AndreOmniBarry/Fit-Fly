@@ -21,6 +21,7 @@ describe('schema', () => {
         'profile',
         'heartRateSamples',
         'meditationSessions',
+        'napLogs',
         'noiseCheckIns',
         'noiseMonitorSamples',
         'noiseMonitorSessions',

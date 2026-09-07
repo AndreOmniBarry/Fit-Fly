@@ -1243,7 +1243,30 @@
           <span>Avg (last <span id="vitals-bp-trend-count">—</span>): <strong id="vitals-bp-trend-avg">—</strong></span>
           <span>Systolic range: <strong id="vitals-bp-trend-range">—</strong></span>
         </div>
-        <div class="vitals-trend-bars" id="vitals-bp-trend-bars" data-tilt-depth="1" role="img" aria-label="Recent systolic readings trend"></div>
+      </span>
+    </div>
+
+    <!-- A separate, always-on card (not nested inside the "latest
+         reading" hero above, which stays honestly hidden with zero
+         readings) — same "the trend chart is its own always-visible
+         card" shape as Steps'/Hydration's own trend cards, so the range
+         picker itself is never gated behind having a "latest reading"
+         to show. -->
+    <div class="vitals-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
+        <h3>Trend</h3>
+        <!-- No "D" chip: multiple same-day readings average into one
+             real daily point, so a single day can never form a
+             multi-point trend — same reasoning as Steps' own
+             chip-group comment. -->
+        <div class="chip-group" id="vitals-bp-range" role="group" aria-label="Blood pressure trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="vitals-bp-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
+        <div id="vitals-bp-range-chart"></div>
       </span>
     </div>
 
@@ -1287,7 +1310,26 @@
           <span>Avg (last <span id="vitals-spo2-trend-count">—</span>): <strong id="vitals-spo2-trend-avg">—</strong></span>
           <span>Range: <strong id="vitals-spo2-trend-range">—</strong></span>
         </div>
-        <div class="vitals-trend-bars" id="vitals-spo2-trend-bars" data-tilt-depth="1" role="img" aria-label="Recent SpO2 readings trend"></div>
+      </span>
+    </div>
+
+    <!-- A separate, always-on card — same reasoning as blood pressure's
+         own Trend card above. -->
+    <div class="vitals-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
+        <h3>Trend</h3>
+        <!-- No "D" chip: multiple same-day readings average into one
+             real daily point, so a single day can never form a
+             multi-point trend — same reasoning as Steps' own
+             chip-group comment. -->
+        <div class="chip-group" id="vitals-spo2-range" role="group" aria-label="SpO2 trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="vitals-spo2-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
+        <div id="vitals-spo2-range-chart"></div>
       </span>
     </div>
 
@@ -2185,6 +2227,16 @@
             <span id="run-best-text"></span>
           </span>
         </div>
+        <!-- No "D" chip: one distance total per day is this data's own
+             finest grain, so a single day can never form a multi-point
+             trend — same reasoning as Steps' own chip-group comment. -->
+        <div class="chip-group" id="run-trend-range" role="group" aria-label="Trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="run-trend-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
         <div id="run-trend-chart"></div>
       </span>
     </div>
@@ -2232,7 +2284,30 @@
           <span>Avg (last <span id="hr-trend-count">—</span>): <strong id="hr-trend-avg">—</strong></span>
           <span>Range: <strong id="hr-trend-range">—</strong></span>
         </div>
-        <div class="hr-trend-bars" id="hr-trend-bars" data-tilt-depth="1" role="img" aria-label="Recent readings trend"></div>
+      </span>
+    </div>
+
+    <!-- A separate, always-on card (not nested inside the "latest
+         reading" hero above, which stays honestly hidden with zero
+         readings) — same "the trend chart is its own always-visible
+         card, independent of whatever else the screen shows" shape as
+         Steps'/Hydration's own trend cards, so the range picker itself
+         is never gated behind having a "latest reading" to show. -->
+    <div class="card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
+        <h3>Trend</h3>
+        <!-- No "D" chip: multiple same-day readings average into one
+             real daily point, so a single day can never form a
+             multi-point trend — same reasoning as Steps' own
+             chip-group comment. -->
+        <div class="chip-group" id="hr-range" role="group" aria-label="Trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="hr-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
+        <div id="hr-range-chart"></div>
       </span>
     </div>
 
@@ -2611,6 +2686,26 @@
           <span>Avg protein: <strong id="nutrition-weekly-avg-protein">—</strong></span>
           <span>Avg fiber: <strong id="nutrition-weekly-avg-fiber">—</strong></span>
         </div>
+      </span>
+    </div>
+
+    <div class="card stack tilt-card tilt-enter">
+      <span class="tilt-press stack">
+        <div class="row" style="gap:10px;">
+          <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></span>
+          <strong>Calorie Trend</strong>
+        </div>
+        <!-- No "D" chip: one calorie total per day is this data's own
+             finest grain, so a single day can never form a multi-point
+             trend — same reasoning as Steps' own chip-group comment. -->
+        <div class="chip-group" id="nutrition-trend-range" role="group" aria-label="Calorie trend time range">
+          <button type="button" class="chip" data-value="W" aria-pressed="true">W</button>
+          <button type="button" class="chip" data-value="M" aria-pressed="false">M</button>
+          <button type="button" class="chip" data-value="6M" aria-pressed="false">6M</button>
+          <button type="button" class="chip" data-value="Y" aria-pressed="false">Y</button>
+        </div>
+        <p class="muted" id="nutrition-trend-range-copy" style="font-size:var(--fs-xs); margin:0;">Last 7 days.</p>
+        <div id="nutrition-trend-chart"></div>
       </span>
     </div>
 

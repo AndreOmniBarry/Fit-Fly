@@ -65,6 +65,31 @@ test.describe('vitals', () => {
     await expect(page.locator('#vitals-bp-trend-range')).toHaveText('118–128 mmHg');
   });
 
+  test('the blood-pressure trend range defaults to a real 7-day week, with no "D" chip', async ({ page }) => {
+    await expect(page.locator('#vitals-bp-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#vitals-bp-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#vitals-bp-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('blood-pressure readings on two real days each get a real chart bar with both systolic and diastolic in the tooltip', async ({
+    page,
+  }) => {
+    await page.evaluate(async () => {
+      const { getDb } = await import('/js/db/client.js');
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await getDb().bloodPressureSamples.add({ systolic: 118, diastolic: 76, pulseRate: null, source: 'manual', recordedAt: yesterday.toISOString() });
+    });
+    await page.locator('#vitals-bp-systolic').fill('128');
+    await page.locator('#vitals-bp-diastolic').fill('84');
+    await page.locator('#btn-vitals-bp-save').click();
+
+    const bars = page.locator('#vitals-bp-range-chart .trend-chart-bar');
+    await expect(bars).toHaveCount(2);
+    await bars.nth(1).click();
+    await expect(bars.nth(1).locator('.trend-chart-tooltip')).toContainText('128/84 mmHg');
+  });
+
   test('a blood-pressure crisis reading is flagged as concerning', async ({ page }) => {
     await page.locator('#vitals-bp-systolic').fill('185');
     await page.locator('#vitals-bp-diastolic').fill('95');
@@ -101,6 +126,28 @@ test.describe('vitals', () => {
     await expect(page.locator('#vitals-spo2-trend-card')).toBeVisible();
     await expect(page.locator('#vitals-spo2-trend-latest')).toHaveText('97%');
     await expect(page.locator('#vitals-spo2-trend-category')).toHaveText('Normal');
+  });
+
+  test('the SpO2 trend range defaults to a real 7-day week, with no "D" chip', async ({ page }) => {
+    await expect(page.locator('#vitals-spo2-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#vitals-spo2-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#vitals-spo2-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('SpO2 readings on two real days each get a real chart bar, tap shows the exact daily average', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { getDb } = await import('/js/db/client.js');
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await getDb().spo2Samples.add({ spo2: 96, pulseRate: null, source: 'manual', recordedAt: yesterday.toISOString() });
+    });
+    await page.locator('#vitals-spo2-percent').fill('98');
+    await page.locator('#btn-vitals-spo2-save').click();
+
+    const bars = page.locator('#vitals-spo2-range-chart .trend-chart-bar');
+    await expect(bars).toHaveCount(2);
+    await bars.nth(1).click();
+    await expect(bars.nth(1).locator('.trend-chart-tooltip')).toContainText('98%');
   });
 
   test('a low SpO2 reading is flagged as concerning', async ({ page }) => {

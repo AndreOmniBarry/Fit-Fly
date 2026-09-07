@@ -79,7 +79,56 @@ test.describe('heart rate', () => {
     await expect(page.locator('#hr-trend-avg')).toHaveText('70 bpm');
     await expect(page.locator('#hr-trend-range')).toHaveText('60–80 bpm');
     await expect(page.locator('#hr-trend-delta')).toHaveText('+20 bpm since last');
-    await expect(page.locator('#hr-trend-bars .hr-trend-bar')).toHaveCount(2);
+  });
+
+  test('the trend range defaults to a real 7-day week, with no "D" chip (same-day readings average into one point)', async ({
+    page,
+  }) => {
+    await expect(page.locator('#hr-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#hr-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#hr-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('two readings logged today (the same real day) average into one chart point, not two', async ({ page }) => {
+    await page.locator('#hr-manual-bpm').fill('60');
+    await page.locator('#btn-hr-manual-save').click();
+    await page.locator('#hr-manual-bpm').fill('80');
+    await page.locator('#btn-hr-manual-save').click();
+
+    await expect(page.locator('#hr-range-chart')).toContainText('Log a reading on a second day');
+  });
+
+  test('readings on two real days each get a real chart bar, tap shows the exact daily average', async ({ page }) => {
+    // heart-rate.js's own recordHeartRateSample always stamps "now" —
+    // inserting straight into the table (same shape it writes) is the
+    // only way to plant a genuinely backdated reading for this test.
+    await page.evaluate(async () => {
+      const { getDb } = await import('/js/db/client.js');
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await getDb().heartRateSamples.add({ bpm: 60, source: 'manual', confidence: null, sessionId: null, recordedAt: yesterday.toISOString() });
+    });
+    await page.locator('#hr-manual-bpm').fill('80');
+    await page.locator('#btn-hr-manual-save').click();
+
+    const bars = page.locator('#hr-range-chart .trend-chart-bar');
+    await expect(bars).toHaveCount(2);
+    await bars.nth(1).click();
+    await expect(bars.nth(1).locator('.trend-chart-tooltip')).toContainText('80 bpm');
+  });
+
+  test('switching the trend range updates the explanatory copy for every real range', async ({ page }) => {
+    const ranges = [
+      ['M', 'Last 30 days.'],
+      ['6M', 'Last 6 months, grouped by week.'],
+      ['Y', 'Last 12 months, grouped by month.'],
+      ['W', 'Last 7 days.'],
+    ];
+    for (const [value, copy] of ranges) {
+      await page.locator(`#hr-range button[data-value="${value}"]`).click();
+      await expect(page.locator('#hr-range-copy')).toHaveText(copy);
+      await expect(page.locator(`#hr-range button[data-value="${value}"]`)).toHaveAttribute('aria-pressed', 'true');
+    }
   });
 
   test('shows which sensing method produced the latest reading, and a resting/elevated/high zone', async ({

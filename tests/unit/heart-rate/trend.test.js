@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeHeartRateTrend } from '../../../js/features/heart-rate/trend.js';
+import { groupHeartRateByDate, summarizeHeartRateTrend } from '../../../js/features/heart-rate/trend.js';
 
 describe('summarizeHeartRateTrend', () => {
   it('is null with no readings at all', () => {
@@ -59,5 +59,28 @@ describe('summarizeHeartRateTrend', () => {
       { bpm: 75, source: 'camera-ppg', confidence: 'high' },
     ]);
     expect(result.latestSource).toBe('ble');
+  });
+});
+
+describe('groupHeartRateByDate', () => {
+  it('averages multiple same-day readings into one real daily bpm', () => {
+    const samples = [
+      { bpm: 60, recordedAt: '2026-03-15T08:00:00.000Z' },
+      { bpm: 80, recordedAt: '2026-03-15T20:00:00.000Z' },
+      { bpm: 70, recordedAt: '2026-03-14T08:00:00.000Z' },
+    ];
+    const averages = groupHeartRateByDate(samples);
+    expect(averages.get('2026-03-15')).toBe(70);
+    expect(averages.get('2026-03-14')).toBe(70);
+    expect(averages.size).toBe(2);
+  });
+
+  it('is empty with no samples', () => {
+    expect(groupHeartRateByDate([]).size).toBe(0);
+  });
+
+  it('a single reading on a day is that day\'s own average', () => {
+    const averages = groupHeartRateByDate([{ bpm: 65, recordedAt: '2026-01-01T12:00:00.000Z' }]);
+    expect(averages.get('2026-01-01')).toBe(65);
   });
 });

@@ -224,6 +224,58 @@ test.describe('nutrition', () => {
     await expect(page.locator('#nutrition-weekly-days-logged')).toContainText('1/7 days');
   });
 
+  test('the calorie trend chart stays in its honest empty state with fewer than 2 days logged', async ({ page }) => {
+    await expect(page.locator('#nutrition-trend-chart')).toContainText('Log a second day');
+
+    await page.locator('#nutrition-name').fill('Lunch');
+    await page.locator('#nutrition-calories').fill('600');
+    await page.locator('#btn-nutrition-add').click();
+    // Still just one real logged day — one bar isn't a trend.
+    await expect(page.locator('#nutrition-trend-chart')).toContainText('Log a second day');
+  });
+
+  test('the trend range defaults to a real 7-day week, with no "D" chip (one total per day can never form a trend)', async ({
+    page,
+  }) => {
+    await expect(page.locator('#nutrition-trend-range button[data-value="W"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#nutrition-trend-range-copy')).toHaveText('Last 7 days.');
+    await expect(page.locator('#nutrition-trend-range button[data-value="D"]')).toHaveCount(0);
+  });
+
+  test('the calorie trend chart renders a real bar per logged day, and tap shows its exact total', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { addNutritionEntry } = await import('/js/db/repositories/nutrition.js');
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      await addNutritionEntry({ date: yesterday.toISOString().slice(0, 10), name: 'Dinner', calories: 500, proteinG: 30, carbsG: 40, fatG: 10 });
+    });
+    await page.locator('#nutrition-name').fill('Lunch');
+    await page.locator('#nutrition-calories').fill('600');
+    await page.locator('#btn-nutrition-add').click();
+
+    const bars = page.locator('#nutrition-trend-chart .trend-chart-bar');
+    await expect(bars).toHaveCount(2);
+    await bars.nth(1).click();
+    await expect(bars.nth(1).locator('.trend-chart-tooltip')).toContainText('600 kcal');
+  });
+
+  test('switching the trend range updates the explanatory copy for every real range', async ({ page }) => {
+    const ranges = [
+      ['M', 'Last 30 days.'],
+      ['6M', 'Last 6 months, grouped by week.'],
+      ['Y', 'Last 12 months, grouped by month.'],
+      ['W', 'Last 7 days.'],
+    ];
+    for (const [value, copy] of ranges) {
+      await page.locator(`#nutrition-trend-range button[data-value="${value}"]`).click();
+      await expect(page.locator('#nutrition-trend-range-copy')).toHaveText(copy);
+      await expect(page.locator(`#nutrition-trend-range button[data-value="${value}"]`)).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    }
+  });
+
   test('shows a real "why this target" reasoning, and a fiber target derived from the calorie target', async ({
     page,
   }) => {

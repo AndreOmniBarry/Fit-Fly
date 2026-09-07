@@ -41,3 +41,27 @@ export function summarizeHeartRateTrend(samplesNewestFirst, windowSize = DEFAULT
     sparklineOldestFirst: [...bpms].reverse(),
   };
 }
+
+/** Averages same-day readings into one real daily bpm — several readings
+ *  in a day (manual + camera + BLE all in the same sitting) shouldn't
+ *  multiply-count in a day's trend point, the same "group before
+ *  bucketing" principle as Hydration's own groupHydrationByDate (sum
+ *  there since ml genuinely adds up; average here since bpm doesn't).
+ *  The basis for a real D/W/M/6M/Y trend (see js/lib/time-range.js)
+ *  instead of a fixed "last N readings" sparkline.
+ * @param {{bpm:number, recordedAt:string}[]} samples
+ * @returns {Map<string, number>} 'YYYY-MM-DD' -> that day's average bpm
+ */
+export function groupHeartRateByDate(samples) {
+  const totals = new Map();
+  for (const sample of samples) {
+    const date = sample.recordedAt.slice(0, 10);
+    const bucket = totals.get(date) ?? { sum: 0, count: 0 };
+    bucket.sum += sample.bpm;
+    bucket.count += 1;
+    totals.set(date, bucket);
+  }
+  const averages = new Map();
+  for (const [date, { sum, count }] of totals) averages.set(date, sum / count);
+  return averages;
+}

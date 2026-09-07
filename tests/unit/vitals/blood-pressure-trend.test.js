@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { summarizeBloodPressureTrend } from '../../../js/features/vitals/blood-pressure-trend.js';
+import { groupBloodPressureByDate, summarizeBloodPressureTrend } from '../../../js/features/vitals/blood-pressure-trend.js';
 
 describe('summarizeBloodPressureTrend', () => {
   it('is null with no readings at all', () => {
@@ -66,5 +66,23 @@ describe('summarizeBloodPressureTrend', () => {
     expect(result.sampleCount).toBe(3);
     expect(result.maxSystolic).toBe(122);
     expect(result.avgSystolic).toBe(120); // (120+118+122)/3, not including 200
+  });
+});
+
+describe('groupBloodPressureByDate', () => {
+  it('averages multiple same-day readings into one real daily systolic/diastolic pair', () => {
+    const samples = [
+      { systolic: 120, diastolic: 80, recordedAt: '2026-03-15T08:00:00.000Z' },
+      { systolic: 130, diastolic: 90, recordedAt: '2026-03-15T20:00:00.000Z' },
+      { systolic: 110, diastolic: 70, recordedAt: '2026-03-14T08:00:00.000Z' },
+    ];
+    const averages = groupBloodPressureByDate(samples);
+    expect(averages.get('2026-03-15')).toEqual({ avgSystolic: 125, avgDiastolic: 85 });
+    expect(averages.get('2026-03-14')).toEqual({ avgSystolic: 110, avgDiastolic: 70 });
+    expect(averages.size).toBe(2);
+  });
+
+  it('is empty with no samples', () => {
+    expect(groupBloodPressureByDate([]).size).toBe(0);
   });
 });

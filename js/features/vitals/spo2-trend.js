@@ -20,4 +20,23 @@ export function summarizeSpo2Trend(samplesNewestFirst, windowSize = DEFAULT_WIND
         sparklineOldestFirst: [...values].reverse(),
     };
 }
+/** Averages same-day readings into one real daily SpO2% — several
+ *  readings in a day shouldn't multiply-count in a day's trend point,
+ *  the same "group before bucketing" principle as Hydration's own
+ *  groupHydrationByDate. The basis for a real D/W/M/6M/Y trend (see
+ *  js/lib/time-range.js) instead of a fixed "last N readings" sparkline. */
+export function groupSpo2ByDate(samples) {
+    const totals = new Map();
+    for (const sample of samples) {
+        const date = sample.recordedAt.slice(0, 10);
+        const bucket = totals.get(date) ?? { sum: 0, count: 0 };
+        bucket.sum += sample.spo2;
+        bucket.count += 1;
+        totals.set(date, bucket);
+    }
+    const averages = new Map();
+    for (const [date, { sum, count }] of totals)
+        averages.set(date, sum / count);
+    return averages;
+}
 //# sourceMappingURL=spo2-trend.js.map

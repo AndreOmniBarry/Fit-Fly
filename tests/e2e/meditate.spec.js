@@ -53,8 +53,8 @@ test.describe('meditate', () => {
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
     for (const id of [
-      'quiet-mind', 'sadness', 'anger', 'grief', 'change', 'anxiety',
-      'self-compassion', 'loving-kindness', 'gratitude', 'resilience', 'quick-reset',
+      'quiet-mind', 'body-scan', 'sadness', 'anger', 'grief', 'change', 'anxiety',
+      'self-compassion', 'loving-kindness', 'gratitude', 'resilience', 'quick-reset', 'sleep-wind-down',
     ]) {
       const tile = page.locator(`#btn-meditate-${id}`);
       await expect(tile).toBeVisible();
@@ -65,6 +65,27 @@ test.describe('meditate', () => {
     }
 
     expect(consoleErrors).toEqual([]);
+  });
+
+  test('renders a real category per distinct technique/use-case, not one undifferentiated grid', async ({ page }) => {
+    // Real, distinct use-cases (see MEDITATE_CATEGORIES in meditations.ts) —
+    // stress reduction, self-compassion/connection, focus, sleep prep, and
+    // breathwork each get their own labeled section.
+    await expect(page.getByText('WORKING WITH STRESS & DIFFICULT EMOTIONS')).toBeVisible();
+    await expect(page.getByText('SELF-COMPASSION & CONNECTION')).toBeVisible();
+    await expect(page.getByText('FOCUS & GROUNDING')).toBeVisible();
+    await expect(page.getByText('SLEEP PREP')).toBeVisible();
+    await expect(page.getByText('BREATHWORK', { exact: true })).toBeVisible();
+
+    // Sleep prep is its own category — the wind-down technique lives there,
+    // not lumped in with generic breathwork or focus tiles.
+    const sleepSection = page.locator('#meditate-category-sleep');
+    await expect(sleepSection.locator('#btn-meditate-sleep-wind-down')).toBeVisible();
+    await expect(sleepSection.locator('#btn-meditate-box-breathing')).toHaveCount(0);
+
+    const focusSection = page.locator('#meditate-category-focus');
+    await expect(focusSection.locator('#btn-meditate-body-scan')).toBeVisible();
+    await expect(focusSection.locator('#btn-meditate-quiet-mind')).toBeVisible();
   });
 
   test('shows a real streak/minutes card and the "not medical advice" note', async ({ page }) => {
@@ -80,10 +101,37 @@ test.describe('meditate', () => {
     await expect(page.locator('#screen-guided-session')).not.toHaveClass(/theme-focus/);
   });
 
+  test('the new MBSR body scan plays through real captioned beats', async ({ page }) => {
+    test.setTimeout(45_000);
+    // Two real, word-count-paced intro beats (~18s combined) precede the
+    // first named body region — the caption wait must cover that real time,
+    // not a guessed shorter one.
+    await page.locator('#btn-meditate-body-scan').click();
+    await expect(page.locator('#guided-session-title')).toHaveText('Full Body Scan');
+    await expect(page.locator('#guided-session-caption')).toHaveText(/left foot/i, { timeout: 25_000 });
+  });
+
+  test('the new sleep wind-down (PMR) plays through a real tense/release beat', async ({ page }) => {
+    test.setTimeout(45_000);
+    // Same real-pacing note as above — ~21s of intro before the first
+    // "squeeze" (tense) beat of the first muscle group.
+    await page.locator('#btn-meditate-sleep-wind-down').click();
+    await expect(page.locator('#guided-session-title')).toHaveText('Wind-Down for Sleep');
+    await expect(page.locator('#guided-session-caption')).toHaveText(/squeeze/i, { timeout: 27_000 });
+  });
+
+  test('never reintroduces crisis-line content — a plain wellness disclaimer only', async ({ page }) => {
+    const bodyText = await page.locator('#screen-meditate').innerText();
+    expect(bodyText).not.toMatch(/988/);
+    expect(bodyText.toLowerCase()).not.toMatch(/crisis/);
+    await expect(page.getByText('not a substitute for a therapist or a diagnosis')).toBeVisible();
+  });
+
   test('End returns to the Meditate screen, not Focus', async ({ page }) => {
     await page.locator('#btn-meditate-gratitude').click();
     await page.locator('#btn-guided-session-end').click();
-    await expect(page.locator('#meditate-meditations-grid')).toBeVisible();
+    await expect(page.locator('#meditate-categories')).toBeVisible();
+    await expect(page.locator('#btn-meditate-gratitude')).toBeVisible();
   });
 
   test('a breathwork technique follows the real pacer, timed to its own beats', async ({ page }) => {
@@ -116,7 +164,7 @@ test.describe('meditate', () => {
     await page.clock.runFor('00:00:35');
     await page.waitForTimeout(200);
 
-    await expect(page.locator('#meditate-meditations-grid')).toBeVisible();
+    await expect(page.locator('#meditate-categories')).toBeVisible();
     await expect(page.locator('#meditate-stat-streak')).toHaveText('1', { timeout: 5000 });
     expect(consoleErrors).toEqual([]);
   });

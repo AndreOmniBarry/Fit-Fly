@@ -22,6 +22,11 @@ export interface GuidedSession {
   /** The technique this is built on, and why it's here — never shown in
    *  the product UI, just documentation for anyone maintaining this. */
   basis: string;
+  /** Which real, distinct use-case this session belongs to (stress relief,
+   *  self-compassion, focus, sleep prep, breathwork, ...) — optional here
+   *  since it's a Meditate-specific grouping (see meditations.ts's
+   *  MeditateCategoryId); Focus's own guided-sessions.ts leaves it unset. */
+  category?: string;
   beats: SessionBeat[];
 }
 

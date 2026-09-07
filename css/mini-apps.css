@@ -1224,6 +1224,14 @@
   background:var(--meditate-accent-soft); color:var(--meditate-accent);
 }
 
+/* One section per real category (MEDITATE_CATEGORIES in meditations.ts),
+   built by meditate-view.ts's buildCategorySections() — same label style
+   the screen used inline before categories existed. */
+.meditate-category{ display:flex; flex-direction:column; gap:12px; margin-top:var(--space-4); }
+.meditate-category-label{
+  font-size:12.5px; font-weight:600; color:var(--meditate-ink-muted); letter-spacing:0.04em;
+}
+
 .focus-timer-row{ display:flex; gap:8px; }
 .focus-timer-pill{
   flex:1; text-align:center; padding:10px 4px; border-radius:12px;

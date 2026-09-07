@@ -21,6 +21,7 @@ describe('schema', () => {
         'profile',
         'heartRateSamples',
         'meditationSessions',
+        'napLogs',
         'noiseCheckIns',
         'noiseMonitorSamples',
         'noiseMonitorSessions',
@@ -36,6 +37,7 @@ describe('schema', () => {
         'sleepLogs',
         'spo2Samples',
         'stepEntries',
+        'temperatureSamples',
       ].sort()
     );
     db.close();

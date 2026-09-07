@@ -32,8 +32,10 @@ test.describe('vitals', () => {
     await expect(page.getByRole('heading', { name: 'Blood pressure & oxygen' })).toBeVisible();
     await expect(page.locator('#vitals-bp-history-list')).toContainText('No readings yet');
     await expect(page.locator('#vitals-spo2-history-list')).toContainText('No readings yet');
+    await expect(page.locator('#vitals-temp-history-list')).toContainText('No readings yet');
     await expect(page.locator('#vitals-bp-trend-card')).toBeHidden();
     await expect(page.locator('#vitals-spo2-trend-card')).toBeHidden();
+    await expect(page.locator('#vitals-temp-trend-card')).toBeHidden();
 
     expect(consoleErrors).toEqual([]);
   });
@@ -163,7 +165,51 @@ test.describe('vitals', () => {
     await expect(page.locator('#vitals-spo2-history-list')).toContainText('No readings yet');
   });
 
-  test('logging both a BP and an SpO2 reading updates the combined streak and week count', async ({ page }) => {
+  test('a body-temperature manual entry saves, categorizes correctly, and surfaces a real trend', async ({ page }) => {
+    await page.locator('#vitals-temp-fahrenheit').fill('101.5');
+    await page.locator('#btn-vitals-temp-save').click();
+
+    const entry = page.locator('#vitals-temp-history-list .vitals-card').first();
+    await expect(entry).toContainText('101.5°F');
+    await expect(entry).toContainText('Manual');
+    await expect(entry.locator('.vitals-category-badge')).toHaveText('Fever');
+
+    await expect(page.locator('#vitals-temp-trend-card')).toBeVisible();
+    await expect(page.locator('#vitals-temp-trend-latest')).toHaveText('101.5°F');
+    await expect(page.locator('#vitals-temp-trend-category')).toHaveText('Fever');
+    await expect(page.locator('#vitals-temp-trend-delta')).toHaveText(''); // nothing prior to compare against
+
+    // A second, lower reading — real delta and range, back in Celsius
+    // internally but shown in °F throughout.
+    await page.locator('#vitals-temp-fahrenheit').fill('98.6');
+    await page.locator('#btn-vitals-temp-save').click();
+    await expect(page.locator('#vitals-temp-trend-latest')).toHaveText('98.6°F');
+    await expect(page.locator('#vitals-temp-trend-category')).toHaveText('Normal');
+    await expect(page.locator('#vitals-temp-trend-delta')).toHaveText('-2.9°F since last');
+    await expect(page.locator('#vitals-temp-trend-range')).toHaveText('98.6°F–101.5°F');
+  });
+
+  test('a high-fever reading is flagged as concerning, and a hypothermia-range reading too', async ({ page }) => {
+    await page.locator('#vitals-temp-fahrenheit').fill('104');
+    await page.locator('#btn-vitals-temp-save').click();
+
+    await expect(page.locator('#vitals-temp-trend-category')).toContainText('High fever');
+    await expect(page.locator('#vitals-temp-trend-category')).toHaveClass(/is-concerning/);
+
+    await page.locator('#vitals-temp-fahrenheit').fill('93');
+    await page.locator('#btn-vitals-temp-save').click();
+    await expect(page.locator('#vitals-temp-trend-category')).toContainText('Hypothermia');
+    await expect(page.locator('#vitals-temp-trend-category')).toHaveClass(/is-concerning/);
+  });
+
+  test('body-temperature manual entry rejects an out-of-range value', async ({ page }) => {
+    await page.locator('#vitals-temp-fahrenheit').fill('150');
+    await page.locator('#btn-vitals-temp-save').click();
+    await expect(page.locator('#err-vitals-temp')).toBeVisible();
+    await expect(page.locator('#vitals-temp-history-list')).toContainText('No readings yet');
+  });
+
+  test('logging a BP, an SpO2, and a body-temperature reading updates the combined streak and week count', async ({ page }) => {
     await expect(page.locator('#vitals-stat-streak')).toHaveText('0');
     await expect(page.locator('#vitals-stat-week-count')).toHaveText('0');
 
@@ -172,11 +218,13 @@ test.describe('vitals', () => {
     await page.locator('#btn-vitals-bp-save').click();
     await page.locator('#vitals-spo2-percent').fill('98');
     await page.locator('#btn-vitals-spo2-save').click();
+    await page.locator('#vitals-temp-fahrenheit').fill('98.6');
+    await page.locator('#btn-vitals-temp-save').click();
 
-    // Same day counts once toward the streak, but both readings still
+    // Same day counts once toward the streak, but all three readings still
     // count toward "this week".
     await expect(page.locator('#vitals-stat-streak')).toHaveText('1', { timeout: 3000 });
-    await expect(page.locator('#vitals-stat-week-count')).toHaveText('2', { timeout: 3000 });
+    await expect(page.locator('#vitals-stat-week-count')).toHaveText('3', { timeout: 3000 });
   });
 
   test('Bluetooth sections degrade gracefully when unsupported', async ({ page }) => {
@@ -184,11 +232,14 @@ test.describe('vitals', () => {
     if (bluetoothSupported) {
       await expect(page.locator('#btn-vitals-bp-ble-connect')).toBeEnabled();
       await expect(page.locator('#btn-vitals-spo2-ble-connect')).toBeEnabled();
+      await expect(page.locator('#btn-vitals-temp-ble-connect')).toBeEnabled();
     } else {
       await expect(page.locator('#vitals-bp-ble-status')).toContainText('use a manual entry instead');
       await expect(page.locator('#btn-vitals-bp-ble-connect')).toBeDisabled();
       await expect(page.locator('#vitals-spo2-ble-status')).toContainText('use a manual entry instead');
       await expect(page.locator('#btn-vitals-spo2-ble-connect')).toBeDisabled();
+      await expect(page.locator('#vitals-temp-ble-status')).toContainText('use a manual entry instead');
+      await expect(page.locator('#btn-vitals-temp-ble-connect')).toBeDisabled();
     }
   });
 

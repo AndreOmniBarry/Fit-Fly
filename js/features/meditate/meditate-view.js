@@ -1,9 +1,12 @@
 // Meditate's own screen: a picker for the guided meditation and breathwork
-// libraries (meditations.ts) plus a real streak/minutes card built from
-// logged completions — the same "reload on entry, not just at boot"
-// pattern as sleep-view.ts, and the same Hub-tile-subtitle handoff as
-// sleep-view.ts/focus-view.ts (see hub-view.ts's doc comment). Playback
-// itself is entirely the shared guided-session player
+// library (meditations.ts), rendered as one section per real category
+// (stress/difficult emotion, self-compassion & connection, focus &
+// grounding, sleep prep, breathwork — see MEDITATE_CATEGORIES) rather than
+// one flat grid, plus a real streak/minutes card built from logged
+// completions — the same "reload on entry, not just at boot" pattern as
+// sleep-view.ts, and the same Hub-tile-subtitle handoff as sleep-view.ts/
+// focus-view.ts (see hub-view.ts's doc comment). Playback itself is
+// entirely the shared guided-session player
 // (js/features/focus/guided-session-view.ts) — this module never touches
 // a countdown, the pacer, or voice guidance directly.
 import { showScreen } from '../../lib/router.js';
@@ -14,9 +17,10 @@ import { totalDurationSeconds } from '../../lib/guided-session.js';
 import { setMeditateTileSubtitle } from '../hub/hub-view.js';
 import { recordMeditationSession, listRecentMeditationSessions } from '../../db/repositories/meditation.js';
 import { calculateMeditationStreak, sessionsInLastNDays, totalMinutes } from './meditate-trends.js';
-import { MEDITATIONS, BREATHWORK } from './meditations.js';
+import { MEDITATE_CATEGORIES } from './meditations.js';
 const SESSION_ICON = {
     'quiet-mind': 'leaf',
+    'body-scan': 'meditate',
     sadness: 'droplet',
     anger: 'flame',
     grief: 'moon-stars',
@@ -27,6 +31,7 @@ const SESSION_ICON = {
     gratitude: 'sparkle',
     resilience: 'target',
     'quick-reset': 'check',
+    'sleep-wind-down': 'moon',
     'four-seven-eight': 'lungs',
     'physiological-sigh': 'wind',
     'box-breathing': 'grid',
@@ -57,9 +62,7 @@ export function initMeditateFeature(player) {
             },
         });
     }
-    function buildGrid(gridId, sessions) {
-        const grid = byId(gridId);
-        grid.innerHTML = '';
+    function buildGrid(grid, sessions) {
         sessions.forEach((session, index) => {
             const tile = document.createElement('button');
             tile.type = 'button';
@@ -71,6 +74,34 @@ export function initMeditateFeature(player) {
             tile.addEventListener('click', () => playSession(session));
             grid.append(tile);
         });
+    }
+    /** Renders one section per real category (see MEDITATE_CATEGORIES in
+     *  meditations.ts) — stress, self-compassion/connection, focus, sleep
+     *  prep, breathwork — instead of one undifferentiated grid, so the
+     *  picker itself reflects that these are distinct techniques for
+     *  distinct use-cases, not interchangeable reskins of the same content.
+     *  Content-driven: adding or recategorizing a session in the data module
+     *  is all it takes for this to pick it up, no view-code change needed. */
+    function buildCategorySections() {
+        const container = byId('meditate-categories');
+        container.innerHTML = '';
+        for (const category of MEDITATE_CATEGORIES) {
+            if (category.sessions.length === 0)
+                continue;
+            const section = document.createElement('div');
+            section.className = 'meditate-category';
+            section.id = `meditate-category-${category.id}`;
+            const heading = document.createElement('span');
+            heading.className = 'meditate-category-label';
+            heading.textContent = category.label.toUpperCase();
+            heading.title = category.description;
+            const grid = document.createElement('div');
+            grid.className = 'focus-sound-grid';
+            grid.id = `meditate-grid-${category.id}`;
+            section.append(heading, grid);
+            container.append(section);
+            buildGrid(grid, category.sessions);
+        }
     }
     /** Real numbers, not a guess — recomputed from what's actually logged
      *  every time this screen is reached, same discipline as Sleep's
@@ -85,8 +116,7 @@ export function initMeditateFeature(player) {
         animateCountUp(byId('meditate-stat-minutes'), minutesThisWeek);
         setMeditateTileSubtitle(streak > 0 ? `${streak}-day streak` : 'Guided meditation & breathwork');
     }
-    buildGrid('meditate-meditations-grid', MEDITATIONS);
-    buildGrid('meditate-breathwork-grid', BREATHWORK);
+    buildCategorySections();
     byId('btn-meditate-back').addEventListener('click', () => showScreen('screen-hub'));
     // Same pattern as Sleep: the Hub's own tile click both navigates
     // (hub-view.ts) and, here, reloads real numbers for whatever's been

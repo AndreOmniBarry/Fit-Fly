@@ -6,13 +6,31 @@ import { bucketDailyPoints, formatBucketAxisLabel, formatBucketDetailLabel, time
 import { setVitalsTileSubtitle } from '../hub/hub-view.js';
 import { connectBloodPressureMonitor, isBluetoothAvailable as isBleAvailableForBp } from './ble-blood-pressure.js';
 import { connectPulseOximeterMonitor, isBluetoothAvailable as isBleAvailableForSpo2 } from './ble-pulse-oximeter.js';
+import { connectBodyTemperatureMonitor, isBluetoothAvailable as isBleAvailableForTemp } from './ble-body-temperature.js';
 import { BP_SOURCE, listRecentBloodPressureSamples, recordBloodPressureSample, } from '../../db/repositories/blood-pressure.js';
 import { SPO2_SOURCE, listRecentSpo2Samples, recordSpo2Sample } from '../../db/repositories/spo2.js';
+import { BODY_TEMPERATURE_SOURCE, listRecentBodyTemperatureSamples, recordBodyTemperatureSample, } from '../../db/repositories/body-temperature.js';
 import { categorizeBloodPressure, describeBloodPressureCategory, isConcerningBloodPressure } from './blood-pressure-category.js';
 import { categorizeSpo2, describeSpo2Category, isConcerningSpo2 } from './spo2-category.js';
+import { categorizeBodyTemperature, describeBodyTemperatureCategory, isConcerningBodyTemperature, } from './body-temperature-category.js';
 import { groupBloodPressureByDate, summarizeBloodPressureTrend } from './blood-pressure-trend.js';
 import { groupSpo2ByDate, summarizeSpo2Trend } from './spo2-trend.js';
+import { summarizeBodyTemperatureTrend } from './body-temperature-trend.js';
 import { calculateVitalsStreak } from './vitals-streak.js';
+import { celsiusToFahrenheit, fahrenheitToCelsius } from '../../lib/units.js';
+// Manual entry is in °F (the everyday unit for a home/oral thermometer in
+// the US) but every reading is stored in Celsius — the same unit the BLE
+// thermometer path normalizes to (see ble-body-temperature.js) and the
+// same unit categorizeBodyTemperature's real reference table is written
+// against — so there's exactly one unit conversion in this whole feature,
+// at manual-entry time, not one hiding in every later read.
+// Bounds: below the lowest recorded/plausible home-thermometer reading a
+// person could genuinely have (real severe hypothermia can read into the
+// 80s°F) up to a very high fever most home thermometers still display —
+// wide enough not to reject a real emergency reading, narrow enough to
+// catch a fat-fingered entry.
+const MIN_TEMP_F = 85;
+const MAX_TEMP_F = 110;
 function byId(id) {
     const el = document.getElementById(id);
     if (!el)
@@ -138,6 +156,53 @@ export function initVitalsFeature() {
             },
         });
     });
+    // ---------- body temperature: manual entry ----------
+    byId('btn-vitals-temp-save').addEventListener('click', async () => {
+        const fahrenheit = Number(byId('vitals-temp-fahrenheit').value);
+        const valid = fahrenheit >= MIN_TEMP_F && fahrenheit <= MAX_TEMP_F;
+        byId('err-vitals-temp').hidden = valid;
+        if (!valid)
+            return;
+        await recordBodyTemperatureSample({
+            temperatureCelsius: fahrenheitToCelsius(fahrenheit),
+            source: BODY_TEMPERATURE_SOURCE.MANUAL,
+        });
+        byId('vitals-temp-fahrenheit').value = '';
+        await refreshAll();
+    });
+    // ---------- body temperature: BLE ----------
+    if (isBleAvailableForTemp()) {
+        byId('vitals-temp-ble-status').textContent = 'A compatible thermometer can connect over Bluetooth.';
+    }
+    else {
+        byId('vitals-temp-ble-status').textContent =
+            "Bluetooth isn't supported in this browser — use a manual entry instead.";
+        byId('btn-vitals-temp-ble-connect').disabled = true;
+    }
+    byId('btn-vitals-temp-ble-connect').addEventListener('click', async () => {
+        byId('vitals-temp-ble-status').textContent = 'Connecting…';
+        await connectBodyTemperatureMonitor({
+            onReading: async (reading) => {
+                if (reading.temperatureCelsius == null) {
+                    byId('vitals-temp-ble-status').textContent = "Connected, but that reading wasn't valid — try again.";
+                    return;
+                }
+                byId('vitals-temp-ble-status').textContent =
+                    `Connected — last reading ${celsiusToFahrenheit(reading.temperatureCelsius).toFixed(1)}°F`;
+                await recordBodyTemperatureSample({
+                    temperatureCelsius: reading.temperatureCelsius,
+                    source: BODY_TEMPERATURE_SOURCE.BLE,
+                });
+                await refreshAll();
+            },
+            onDisconnect: () => {
+                byId('vitals-temp-ble-status').textContent = 'Disconnected.';
+            },
+            onError: (error) => {
+                byId('vitals-temp-ble-status').textContent = error.message;
+            },
+        });
+    });
     byId('btn-home-vitals').addEventListener('click', () => {
         void refreshAll();
     });
@@ -163,9 +228,10 @@ async function refreshAll() {
     // Steps'/Hydration's own listAll*Entries() take — so the range charts
     // below can genuinely cover a full year, not just whatever a small
     // fixed limit happened to include.
-    const [bpSamples, spo2Samples] = await Promise.all([
+    const [bpSamples, spo2Samples, tempSamples] = await Promise.all([
         listRecentBloodPressureSamples(500),
         listRecentSpo2Samples(500),
+        listRecentBodyTemperatureSamples(500),
     ]);
     cachedBpSamples = bpSamples;
     cachedSpo2Samples = spo2Samples;
@@ -175,14 +241,17 @@ async function refreshAll() {
     renderSpo2Trend(spo2Samples);
     renderSpo2RangeChart(spo2Samples);
     renderSpo2History(spo2Samples.slice(0, 20));
-    renderStats(bpSamples, spo2Samples);
+    renderTempTrend(tempSamples);
+    renderTempHistory(tempSamples.slice(0, 20));
+    renderStats(bpSamples, spo2Samples, tempSamples);
 }
-function renderStats(bpSamples, spo2Samples) {
+function renderStats(bpSamples, spo2Samples, tempSamples) {
     const today = new Date();
-    const allDates = [...bpSamples, ...spo2Samples].map((s) => toDateOnly(s.recordedAt));
+    const allDates = [...bpSamples, ...spo2Samples, ...tempSamples].map((s) => toDateOnly(s.recordedAt));
     const streak = calculateVitalsStreak(allDates);
     const weekCount = bpSamples.filter((s) => isWithinLastNDays(s.recordedAt, 7, today)).length +
-        spo2Samples.filter((s) => isWithinLastNDays(s.recordedAt, 7, today)).length;
+        spo2Samples.filter((s) => isWithinLastNDays(s.recordedAt, 7, today)).length +
+        tempSamples.filter((s) => isWithinLastNDays(s.recordedAt, 7, today)).length;
     animateCountUp(byId('vitals-stat-streak'), streak);
     animateCountUp(byId('vitals-stat-week-count'), weekCount);
     setVitalsTileSubtitle(streak > 0 ? `${streak}-day streak` : 'Blood pressure & oxygen');
@@ -339,6 +408,73 @@ function renderSpo2History(samples) {
             <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${SOURCE_LABEL[sample.source]} · ${formatDateLabel(sample.recordedAt)}</p>
           </span>
           <span class="vitals-category-badge${isConcerningSpo2(category) ? ' is-concerning' : ''}">${describeSpo2Category(category)}</span>
+        </div>
+      `;
+    })
+        .join('');
+}
+function formatTempF(celsius) {
+    return `${celsiusToFahrenheit(celsius).toFixed(1)}°F`;
+}
+function renderTempTrend(samplesNewestFirst) {
+    const trend = summarizeBodyTemperatureTrend(samplesNewestFirst);
+    const card = byId('vitals-temp-trend-card');
+    card.hidden = !trend;
+    if (!trend)
+        return;
+    animateCountUp(byId('vitals-temp-trend-latest'), celsiusToFahrenheit(trend.latest), {
+        formatter: (n) => `${n.toFixed(1)}°F`,
+    });
+    const category = categorizeBodyTemperature(trend.latest);
+    const badge = byId('vitals-temp-trend-category');
+    badge.textContent = describeBodyTemperatureCategory(category);
+    badge.classList.toggle('is-concerning', isConcerningBodyTemperature(category));
+    byId('vitals-temp-trend-count').textContent = String(trend.sampleCount);
+    byId('vitals-temp-trend-avg').textContent = formatTempF(trend.average);
+    byId('vitals-temp-trend-range').textContent =
+        trend.min === trend.max ? formatTempF(trend.min) : `${formatTempF(trend.min)}–${formatTempF(trend.max)}`;
+    const deltaEl = byId('vitals-temp-trend-delta');
+    if (trend.deltaFromPrevious == null) {
+        deltaEl.textContent = '';
+    }
+    else if (trend.deltaFromPrevious === 0) {
+        deltaEl.textContent = 'same as last';
+    }
+    else {
+        // Convert the delta itself (a Celsius *difference*, not an absolute
+        // temperature) with the same linear factor as celsiusToFahrenheit's
+        // slope — a straight delta * 9/5 is correct here, only the +32 offset
+        // (which only applies to absolute temperatures) is intentionally
+        // skipped so a delta of 0 stays 0 either way.
+        const deltaF = (trend.deltaFromPrevious * 9) / 5;
+        const sign = deltaF > 0 ? '+' : '';
+        deltaEl.textContent = `${sign}${deltaF.toFixed(1)}°F since last`;
+    }
+    const maxValue = Math.max(...trend.sparklineOldestFirst);
+    byId('vitals-temp-trend-bars').innerHTML = trend.sparklineOldestFirst
+        .map((value, i) => {
+        const isLatest = i === trend.sparklineOldestFirst.length - 1;
+        const heightPct = Math.max(8, Math.round((value / maxValue) * 100));
+        return `<div class="vitals-trend-bar-col"><div class="vitals-trend-bar${isLatest ? ' is-latest' : ''}" style="height:${heightPct}%" title="${formatTempF(value)}"></div></div>`;
+    })
+        .join('');
+}
+function renderTempHistory(samples) {
+    const list = byId('vitals-temp-history-list');
+    if (samples.length === 0) {
+        list.innerHTML = '<p class="muted center-text">No readings yet.</p>';
+        return;
+    }
+    list.innerHTML = samples
+        .map((sample) => {
+        const category = categorizeBodyTemperature(sample.temperatureCelsius);
+        return `
+        <div class="vitals-card row-between tilt-card tilt-enter">
+          <span>
+            <strong>${formatTempF(sample.temperatureCelsius)}</strong>
+            <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${SOURCE_LABEL[sample.source]} · ${formatDateLabel(sample.recordedAt)}</p>
+          </span>
+          <span class="vitals-category-badge${isConcerningBodyTemperature(category) ? ' is-concerning' : ''}">${describeBodyTemperatureCategory(category)}</span>
         </div>
       `;
     })

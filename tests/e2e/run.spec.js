@@ -477,6 +477,64 @@ test.describe('run mode', () => {
     await expect(page.locator('#hub-run-sub')).toContainText('m'); // real distance, not a streak count
   });
 
+  test('the elevation section stays hidden when this device reports no real GPS altitude — the common case', async ({ page, context }) => {
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5); // test.use()'s mocked geolocation reports no altitude at all
+    await page.getByRole('button', { name: 'Finish' }).click();
+
+    await expect(page.locator('#run-summary-elevation-card')).toBeHidden();
+
+    await page.getByRole('button', { name: 'View History' }).click();
+    await expect(page.locator('#run-elevation-lifetime-card')).toBeHidden();
+  });
+
+  test('a real elevation profile and flights-climbed count appear once the device reports real GPS altitude', async ({ page }) => {
+    // Playwright's own context.setGeolocation() has no altitude field at
+    // all — the only way to exercise a real climb here is to stub
+    // watchPosition directly, same technique the "denied" test above
+    // already uses for its own scripted position sequence.
+    await page.addInitScript(() => {
+      let lat = 40.7128;
+      let lon = -74.006;
+      let altitude = 10;
+      window.navigator.geolocation.watchPosition = (success) => {
+        let fixes = 0;
+        const timer = setInterval(() => {
+          fixes += 1;
+          lat += 0.001;
+          lon += 0.001;
+          altitude += 4; // a real, steady climb well above the 1m noise floor
+          success({
+            coords: { latitude: lat, longitude: lon, accuracy: 10, altitude, altitudeAccuracy: 5 },
+            timestamp: Date.now(),
+          });
+          if (fixes >= 6) clearInterval(timer);
+        }, 60);
+        return 1;
+      };
+      window.navigator.geolocation.clearWatch = () => {};
+    });
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    await page.waitForTimeout(500); // let the scripted fixes land
+    await page.getByRole('button', { name: 'Finish' }).click();
+
+    await expect(page.locator('#run-summary-elevation-card')).toBeVisible();
+    await expect(page.locator('#run-summary-elevation-gain')).toContainText('m');
+    await expect(page.locator('#run-summary-elevation-flights')).toContainText('flight');
+
+    await page.getByRole('button', { name: 'View History' }).click();
+    await expect(page.locator('#run-elevation-lifetime-card')).toBeVisible();
+    await expect(page.locator('#run-elevation-lifetime-flights')).toContainText('flight');
+    await expect(page.locator('#run-history-list .data-badge.estimated').first()).toBeVisible();
+  });
+
   test('the live and history screens carry Run\'s own visual identity, same as the other mini-apps', async ({ page }) => {
     await page.locator('#btn-home-run').click();
     await expect(page.locator('#screen-run')).toHaveClass(/theme-run/);

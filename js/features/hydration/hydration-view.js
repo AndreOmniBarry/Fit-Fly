@@ -14,9 +14,10 @@ import { bucketDailyPoints, formatBucketAxisLabel, formatBucketDetailLabel, time
 import { getNotificationPermission, requestNotificationPermission, showNotification } from '../../lib/notifications.js';
 import { setHydrationTileSubtitle } from '../hub/hub-view.js';
 import { hydrationNeedsReminder } from './hydration-reminders.js';
-import { averageHydrationPerLoggedDay, bestHydrationDayEver, calculateHydrationStreak, groupHydrationByDate, } from './hydration-trend.js';
+import { averageHydrationPerLoggedDay, bestHydrationDayEver, calculateHydrationStreak, crossesNewPersonalRecord, groupHydrationByDate, } from './hydration-trend.js';
 import { addHydrationEntry, listAllHydrationEntries, listHydrationEntriesForDate, listRecentHydrationEntries, sumHydrationEntries, } from '../../db/repositories/hydration.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
+import { buildWeekStrip, renderWeekStrip } from '../../lib/week-strip.js';
 const DEFAULT_GOAL_ML = 2200;
 const GOAL_PREF_KEY = 'hydrationGoalMl';
 const DEFAULT_INTERVAL_HOURS = 2;
@@ -58,9 +59,7 @@ export function initHydrationFeature() {
             const amountMl = Number(btn.dataset.ml);
             if (!Number.isFinite(amountMl) || amountMl <= 0)
                 return;
-            await addHydrationEntry({ amountMl });
-            await refreshAll();
-            triggerHydrationSplash();
+            await logHydration(amountMl);
         });
     });
     byId('btn-hydration-custom-save').addEventListener('click', async () => {
@@ -69,10 +68,8 @@ export function initHydrationFeature() {
         byId('err-hydration-custom').hidden = valid;
         if (!valid)
             return;
-        await addHydrationEntry({ amountMl });
+        await logHydration(amountMl);
         byId('hydration-custom-ml').value = '';
-        await refreshAll();
-        triggerHydrationSplash();
     });
     // ---------- daily goal ----------
     byId('btn-hydration-goal-save').addEventListener('click', () => {
@@ -146,6 +143,28 @@ async function checkHydrationReminders() {
         body: todayMl > 0 ? `${todayMl}ml logged so far today — keep going.` : "You haven't logged a drink yet today.",
     });
 }
+function todayIso() {
+    return new Date().toISOString().slice(0, 10);
+}
+/** Logs a real drink, then checks it against the real all-time best from
+ *  every *other* logged day (crossesNewPersonalRecord in
+ *  hydration-trend.ts) — the personal-record celebration this screen's
+ *  glass/streak/best-day badge didn't already have a moment for. Snapshots
+ *  "today so far" and "the record to beat" from state *before* this log
+ *  lands, so the check is a real before/after comparison, not a fuzzy
+ *  guess from whatever refreshAll() happens to leave behind. */
+async function logHydration(amountMl) {
+    const today = todayIso();
+    const todayMlBefore = sumHydrationEntries(cachedAllHydrationEntries.filter((e) => e.date === today));
+    const priorBest = bestHydrationDayEver(cachedAllHydrationEntries.filter((e) => e.date !== today));
+    await addHydrationEntry({ amountMl });
+    await refreshAll();
+    triggerHydrationSplash();
+    const todayMlAfter = todayMlBefore + amountMl;
+    if (crossesNewPersonalRecord(todayMlBefore, todayMlAfter, priorBest?.amountMl ?? null)) {
+        triggerHydrationRecordCelebration(todayMlAfter);
+    }
+}
 async function refreshAll() {
     const [todayEntries, recent, all] = await Promise.all([
         listHydrationEntriesForDate(),
@@ -154,9 +173,20 @@ async function refreshAll() {
     ]);
     cachedAllHydrationEntries = all;
     renderFigure(sumHydrationEntries(todayEntries));
+    renderWeekStripSection(all);
     renderStats(recent);
     renderHistory(todayEntries);
     renderTrend(all);
+}
+/** The real last-7-days recap strip (js/lib/week-strip.ts), Hydration's
+ *  own droplet-themed twin of Steps' footprint strip. */
+function renderWeekStripSection(all) {
+    const goal = getGoalMl();
+    const totals = groupHydrationByDate(all);
+    const loggedDates = new Set(totals.keys());
+    const goalMetDates = new Set([...totals.entries()].filter(([, amountMl]) => amountMl >= goal).map(([date]) => date));
+    const days = buildWeekStrip(loggedDates, goalMetDates);
+    renderWeekStrip(byId('hydration-week-strip'), days, { icon: 'droplet', accentVar: '--hydration-accent' });
 }
 function renderFigure(todayMl) {
     const goal = getGoalMl();
@@ -186,6 +216,26 @@ function triggerHydrationSplash() {
     ring.setAttribute('cy', fillY);
     ring.classList.remove('is-active');
     requestAnimationFrame(() => ring.classList.add('is-active'));
+}
+// The one "personal record" celebration moment this screen didn't already
+// have — the streak and best-day badge are both quiet, standing facts;
+// this is the one-shot moment *at the instant* a real log beats them (see
+// crossesNewPersonalRecord in hydration-trend.ts). Auto-dismisses on a
+// timer rather than needing a tap, same "doesn't block logging the next
+// drink" spirit as the splash ring beside it.
+let recordToastTimer = null;
+function triggerHydrationRecordCelebration(newTodayMl) {
+    const toast = byId('hydration-record-toast');
+    byId('hydration-record-toast-text').textContent = `New personal best — ${newTodayMl.toLocaleString()}ml today!`;
+    toast.hidden = false;
+    toast.classList.remove('is-active');
+    requestAnimationFrame(() => toast.classList.add('is-active'));
+    if (recordToastTimer != null)
+        clearTimeout(recordToastTimer);
+    recordToastTimer = setTimeout(() => {
+        toast.hidden = true;
+        recordToastTimer = null;
+    }, 4000);
 }
 function renderStats(recent) {
     const streak = calculateHydrationStreak(recent);

@@ -58,6 +58,9 @@ test.describe('readiness', () => {
     await expect(page.locator('#readiness-category')).toContainText('high');
     await expect(page.locator('#readiness-score')).toContainText('/ 100');
     await expect(page.locator('#readiness-reasoning li').first()).toBeVisible();
+    // The actual "what to do about it" line — not just a bare number.
+    await expect(page.locator('#readiness-suggestion')).not.toHaveText('—');
+    await expect(page.locator('#readiness-suggestion')).toContainText('push');
 
     expect(consoleErrors).toEqual([]);
   });
@@ -70,6 +73,62 @@ test.describe('readiness', () => {
 
     await expect(page.locator('#readiness-category')).toContainText('low');
     await expect(page.locator('#readiness-reasoning')).toContainText('Sleep');
+    await expect(page.locator('#readiness-suggestion')).toContainText('easier');
+  });
+
+  test('prefills tonight\'s sleep hours from a real Sleep log entry, with a visible hint, instead of asking again', async ({
+    page,
+  }) => {
+    await page.locator('#btn-readiness-back').click();
+
+    await page.evaluate(async () => {
+      const { saveSleepLog } = await import('/js/db/repositories/sleep-logs.js');
+      const today = new Date().toISOString().slice(0, 10);
+      await saveSleepLog({ date: today, bedTime: null, wakeTime: null, durationMinutes: 450, quality: 4, notes: '' });
+    });
+
+    await page.locator('#btn-home-readiness').click();
+
+    await expect(page.locator('#readiness-sleep')).toHaveValue('7.5');
+    await expect(page.locator('#readiness-sleep-hint')).toBeVisible();
+    await expect(page.locator('#readiness-sleep-hint')).toContainText('Sleep log');
+
+    // It's a prefill, not a lock — still fully editable and still saves.
+    await page.locator('#readiness-sleep').fill('6');
+    await page.locator('#readiness-energy button[data-value="3"]').click();
+    await page.locator('#btn-readiness-save').click();
+    await expect(page.locator('#readiness-result')).toBeVisible();
+  });
+
+  test('carries real sleep-debt context into the reasoning when Sleep has a shortfall logged', async ({ page }) => {
+    await page.locator('#btn-readiness-back').click();
+
+    await page.evaluate(async () => {
+      const { saveSleepLog } = await import('/js/db/repositories/sleep-logs.js');
+      const today = new Date();
+      // Several short nights in a row — a real, sizeable debt against
+      // the 7h floor, not a one-off.
+      for (let i = 1; i <= 4; i++) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        await saveSleepLog({
+          date: d.toISOString().slice(0, 10),
+          bedTime: null,
+          wakeTime: null,
+          durationMinutes: 300, // 5h — 2h short of the 7h floor, each night
+          quality: 3,
+          notes: '',
+        });
+      }
+    });
+
+    await page.locator('#btn-home-readiness').click();
+    await page.locator('#readiness-sleep').fill('8');
+    await page.locator('#readiness-energy button[data-value="5"]').click();
+    await page.locator('#readiness-soreness button[data-value="1"]').click();
+    await page.locator('#btn-readiness-save').click();
+
+    await expect(page.locator('#readiness-reasoning')).toContainText('sleep debt');
   });
 
   test('validation blocks an empty check-in', async ({ page }) => {

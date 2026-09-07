@@ -3,6 +3,7 @@ import {
   averageHydrationPerLoggedDay,
   bestHydrationDayEver,
   calculateHydrationStreak,
+  crossesNewPersonalRecord,
   groupHydrationByDate,
 } from '../../../js/features/hydration/hydration-trend.js';
 
@@ -90,5 +91,31 @@ describe('averageHydrationPerLoggedDay', () => {
       { date: '2026-03-15', amountMl: 800 },
     ];
     expect(averageHydrationPerLoggedDay(entries, 7, today)).toBe(800);
+  });
+});
+
+describe('crossesNewPersonalRecord', () => {
+  it('never fires with no prior history to beat', () => {
+    expect(crossesNewPersonalRecord(0, 500, null)).toBe(false);
+  });
+
+  it('fires exactly on the log that pushes today past the real prior best', () => {
+    expect(crossesNewPersonalRecord(2000, 2500, 2200)).toBe(true);
+  });
+
+  it('does not fire again on a later log the same day, already past the record', () => {
+    expect(crossesNewPersonalRecord(2500, 3000, 2200)).toBe(false);
+  });
+
+  it('does not fire while still short of the record', () => {
+    expect(crossesNewPersonalRecord(1000, 1500, 2200)).toBe(false);
+  });
+
+  it('fires when a single log alone exceeds the record from a standing start', () => {
+    expect(crossesNewPersonalRecord(0, 3000, 2200)).toBe(true);
+  });
+
+  it('does not fire when landing exactly on the prior record — a tie is not a new best', () => {
+    expect(crossesNewPersonalRecord(1000, 2200, 2200)).toBe(false);
   });
 });

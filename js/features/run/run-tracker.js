@@ -16,6 +16,13 @@ import {
   splitBoundaryMetersForUnit,
 } from './run-units.js';
 import { drawRoute } from './route-canvas.js';
+import { drawElevationProfile } from './elevation-canvas.js';
+import {
+  elevationGainMeters,
+  elevationLossMeters,
+  estimateFlightsClimbed,
+  hasElevationData,
+} from './gps-elevation.js';
 import { detectNewPRs, longestRun } from './personal-records.js';
 import { groupRunsByDate } from './run-trend.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
@@ -202,6 +209,12 @@ export function initRunFeature() {
       lat: position.coords.latitude,
       lon: position.coords.longitude,
       accuracyM: position.coords.accuracy,
+      // Real altitude, when this device/browser's own GPS fix reports one
+      // — most don't (no barometer exposed to the page, or too poor a
+      // vertical fix to trust) — see gps-elevation.js, which is honest
+      // about that rather than fabricating an elevation profile.
+      altitudeM: position.coords.altitude ?? null,
+      altitudeAccuracyM: position.coords.altitudeAccuracy ?? null,
       tMs: position.timestamp,
     });
     render();
@@ -371,7 +384,21 @@ export function initRunFeature() {
     });
     void refreshRunTile();
 
-    renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }, prs, splits, currentUnit());
+    // Elevation is recomputed fresh from this run's own real route points
+    // — never persisted as separate fields — same "recomputed from the
+    // one real source of truth" convention as splits/calories above.
+    // hasElevationData is false for the large majority of devices/
+    // browsers today (no real altitude reading at all), in which case the
+    // whole section stays hidden rather than showing a fabricated gain.
+    const elevation = hasElevationData(filtered)
+      ? {
+          gainM: elevationGainMeters(filtered),
+          lossM: elevationLossMeters(filtered),
+          flights: estimateFlightsClimbed(elevationGainMeters(filtered)),
+        }
+      : null;
+
+    renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories, elevation }, prs, splits, currentUnit(), filtered);
     showScreen('screen-run-summary');
   });
 
@@ -451,7 +478,7 @@ export function initRunFeature() {
   void refreshRunTile();
 }
 
-function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }, prs, splits, unit) {
+function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories, elevation }, prs, splits, unit, route) {
   // The final numbers arriving, same kinetic-data language as the rest of
   // the app — animateCountUp interpolates the raw meters/ms/pace and
   // re-formats each frame with the same real formatters used everywhere
@@ -488,6 +515,24 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories }
   const splitsCard = byId('run-summary-splits-card');
   splitsCard.hidden = splits.length === 0;
   renderSplitsList(byId('run-summary-splits'), splits, unit);
+
+  // Elevation: hidden entirely when this device/browser reported no
+  // usable real altitude data (most don't) — never a fabricated flat
+  // profile or a made-up gain in its place. See gps-elevation.js/
+  // elevation-canvas.js for the real, filtered computation this reads.
+  const elevationCard = byId('run-summary-elevation-card');
+  elevationCard.hidden = elevation == null;
+  if (elevation != null) {
+    animateCountUp(byId('run-summary-elevation-gain'), elevation.gainM, { formatter: (m) => `${Math.round(m)} m` });
+    byId('run-summary-elevation-flights').textContent =
+      elevation.flights > 0
+        ? `~${elevation.flights} flight${elevation.flights === 1 ? '' : 's'} climbed`
+        : 'Less than one flight climbed';
+    const canvas = byId('run-summary-elevation-canvas');
+    const accentColor = getComputedStyle(canvas).color || '#000';
+    const fillColor = getComputedStyle(canvas).getPropertyValue('--run-accent-soft').trim() || 'rgba(255,107,74,0.16)';
+    drawElevationProfile(canvas, route, accentColor, fillColor);
+  }
 }
 
 /** A real D/W/M/6M/Y distance trend, bucketed appropriately for the
@@ -547,6 +592,26 @@ function renderRunTrend(runs, unit) {
   }
 }
 
+/** A real cumulative gamification stat, the elevation counterpart to the
+ *  distance trend's own "best run" badge — total flights climbed across
+ *  every run that actually has usable real altitude data. Hidden entirely
+ *  (never "0 flights") when not one saved run has any — most devices/
+ *  browsers never report a real altitude, so this is an honest, likely
+ *  hidden-for-many-people section, not a padded-out default. */
+function renderElevationLifetime(runs) {
+  const card = byId('run-elevation-lifetime-card');
+  const withElevation = runs.filter((run) => hasElevationData(run.route ?? []));
+  if (withElevation.length === 0) {
+    card.hidden = true;
+    return;
+  }
+  const totalGainM = withElevation.reduce((sum, run) => sum + elevationGainMeters(run.route ?? []), 0);
+  const totalFlights = estimateFlightsClimbed(totalGainM);
+  byId('run-elevation-lifetime-flights').textContent = `${totalFlights.toLocaleString()} flight${totalFlights === 1 ? '' : 's'} climbed`;
+  byId('run-elevation-lifetime-gain').textContent = `${Math.round(totalGainM).toLocaleString()} m total gain`;
+  card.hidden = false;
+}
+
 async function renderHistory() {
   const [runs, profile] = await Promise.all([listAllRuns(), getProfile()]);
   const sorted = [...runs].sort((a, b) => b.startedAt.localeCompare(a.startedAt));
@@ -554,6 +619,7 @@ async function renderHistory() {
   const unit = getDistanceUnit();
 
   renderRunTrend(runs, unit);
+  renderElevationLifetime(runs);
 
   if (sorted.length === 0) {
     list.innerHTML = '<p class="muted center-text">No runs logged yet — your first run will show up here.</p>';
@@ -566,14 +632,21 @@ async function renderHistory() {
   // them, calories because a profile weight can change after the run was
   // logged and this should always reflect the current one, same as
   // Activity logging's own estimate.
-  const runsWithSplits = sorted.map((run) => ({
-    run,
-    splits: computeSplits(run.route ?? [], splitBoundaryMetersForUnit(unit)),
-    calories: estimateRunCalories({ durationMs: run.durationMs, avgPaceSecPerKm: run.avgPaceSecPerKm, weightKg: profile?.weightKg }),
-  }));
+  const runsWithSplits = sorted.map((run) => {
+    const route = run.route ?? [];
+    return {
+      run,
+      splits: computeSplits(route, splitBoundaryMetersForUnit(unit)),
+      calories: estimateRunCalories({ durationMs: run.durationMs, avgPaceSecPerKm: run.avgPaceSecPerKm, weightKg: profile?.weightKg }),
+      // Same "recomputed fresh from the real saved route" rule as splits/
+      // calories above — null whenever this run's route has no usable
+      // real altitude data, never a fabricated gain.
+      flights: hasElevationData(route) ? estimateFlightsClimbed(elevationGainMeters(route)) : null,
+    };
+  });
 
   list.innerHTML = runsWithSplits
-    .map(({ run, splits, calories }, index) => {
+    .map(({ run, splits, calories, flights }, index) => {
       const dateLabel = new Date(run.startedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
       const splitsId = `run-history-splits-${index}`;
       return `
@@ -587,6 +660,7 @@ async function renderHistory() {
               </span>
             </span>
             <span class="row" style="gap:6px; align-items:center;">
+              ${flights != null ? `<span class="data-badge estimated">${iconMarkup('mountain', { size: 12 })} ${flights}</span>` : ''}
               ${calories != null ? `<span class="data-badge estimated">${Math.round(calories.kcal)} kcal</span>` : ''}
               <span class="data-badge measured">${formatPaceForUnit(run.avgPaceSecPerKm, unit)}</span>
             </span>

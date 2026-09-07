@@ -98,6 +98,66 @@ test.describe('steps', () => {
     }
   });
 
+  test('the Step Trail walker sits at the start with zero steps, and advances along the real path once steps are logged', async ({ page }) => {
+    const startTransform = await page.locator('#step-trail-walker').getAttribute('transform');
+    expect(startTransform).toBeTruthy();
+
+    await page.locator('#steps-manual-count').fill('3750'); // 50% of the default 7,500 goal
+    await page.locator('#btn-steps-manual-save').click();
+    await expect(page.locator('#steps-today-count')).toHaveText('3750', { timeout: 3000 });
+
+    await expect
+      .poll(async () => page.locator('#step-trail-walker').getAttribute('transform'))
+      .not.toBe(startTransform);
+
+    // Milestones up to 50% are drawn as "reached", further ones are not.
+    const milestoneClasses = await page
+      .locator('#step-trail-milestones use')
+      .evaluateAll((els) => els.map((el) => el.getAttribute('class')));
+    expect(milestoneClasses.filter((c) => c.includes('--reached')).length).toBe(3); // 0%, 25%, 50%
+    expect(milestoneClasses.filter((c) => !c.includes('--reached')).length).toBe(2); // 75%, 100%
+  });
+
+  test('the distance-from-steps estimate stays hidden with no profile height on file, and appears once one is', async ({ page }) => {
+    await page.locator('#steps-manual-count').fill('6000');
+    await page.locator('#btn-steps-manual-save').click();
+    await expect(page.locator('#steps-today-count')).toHaveText('6000', { timeout: 3000 });
+
+    // Onboarding was skipped in this suite's beforeEach — no real height
+    // on file yet, so the estimate stays honestly hidden.
+    await expect(page.locator('#steps-journey-distance')).toBeHidden();
+
+    await page.evaluate(async () => {
+      const { saveProfile } = await import('/js/db/repositories/profile.js');
+      await saveProfile({ heightCm: 170 });
+    });
+    await page.locator('#btn-steps-back').click();
+    await page.getByRole('button', { name: 'Steps' }).click();
+
+    await expect(page.locator('#steps-journey-distance')).toBeVisible();
+    await expect(page.locator('#steps-journey-distance')).toContainText('walked today');
+  });
+
+  test('the week strip shows 7 real days, lighting up only the ones that actually met goal', async ({ page }) => {
+    await page.evaluate(async () => {
+      const { setStepsForDate } = await import('/js/db/repositories/steps.js');
+      const today = new Date();
+      await setStepsForDate(9000, today.toISOString().slice(0, 10)); // above the 7,500 default goal
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      await setStepsForDate(3000, yesterday.toISOString().slice(0, 10)); // logged, but short of goal
+    });
+    await page.locator('#btn-steps-back').click();
+    await page.getByRole('button', { name: 'Steps' }).click();
+
+    const cells = page.locator('#steps-week-strip .week-strip-cell');
+    await expect(cells).toHaveCount(7);
+    await expect(cells.last()).toHaveClass(/week-strip-cell--met/); // today
+    const secondToLast = cells.nth(5);
+    await expect(secondToLast).toHaveClass(/week-strip-cell--logged/);
+    await expect(secondToLast).not.toHaveClass(/week-strip-cell--met/);
+  });
+
   test('the Hub tile updates with a real streak after logging', async ({ page }) => {
     await page.locator('#steps-manual-count').fill('5000');
     await page.locator('#btn-steps-manual-save').click();

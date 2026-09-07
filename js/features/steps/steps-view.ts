@@ -40,7 +40,10 @@ import {
 } from '../../db/repositories/steps.js';
 import { averageStepsPerLoggedDay, bestStepsDayEver, calculateStepsStreak } from './steps-trend.js';
 import { estimateStepsCalories } from './steps-calorie-estimate.js';
+import { estimateDistanceFromSteps, formatStepsDistance } from './steps-distance-estimate.js';
+import { buildStepTrailMilestones, stepTrailProgress } from './step-journey.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
+import { buildWeekStrip, renderWeekStrip } from '../../lib/week-strip.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import type { StepEntry } from '../../db/repositories/steps.js';
 
@@ -57,10 +60,13 @@ const RING_CIRCUMFERENCE = 2 * Math.PI * 86;
 let stepsTrendRange: TimeRangeKey = 'W';
 let cachedAllStepEntries: StepEntry[] = [];
 
-function byId<T extends HTMLElement = HTMLElement>(id: string): T {
+// Constrained to Element (not HTMLElement) so the same helper can also
+// fetch the trail's real SVGPathElement (getTotalLength/getPointAtLength
+// aren't on the plain HTMLElement type) without a second lookup helper.
+function byId<T extends Element = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`steps-view: missing #${id}`);
-  return el as T;
+  return el as unknown as T;
 }
 
 function getGoal(): number {
@@ -266,9 +272,63 @@ async function refreshAll(): Promise<void> {
 
   cachedAllStepEntries = all;
   renderRing(today, profile?.weightKg);
+  renderJourney(today?.steps ?? 0, profile?.heightCm);
+  renderWeekStripSection(all);
   renderHistory(recent);
   renderStats(recent);
   renderTrend(all);
+}
+
+/** The "Step Trail" — a winding path of real milestone footprints toward
+ *  today's goal, with a walker marker positioned at today's own real
+ *  fraction-of-goal (see step-journey.ts). Position is read straight off
+ *  the real, static SVG path via getPointAtLength — the same "a real
+ *  attribute drives the data" contract as the goal ring's own
+ *  stroke-dashoffset, just walked along a path instead of a circle. */
+function renderJourney(steps: number, heightCm: number | undefined): void {
+  const goal = getGoal();
+  const path = byId<SVGPathElement>('step-trail-path');
+  const totalLength = path.getTotalLength();
+  const progress = stepTrailProgress(steps, goal);
+  const walkerPoint = path.getPointAtLength(totalLength * progress);
+  byId('step-trail-walker').setAttribute('transform', `translate(${walkerPoint.x.toFixed(2)}, ${walkerPoint.y.toFixed(2)})`);
+
+  const milestonesGroup = byId('step-trail-milestones');
+  milestonesGroup.innerHTML = '';
+  for (const milestone of buildStepTrailMilestones(steps, goal)) {
+    const point = path.getPointAtLength(totalLength * milestone.fraction);
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#icon-footprints');
+    use.setAttribute('width', '14');
+    use.setAttribute('height', '14');
+    use.setAttribute('x', '-7');
+    use.setAttribute('y', '-7');
+    use.setAttribute('transform', `translate(${point.x.toFixed(2)}, ${point.y.toFixed(2)})`);
+    use.setAttribute(
+      'class',
+      milestone.reached ? 'step-trail-milestone step-trail-milestone--reached' : 'step-trail-milestone'
+    );
+    milestonesGroup.appendChild(use);
+  }
+
+  // A real distance-from-steps estimate (steps-distance-estimate.ts) —
+  // hidden entirely with no profile height on file, same honesty rule as
+  // the calorie estimate above it.
+  const distanceEl = byId('steps-journey-distance');
+  const estimate = estimateDistanceFromSteps({ steps, heightCm });
+  distanceEl.hidden = estimate == null;
+  if (estimate != null) distanceEl.textContent = formatStepsDistance(estimate.meters);
+}
+
+/** The real last-7-days recap strip (js/lib/week-strip.ts) — one
+ *  footprint per calendar day, lit for a real goal met, dimmed for a real
+ *  logged-but-short day, bare for a day with nothing logged at all. */
+function renderWeekStripSection(all: StepEntry[]): void {
+  const goal = getGoal();
+  const loggedDates = new Set(all.map((e) => e.date));
+  const goalMetDates = new Set(all.filter((e) => e.steps >= goal).map((e) => e.date));
+  const days = buildWeekStrip(loggedDates, goalMetDates);
+  renderWeekStrip(byId('steps-week-strip'), days, { icon: 'footprints', accentVar: '--steps-accent' });
 }
 
 function renderRing(today: StepEntry | undefined, weightKg: number | undefined): void {

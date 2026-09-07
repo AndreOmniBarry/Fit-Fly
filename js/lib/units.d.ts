@@ -6,3 +6,5 @@ export function cmToIn(cm: number): number;
 export function inToCm(inches: number): number;
 export function cmToFeetInches(cm: number): { feet: number; inches: number };
 export function feetInchesToCm(feet: number, inches: number): number;
+export function celsiusToFahrenheit(celsius: number): number;
+export function fahrenheitToCelsius(fahrenheit: number): number;

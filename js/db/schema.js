@@ -470,17 +470,11 @@ export function defineSchema(db) {
     hearingScreeningTests: 'id, completedAt',
   });
 
-  // v18 — Sleep naps: a daytime/afternoon nap logged as its own session,
-  // distinct from sleepLogs' one-per-calendar-date nightly record. Naps
-  // get their own store rather than a field on sleepLogs because
-  // sleepLogs is keyed by `date` alone (one row per night) — a nap on the
-  // same calendar date as a night's log would either collide with that
-  // key or force a breaking change to every sleepLogs reader/writer.
-  // Instead this follows nutritionEntries/hydrationEntries' own shape:
-  // several real entries can exist for one date (someone can log more
-  // than one nap), auto-incrementing id, `date` + `loggedAt` indexed for
-  // the same per-day and chronological queries those stores already
-  // support (see js/db/repositories/nap-logs.js).
+  // v18 — Vitals: body temperature, a third real vital alongside blood
+  // pressure/SpO2 — manual entry or a real Bluetooth Health Thermometer
+  // Service (0x1809) thermometer, same "one row per reading, keyed by
+  // when it happened" shape as bloodPressureSamples/spo2Samples (see
+  // js/db/repositories/body-temperature.js).
   db.version(18).stores({
     profile: 'id',
     categoryAssignments: '++id, assignedAt',
@@ -510,6 +504,53 @@ export function defineSchema(db) {
     noiseMonitorSessions: 'id, startedAt',
     noiseMonitorSamples: '++id, sessionId, recordedAt',
     hearingScreeningTests: 'id, completedAt',
+
+    // source: 'manual' | 'ble' — same MEASURED-only contract (see
+    // js/db/repositories/body-temperature.js).
+    temperatureSamples: '++id, recordedAt, source',
+  });
+
+  // v19 — Sleep naps: a daytime/afternoon nap logged as its own session,
+  // distinct from sleepLogs' one-per-calendar-date nightly record. Naps
+  // get their own store rather than a field on sleepLogs because
+  // sleepLogs is keyed by `date` alone (one row per night) — a nap on the
+  // same calendar date as a night's log would either collide with that
+  // key or force a breaking change to every sleepLogs reader/writer.
+  // Instead this follows nutritionEntries/hydrationEntries' own shape:
+  // several real entries can exist for one date (someone can log more
+  // than one nap), auto-incrementing id, `date` + `loggedAt` indexed for
+  // the same per-day and chronological queries those stores already
+  // support (see js/db/repositories/nap-logs.js).
+  db.version(19).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+    noiseMonitorSessions: 'id, startedAt',
+    noiseMonitorSamples: '++id, sessionId, recordedAt',
+    hearingScreeningTests: 'id, completedAt',
+    temperatureSamples: '++id, recordedAt, source',
 
     napLogs: '++id, date, loggedAt',
   });

@@ -37,6 +37,7 @@ describe('schema', () => {
         'sleepLogs',
         'spo2Samples',
         'stepEntries',
+        'temperatureSamples',
       ].sort()
     );
     db.close();

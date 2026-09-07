@@ -782,16 +782,18 @@
 }
 
 /* ============================================================================
-   HYDRATION — a human silhouette that fills with real water as the day's
-   intake rises toward its goal. The fill's own y/height are real
-   attributes JS sets from the actual fraction (js/features/hydration/
-   hydration-view.ts), not a CSS value competing with it — same
-   "real data on an attribute, decoration in CSS" split as every other
-   kinetic-data element in this app (Sleep's score ring, Steps' goal ring).
-   The wave riding on top of that real fill line is pure decoration: a
-   looping horizontal scroll plus the fill's own eased vertical rise is
-   what reads as genuinely liquid, not a static bar chart shaped like a
-   person.
+   HYDRATION — a glass that fills with real water as the day's intake
+   rises toward its goal. The fill's own y/height are real attributes JS
+   sets from the actual fraction (js/features/hydration/hydration-view.ts),
+   not a CSS value competing with it — same "real data on an attribute,
+   decoration in CSS" split as every other kinetic-data element in this
+   app (Sleep's score ring, Steps' goal ring). Everything else — the wave
+   riding on top of that real fill line, its own gentle vertical breathing
+   as it scrolls, and the whole fill+wave group's tilt-reactive lean when
+   the device physically tilts (.hydration-liquid-tilt, driven by the same
+   --tilt-ry attachTilt() already gives this screen's cards) — is pure
+   decoration layered on top of that one real number, never a second
+   source of truth for it.
    ========================================================================== */
 .hydration-card{
   background:var(--hydration-card-bg); border:1px solid var(--hydration-card-border);
@@ -827,10 +829,30 @@
 .hydration-wave-position{
   transition:transform 1.1s cubic-bezier(.16,1,.3,1);
 }
+/* Rotates the real fill + its wave with the device's own left/right tilt
+   — the same --tilt-ry reading .tilt-card already gets from attachTilt()
+   in hydration-view.ts, just amplified: the glass's own card-tilt reads
+   as subtle depth (max ~6deg), but a convincing "the water actually
+   leans" needs more than that to read at a glance. No CSS transition
+   here on purpose, same as .tilt-card above — attachTilt()'s own rAF
+   loop already lerps the value smoothly every frame; a transition on
+   top of that would just add lag. transform-box:fill-box makes "center"
+   the current bounding box of the fill+wave group itself, so the pivot
+   tracks the liquid's own real center as the fill height changes rather
+   than some fixed point in the glass — physically the right anchor for
+   "the surface leans", not "the whole column swings from the rim". */
+.hydration-liquid-tilt{
+  transform:rotate(calc(var(--tilt-ry, 0deg) * 2.4));
+  transform-box:fill-box;
+  transform-origin:center;
+}
 /* Two independent wave layers, different periods and amplitudes, one
    drifting the opposite direction of the other — a single wave on a
    loop reads as a mechanical texture; two that never re-sync read as a
-   real, chopped liquid surface. */
+   real, chopped liquid surface. Each also breathes a little vertically
+   as it scrolls (not just sideways) — real surface tension never holds
+   a liquid's edge dead flat while it moves, and returning to 0 by the
+   loop's end keeps the seamless wrap the horizontal-only version had. */
 .hydration-wave-scroll--back{
   animation:hydration-wave-scroll-back 4.6s linear infinite;
 }
@@ -840,12 +862,14 @@
 }
 .hydration-wave-scroll--front path{ fill:var(--hydration-fill-a); opacity:.6; }
 @keyframes hydration-wave-scroll-back{
-  from{ transform:translateX(0); }
-  to{ transform:translateX(-100px); }
+  0%{ transform:translate(0,0); }
+  50%{ transform:translate(-50px, 1.1px); }
+  100%{ transform:translate(-100px,0); }
 }
 @keyframes hydration-wave-scroll-front{
-  from{ transform:translateX(-100px); }
-  to{ transform:translateX(0); }
+  0%{ transform:translate(-100px,0); }
+  50%{ transform:translate(-50px, -0.9px); }
+  100%{ transform:translate(0,0); }
 }
 /* Bubbles rise from the base of the real water volume — clipped to the
    fill rect's own live geometry (hydrationWaterClip in index.html, a
@@ -888,6 +912,11 @@
   .hydration-splash-ring.is-active{ animation:none; }
   .hydration-water-fill, .hydration-wave-position{ transition:none; }
   .hydration-record-toast.is-active{ animation:none; }
+  /* attachTilt() itself already goes inert under reduced motion (never
+     sets --tilt-ry away from its 0deg default), but pin this to none
+     explicitly too — same belt-and-suspenders as every other tilt
+     consumer in this file. */
+  .hydration-liquid-tilt{ transform:none; }
 }
 
 /* The personal-record celebration moment — a real, one-shot toast that

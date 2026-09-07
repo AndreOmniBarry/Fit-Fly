@@ -218,6 +218,83 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
   });
 
+  test('naps: a real, separate quick action — not a hidden mode of the night form', async ({ page }) => {
+    await page.getByRole('button', { name: 'Sleep' }).click();
+
+    // Present before the night is even logged, distinct from the night
+    // form, and closed by default.
+    await expect(page.locator('#sleep-nap-card')).toBeVisible();
+    await expect(page.locator('#sleep-log-form')).toBeVisible();
+    await expect(page.locator('#sleep-nap-empty')).toBeVisible();
+    await expect(page.locator('#sleep-nap-form')).toBeHidden();
+
+    await page.locator('#btn-sleep-nap-toggle').click();
+    await expect(page.locator('#sleep-nap-form')).toBeVisible();
+
+    await page.locator('#sleep-nap-start').fill('14:00');
+    await page.locator('#sleep-nap-end').fill('14:30');
+    await page.getByRole('button', { name: 'Save nap' }).click();
+
+    // Honest reflection on the dashboard — the nap's own real duration,
+    // never silently dropped or folded into the night's own numbers.
+    await expect(page.locator('#sleep-nap-summary')).toBeVisible();
+    await expect(page.locator('#sleep-nap-summary')).toContainText('30m');
+    await expect(page.locator('#sleep-nap-empty')).toBeHidden();
+
+    // The night form is completely untouched by the nap.
+    await expect(page.locator('#sleep-log-form')).toBeVisible();
+    await expect(page.locator('#sleep-dashboard-result')).toBeHidden();
+  });
+
+  test('naps: logging a nap does not change the night score, and both persist together after reload', async ({ page }) => {
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.locator('#sleep-log-quality button[data-value="5"]').click();
+    await page.getByRole('button', { name: 'Save last night' }).click();
+    await expect(page.locator('#sleep-score-value')).toHaveText('100');
+
+    await page.locator('#btn-sleep-nap-toggle').click();
+    await page.locator('#sleep-nap-start').fill('15:00');
+    await page.locator('#sleep-nap-end').fill('15:20');
+    await page.getByRole('button', { name: 'Save nap' }).click();
+
+    // The night's own score is exactly what it was before the nap.
+    await expect(page.locator('#sleep-score-value')).toHaveText('100');
+    await expect(page.locator('#sleep-score-label')).toHaveText('Great sleep');
+    await expect(page.locator('#sleep-nap-summary')).toContainText('20m');
+
+    await page.reload();
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await expect(page.locator('#sleep-score-value')).toHaveText('100');
+    await expect(page.locator('#sleep-nap-summary')).toContainText('20m');
+  });
+
+  test('naps: a nap logged this week credits toward Insights sleep debt, without ever fully offsetting it', async ({ page }) => {
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    // 6h — 1h (60min) short of the 7h goal.
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('05:00');
+    await page.getByRole('button', { name: 'Save last night' }).click();
+
+    await page.locator('#btn-sleep-insights').click();
+    await expect(page.locator('#sleep-insight-debt')).toHaveText('1h');
+    await page.locator('#btn-sleep-insights-back').click();
+
+    // A same-day nap credits back only part of that shortfall — real,
+    // partial relief, never a full 1:1 substitute for the missed hour.
+    // 30 nap minutes * 30% credit fraction = 9 minutes credited, so the
+    // 60-minute shortfall becomes 51 — down, but nowhere near erased.
+    await page.locator('#btn-sleep-nap-toggle').click();
+    await page.locator('#sleep-nap-start').fill('14:00');
+    await page.locator('#sleep-nap-end').fill('14:30');
+    await page.getByRole('button', { name: 'Save nap' }).click();
+
+    await page.locator('#btn-sleep-insights').click();
+    await expect(page.locator('#sleep-insight-debt')).toHaveText('51m');
+    await expect(page.locator('#sleep-insight-debt')).toHaveAttribute('title', /credited.*napping/i);
+  });
+
   test('the score ring draws in for real, and the dashboard reacts to tilt', async ({ page }) => {
     await page.getByRole('button', { name: 'Sleep' }).click();
     await page.locator('#sleep-log-bedtime').fill('23:00');

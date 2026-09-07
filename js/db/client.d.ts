@@ -3,11 +3,12 @@
 // repositories actually touch; every other store is still read/written by
 // its own plain-JS repository and doesn't need a type here.
 import type { DexieTable } from './dexie-types.js';
-import type { SleepLog } from '../features/sleep/types.js';
+import type { NapLog, SleepLog } from '../features/sleep/types.js';
 import type { EarnedBadge } from '../features/badges/types.js';
 
 export interface AppDb {
   sleepLogs: DexieTable<SleepLog, string>;
+  napLogs: DexieTable<NapLog, string>;
   earnedBadges: DexieTable<EarnedBadge, string>;
 }
 

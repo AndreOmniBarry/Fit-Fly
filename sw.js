@@ -38,10 +38,19 @@
 // real changes to index.html/main.js/the CSS, but because THIS file
 // never changed, no browser ever saw a reason to install a new worker,
 // so skipWaiting()/clients.claim() below never actually ran even once.
-// Every installed PWA has been quietly stuck on whatever it first
-// cached, with only individual already-fetched JS modules opportunistically
+// Every installed PWA was quietly stuck on whatever it first cached,
+// with only individual already-fetched JS modules opportunistically
 // refreshing via the fetch handler's stale-while-revalidate — never the
-// shell itself. Bump this on every real deploy from here on.
+// shell itself.
+//
+// Bumping this alone is still only half the fix: it makes the diff
+// meaningful, but the browser has to actually fetch this file from the
+// network to diff it against in the first place. A CDN or the browser's
+// own HTTP cache serving a stale copy of sw.js defeats the update check
+// just as completely as a never-changing CACHE_VERSION did — see
+// vercel.json's headers entry for /sw.js (Cache-Control: no-store),
+// which is what guarantees this specific file is never served stale.
+// Bump this on every real deploy from here on.
 const CACHE_VERSION = 'v2';
 const CACHE_NAME = `fit-fly-${CACHE_VERSION}`;
 

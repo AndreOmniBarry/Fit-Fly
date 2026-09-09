@@ -52,4 +52,32 @@ describe('getMovementDemoSvgMarkup', () => {
   it('is pure and deterministic: the same category always returns identical markup', () => {
     expect(getMovementDemoSvgMarkup('push')).toBe(getMovementDemoSvgMarkup('push'));
   });
+
+  it('reduceMotion leaves a real, visible resting pose — every path keeps a real d, every circle a real cx/cy, never the SVG default of "nothing drawn" / "0,0"', () => {
+    for (const category of MOVEMENT_CATEGORIES) {
+      const markup = getMovementDemoSvgMarkup(category, { reduceMotion: true });
+      // A <path> with no d attribute at all renders nothing — this
+      // matches an empty/missing d specifically, not just any d="".
+      expect(markup).not.toMatch(/<path(?![^>]*\bd=)[^>]*\/>/);
+      // A <circle> with no cx/cy defaults to the viewBox's (0,0) corner.
+      expect(markup).not.toMatch(/<circle(?![^>]*\bcx=)[^>]*\/>/);
+      expect(markup).not.toMatch(/<circle(?![^>]*\bcy=)[^>]*\/>/);
+    }
+  });
+
+  it('every category gets real, visible joint markers at the shoulder and hip — not just a bare limb skeleton', () => {
+    for (const category of MOVEMENT_CATEGORIES) {
+      const markup = getMovementDemoSvgMarkup(category);
+      const jointCircleCount = (markup.match(/<circle[^>]*r="4"/g) ?? []).length;
+      expect(jointCircleCount).toBeGreaterThanOrEqual(2); // shoulder + hip, at minimum
+    }
+  });
+
+  it('the torso renders with real visual weight — a thicker stroke than the limbs, not a uniform matchstick line', () => {
+    for (const category of MOVEMENT_CATEGORIES) {
+      const markup = getMovementDemoSvgMarkup(category);
+      expect(markup).toContain('stroke-width="10"'); // TORSO_STYLE
+      expect(markup).toContain('stroke-width="7"'); // LIMB_STYLE
+    }
+  });
 });

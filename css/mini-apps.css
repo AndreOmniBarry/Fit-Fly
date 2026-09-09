@@ -1483,14 +1483,25 @@
    a metallic conic gradient (the same gold/bronze pair every other
    accent here already uses, --badges-accent/-2), a beveled rim via
    layered inset shadows (light catching the top edge, shadow pooling
-   at the bottom — the classic CSS bevel trick), and two reactive
+   at the bottom — the classic CSS bevel trick), and three reactive
    layers riding on top of it: a specular highlight that tracks the
    shared screen-tilt reading via the same --tilt-tx/-ty *pixel* offsets
    Hub tiles already use for depth parallax (never mixed with the
    -rx/-ry *angle* values here — calc() can't combine deg with a length
-   in one expression), and a slow idle shimmer sweep so a medal still
-   reads as a real object sitting under a light even with no tilt input
-   at all (a mouse that never moves, a desktop with no device-motion). */
+   in one expression), a slow idle shimmer sweep so a medal still reads
+   as a real object sitting under a light even with no tilt input at all
+   (a mouse that never moves, a desktop with no device-motion), and the
+   medal's own continuous spin — a real object turning in place on its
+   own vertical axis, entirely independent of the tilt-reactive rotation
+   the parent .badge-card already carries a few rules down (that one
+   only ever nudges toward whatever the device/pointer is doing; this
+   one never stops, like a spinning top settled into a long, steady
+   spin). Slow and linear on purpose: a constant angular velocity is
+   what an actual spinning object at rest reads as — easing it would
+   read as a toy winding up and down, not a real medal turning under its
+   own weight. Riding on .badge-grid's own perspective (.tilt-stagger,
+   see components.css) is what makes the foreshortening at 90°/270°
+   read as real depth instead of the icon just flatly mirroring. */
 .badge-card--earned .badge-card-icon{
   position:relative;
   width:56px; height:56px;
@@ -1505,6 +1516,7 @@
     0 8px 16px rgba(0,0,0,.4);
   overflow:hidden;
   filter:drop-shadow(calc(var(--tilt-ty, 0px) * -1) var(--tilt-tx, 0px) 6px rgba(0,0,0,.35));
+  animation:badge-totem-spin 8s linear infinite;
 }
 .badge-card--earned .badge-card-icon::before{
   content:'';
@@ -1527,8 +1539,13 @@
   0%, 20%{ transform:translateX(-60%); }
   60%, 100%{ transform:translateX(60%); }
 }
+@keyframes badge-totem-spin{
+  from{ transform:rotateY(0deg); }
+  to{ transform:rotateY(360deg); }
+}
 @media (prefers-reduced-motion: reduce){
   .badge-card--earned .badge-card-icon::after{ animation:none; }
+  .badge-card--earned .badge-card-icon{ animation:none; }
 }
 
 /* Each earned medal reacts to the shared screen-tilt reading with its

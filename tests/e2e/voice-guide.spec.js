@@ -4,13 +4,13 @@ import { expect, test } from '@playwright/test';
 // from a third party (see js/features/focus/kokoro-voice.ts's own doc
 // comment for why) — genuinely downloading it here would make this suite
 // slow and network-dependent, the one thing this app's test discipline
-// never accepts. So every test here blocks that traffic outright and
-// asserts on the real, honest failure/fallback path instead: Kokoro is
-// this app's default voice engine, so every guided-session speak() call
-// (including the very first beat, launched synchronously from a tile
-// click) fires off a background download attempt that this suite always
-// forces to fail — the built-in voice is what actually narrates
-// throughout, and Settings never pretends a blocked download succeeded.
+// never accepts. So every test that actually opts into Kokoro blocks that
+// traffic outright and asserts on the real, honest failure/fallback path.
+//
+// The built-in voice is this app's default engine (see voice-guide.ts's
+// own doc comment for why Kokoro moved to opt-in) — a fresh session never
+// attempts a Kokoro fetch at all until someone explicitly picks it in
+// Settings, so most tests below don't need blockKokoroNetwork() at all.
 //
 // One real gap this leaves: the per-voice picker (#settings-voice-
 // kokoro-voice) only ever appears once Kokoro has actually finished
@@ -43,22 +43,44 @@ test.describe('voice guide: engine settings', () => {
     await page.getByRole('button', { name: 'Settings' }).click();
   });
 
-  test('defaults to the natural voice, with no download started just from opening Settings', async ({ page }) => {
-    await expect(page.locator('#settings-voice-engine button[data-value="kokoro"]')).toHaveAttribute(
+  test('defaults to the built-in voice, with Kokoro available as a real opt-in and no download started just from opening Settings', async ({
+    page,
+  }) => {
+    await expect(page.locator('#settings-voice-engine button[data-value="system"]')).toHaveAttribute(
       'aria-pressed',
       'true'
     );
-    await expect(page.locator('#settings-voice-engine button[data-value="system"]')).toHaveAttribute(
+    await expect(page.locator('#settings-voice-engine button[data-value="kokoro"]')).toHaveAttribute(
       'aria-pressed',
       'false'
     );
-    await expect(page.locator('#settings-voice-status')).toContainText('Starts automatically');
+    await expect(page.locator('#settings-voice-status')).toHaveText('');
     await expect(page.locator('#settings-voice-progress')).toBeHidden();
     await expect(page.locator('#btn-settings-voice-remove')).toBeHidden();
     await expect(page.locator('#settings-voice-kokoro-voice-field')).toBeHidden();
   });
 
-  test('switching to the built-in voice needs no network and persists', async ({ page }) => {
+  test('opting into the natural voice starts a real download attempt and persists the choice', async ({ page }) => {
+    await page.locator('#settings-voice-engine button[data-value="kokoro"]').click();
+    await expect(page.locator('#settings-voice-engine button[data-value="kokoro"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    // Blocked network means this resolves to a real, honest failure — the
+    // point here is only that a real attempt started and the choice
+    // itself survives a reload, not the failure path (covered below).
+    await expect(page.locator('#settings-voice-status')).not.toHaveText('');
+
+    await page.locator('#btn-settings-back').click();
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await expect(page.locator('#settings-voice-engine button[data-value="kokoro"]')).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  test('switching back to the built-in voice needs no network and persists', async ({ page }) => {
+    await page.locator('#settings-voice-engine button[data-value="kokoro"]').click();
     await page.locator('#settings-voice-engine button[data-value="system"]').click();
     await expect(page.locator('#settings-voice-engine button[data-value="system"]')).toHaveAttribute(
       'aria-pressed',
@@ -120,10 +142,47 @@ test.describe('voice guide: engine settings', () => {
       if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
     });
 
+    await page.locator('#settings-voice-engine button[data-value="kokoro"]').click();
     await page.locator('#btn-settings-voice-preview').click();
     await page.waitForTimeout(300);
 
     expect(consoleErrors).toEqual([]);
+  });
+});
+
+test.describe('voice guide: guided sessions on the default (built-in) engine', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.getByRole('button', { name: 'Skip for now' }).click();
+  });
+
+  test('a guided session with voice on plays through on the built-in voice with zero console errors and no Kokoro network activity', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    const kokoroRequests = [];
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('request', (req) => {
+      if (req.url().includes('cdn.jsdelivr.net') || req.url().includes('huggingface.co')) kokoroRequests.push(req.url());
+    });
+
+    await page.getByRole('button', { name: 'Focus' }).click();
+    await page.getByRole('button', { name: 'Breathing Focus' }).click();
+    await expect(page.locator('#guided-session-caption')).not.toHaveText('', { timeout: 3000 });
+    await expect(page.locator('#btn-guided-session-voice-toggle')).toHaveAttribute('aria-pressed', 'true');
+
+    await page.locator('#btn-guided-session-end').click();
+    await expect(page.locator('#guided-session-grid')).toBeVisible();
+
+    expect(consoleErrors).toEqual([]);
+    // The whole point of the built-in voice being the default: nothing
+    // ever reaches out to a third party for it.
+    expect(kokoroRequests).toEqual([]);
   });
 });
 
@@ -134,6 +193,11 @@ test.describe('voice guide: guided sessions keep working while Kokoro downloads/
     await page.evaluate(() => localStorage.clear());
     await page.reload();
     await page.getByRole('button', { name: 'Skip for now' }).click();
+    // Kokoro is opt-in now — a session exercising its background-
+    // download/failure path has to actually opt in first.
+    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#settings-voice-engine button[data-value="kokoro"]').click();
+    await page.locator('#btn-settings-back').click();
   });
 
   test('a guided session with voice on plays through with zero console errors', async ({ page }) => {

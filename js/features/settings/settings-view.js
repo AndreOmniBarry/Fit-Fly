@@ -181,11 +181,11 @@ export function initSettingsFeature() {
     }
     /** engine==='kokoro' persists the choice immediately, before knowing
      *  whether the download even succeeds — a transient failure below is a
-     *  real, honest status to report, never a reason to silently revert
-     *  what was actually chosen (or, since kokoro is the default, what was
-     *  never actively changed away from in the first place). The chip
-     *  stays showing "Natural voice" through a failure on purpose; only an
-     *  explicit tap on "Built-in" ever changes the standing choice. */
+     *  real, honest status to report, never a reason to silently revert an
+     *  actual, explicit opt-in (see voice-guide.ts's own doc comment for
+     *  why Kokoro is opt-in, not the default, now). The chip stays showing
+     *  "Natural voice" through a failure on purpose; only an explicit tap
+     *  on "Built-in" ever changes the standing choice. */
     async function applyVoiceEngineChoice(engine) {
         if (engine === 'system') {
             setPref(VOICE_ENGINE_PREF_KEY, 'system');

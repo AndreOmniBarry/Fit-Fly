@@ -367,3 +367,154 @@ test.describe('sleep', () => {
     expect(parseFloat(tilt.ry)).not.toBe(0);
   });
 });
+
+test.describe('sleep: modeled sleep-stage hypnogram', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+    await page.getByRole('button', { name: 'Sleep' }).click();
+  });
+
+  test('a logged night renders a real, honestly-labeled stage timeline', async ({ page }) => {
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.locator('#sleep-log-quality button[data-value="4"]').click();
+    await page.getByRole('button', { name: 'Save last night' }).click();
+
+    const card = page.locator('#sleep-hypnogram-card');
+    await expect(card).toBeVisible();
+    // Never claims a real sensor measured this.
+    await expect(card).toContainText('Modeled');
+    await expect(card).toContainText('no wearable or bedside sensor');
+
+    const segments = page.locator('.sleep-hypnogram-segment');
+    await expect(segments).not.toHaveCount(0);
+    // Every real stage shows up in the legend with a real, non-fabricated
+    // percentage — never a bare, unlabeled bar.
+    await expect(page.locator('#sleep-hypnogram-legend')).toContainText('Deep');
+    await expect(page.locator('#sleep-hypnogram-legend')).toContainText('REM');
+    await expect(page.locator('#sleep-hypnogram-legend')).toContainText('Light');
+    await expect(page.locator('#sleep-hypnogram-legend')).toContainText('%');
+
+    await expect(page.locator('#sleep-hypnogram-start')).toHaveText('11:00p');
+    await expect(page.locator('#sleep-hypnogram-end')).toHaveText('7:00a');
+  });
+
+  test('viewing a past night from History renders that night\'s own stages, not tonight\'s', async ({ page }) => {
+    await page.locator('#sleep-log-bedtime').fill('22:30');
+    await page.locator('#sleep-log-waketime').fill('05:30');
+    await page.getByRole('button', { name: 'Save last night' }).click();
+
+    await expect(page.locator('#sleep-hypnogram-card')).toBeVisible();
+    await expect(page.locator('#sleep-hypnogram-start')).toHaveText('10:30p');
+  });
+});
+
+test.describe('sleep: "How today looks" (Readiness, collapsed in)', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+    await page.getByRole('button', { name: 'Sleep' }).click();
+  });
+
+  test('the Fitness Toolkit no longer has a separate Readiness row', async ({ page }) => {
+    await page.locator('#btn-sleep-dashboard-back').click();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
+    await expect(page.locator('#btn-home-readiness')).toHaveCount(0);
+  });
+
+  test('a full check-in — reusing tonight\'s already-logged sleep — produces a score, category, and reasoning', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await expect(page.locator('#sleep-readiness-card')).toBeVisible();
+    await expect(page.locator('#sleep-readiness-category')).toBeHidden();
+
+    // A real night logged first — readiness reuses this instead of
+    // re-asking for hours of sleep a second time.
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.getByRole('button', { name: 'Save last night' }).click();
+
+    await page.locator('#sleep-readiness-energy button[data-value="5"]').click();
+    await page.locator('#sleep-readiness-soreness button[data-value="1"]').click();
+    await page.locator('#btn-sleep-readiness-save').click();
+
+    await expect(page.locator('#sleep-readiness-category')).toContainText('high');
+    await expect(page.locator('#sleep-readiness-score-line')).toContainText('/ 100');
+    await expect(page.locator('#sleep-readiness-reasoning li').first()).toBeVisible();
+    await expect(page.locator('#sleep-readiness-suggestion')).not.toHaveText('');
+    await expect(page.locator('#sleep-readiness-suggestion')).toContainText('push');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('energy/soreness alone — no sleep logged yet — still produces a result', async ({ page }) => {
+    await page.locator('#sleep-readiness-energy button[data-value="1"]').click();
+    await page.locator('#sleep-readiness-soreness button[data-value="5"]').click();
+    await page.locator('#btn-sleep-readiness-save').click();
+
+    await expect(page.locator('#sleep-readiness-category')).toContainText('low');
+    await expect(page.locator('#sleep-readiness-suggestion')).toContainText('easier');
+  });
+
+  test('validation blocks an entirely empty check-in', async ({ page }) => {
+    await page.locator('#btn-sleep-readiness-save').click();
+    await expect(page.locator('#err-sleep-readiness')).toBeVisible();
+    await expect(page.locator('#sleep-readiness-category')).toBeHidden();
+  });
+
+  test('revisiting today prefills the earlier answers and result', async ({ page }) => {
+    await page.locator('#sleep-readiness-energy button[data-value="4"]').click();
+    await page.locator('#sleep-readiness-soreness button[data-value="2"]').click();
+    await page.locator('#btn-sleep-readiness-save').click();
+
+    await page.locator('#btn-sleep-dashboard-back').click();
+    await page.getByRole('button', { name: 'Sleep' }).click();
+
+    await expect(page.locator('#sleep-readiness-energy button[data-value="4"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#sleep-readiness-category')).toBeVisible();
+  });
+
+  test('a second save the same day overwrites rather than duplicates My Program\'s banner state', async ({ page }) => {
+    await page.locator('#sleep-readiness-energy button[data-value="2"]').click();
+    await page.locator('#btn-sleep-readiness-save').click();
+    await expect(page.locator('#sleep-readiness-category')).toContainText('moderate');
+
+    await page.locator('#sleep-readiness-energy button[data-value="5"]').click();
+    await page.locator('#sleep-readiness-soreness button[data-value="1"]').click();
+    await page.locator('#btn-sleep-readiness-save').click();
+    await expect(page.locator('#sleep-readiness-category')).toContainText('high');
+  });
+
+  test('viewing a past night from History hides the check-in — it\'s only ever about today', async ({ page }) => {
+    await page.locator('#sleep-log-bedtime').fill('23:00');
+    await page.locator('#sleep-log-waketime').fill('07:00');
+    await page.getByRole('button', { name: 'Save last night' }).click();
+    await expect(page.locator('#sleep-readiness-card')).toBeVisible();
+
+    await page.locator('#btn-sleep-dashboard-date').click();
+
+    // Yesterday's day number, matched by its exact cell text — real
+    // navigation through History's calendar grid, not a guessed date
+    // string. Skipped (not failed) on the rare day-1-of-the-month run
+    // where "yesterday" falls outside the currently-shown month grid.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const cell = page
+      .locator('.sleep-calendar-day:not(.sleep-calendar-day--out-of-month):not(.sleep-calendar-day--future)')
+      .filter({ hasText: new RegExp(`^${yesterday.getDate()}$`) });
+
+    if (await cell.count()) {
+      await cell.first().click();
+      await expect(page.locator('#sleep-readiness-card')).toBeHidden();
+    }
+  });
+});

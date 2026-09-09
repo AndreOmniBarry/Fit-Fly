@@ -22,7 +22,10 @@ const COMMAND_ACTIONS = Object.freeze({
   'start-run': () => byId('btn-home-run')?.click(),
   'show-run-history': () => byId('btn-home-run-history')?.click(),
   'show-program': () => byId('btn-home-program')?.click(),
-  'check-readiness': () => byId('btn-home-readiness')?.click(),
+  // Readiness collapsed into Sleep's own "How today looks" card — this
+  // phrase still opens the right place, just via Sleep's own entry button
+  // now that readiness has no standalone screen of its own.
+  'check-readiness': () => byId('btn-home-sleep')?.click(),
   'open-nutrition': () => byId('btn-home-nutrition')?.click(),
   'open-heart-rate': () => byId('btn-home-heart-rate')?.click(),
   'open-cycle-tracker': () => byId('btn-home-womens-health')?.click(),
@@ -43,7 +46,7 @@ const COMMAND_FEEDBACK = Object.freeze({
   'start-run': 'Opening run mode',
   'show-run-history': 'Opening run history',
   'show-program': "Opening your program",
-  'check-readiness': 'Opening readiness check-in',
+  'check-readiness': 'Opening Sleep — readiness lives there now',
   'open-nutrition': 'Opening nutrition',
   'open-heart-rate': 'Opening heart rate',
   'open-cycle-tracker': 'Opening cycle tracker',

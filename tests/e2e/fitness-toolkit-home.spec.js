@@ -32,7 +32,10 @@ test.describe('fitness toolkit home', () => {
     // Run and Run History moved out to their own Hub tile/live-screen
     // header — Run's own real GPS tracking and splits earned it the same
     // standalone-tile treatment as Steps and Hydration, so it's no longer
-    // one of this list's rows.
+    // one of this list's rows. Readiness moved too, in the other
+    // direction — collapsed into Sleep's own "How today looks" card
+    // (see tests/e2e/sleep.spec.js) rather than a separate destination
+    // here, so it's no longer one of this list's rows either.
     for (const id of [
       'btn-home-log-activity',
       'btn-home-history',
@@ -41,7 +44,6 @@ test.describe('fitness toolkit home', () => {
       'btn-home-heart-rate',
       'btn-home-womens-health',
       'btn-home-nutrition',
-      'btn-home-readiness',
       'btn-home-goals',
     ]) {
       const row = page.locator(`#${id}`);

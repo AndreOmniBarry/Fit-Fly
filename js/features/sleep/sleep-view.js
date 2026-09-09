@@ -131,7 +131,14 @@ export function initSleepFeature() {
      *  explicit "not logged yet" otherwise, never silence. Also resets the
      *  inline nap form back to closed/blank, the same "fresh state per
      *  viewed date" contract loadDashboard already applies to the night
-     *  form. */
+     *  form.
+     *
+     *  The date field defaults to viewedDate (matches this card's own
+     *  summary/empty state above it) but stays a real, editable date
+     *  input — logging a forgotten nap from days ago doesn't require
+     *  first navigating History to that date, the way editing that date's
+     *  actual night log still does. Capped at today: a nap can't be
+     *  logged for a day that hasn't happened yet. */
     function renderNapCard() {
         const summaryEl = byId('sleep-nap-summary');
         const emptyEl = byId('sleep-nap-empty');
@@ -140,9 +147,13 @@ export function initSleepFeature() {
         summaryEl.hidden = description == null;
         emptyEl.hidden = description != null;
         byId('sleep-nap-form').hidden = true;
+        const dateInput = byId('sleep-nap-date');
+        dateInput.value = viewedDate;
+        dateInput.max = todayDateString();
         byId('sleep-nap-start').value = '';
         byId('sleep-nap-end').value = '';
         byId('err-sleep-nap').hidden = true;
+        byId('sleep-nap-confirm').hidden = true;
     }
     function renderWeekStrip() {
         const container = byId('sleep-week-bars');
@@ -593,19 +604,26 @@ export function initSleepFeature() {
     byId('btn-sleep-nap-toggle').addEventListener('click', () => {
         const form = byId('sleep-nap-form');
         form.hidden = !form.hidden;
+        if (!form.hidden)
+            byId('sleep-nap-confirm').hidden = true; // a fresh entry, not last save's leftover confirmation
     });
     byId('sleep-nap-form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const errEl = byId('err-sleep-nap');
+        const napDate = byId('sleep-nap-date').value;
         const startClock = byId('sleep-nap-start').value;
         const endClock = byId('sleep-nap-end').value;
-        if (!startClock || !endClock) {
+        // The date field's own max=today (set in renderNapCard) already
+        // stops most browsers from offering a future date in the picker UI,
+        // but that's a UI hint, not a guarantee — still worth a real check
+        // before ever writing a "nap" that hasn't happened yet.
+        if (!napDate || napDate > todayDateString() || !startClock || !endClock) {
             errEl.hidden = false;
             return;
         }
         let times;
         try {
-            times = computeNapTimes(viewedDate, startClock, endClock);
+            times = computeNapTimes(napDate, startClock, endClock);
         }
         catch {
             errEl.hidden = false;
@@ -617,14 +635,34 @@ export function initSleepFeature() {
         }
         errEl.hidden = true;
         const saved = await saveNapLog({
-            date: viewedDate,
+            date: napDate,
             startTime: times.startTime,
             endTime: times.endTime,
             durationMinutes: times.durationMinutes,
         });
-        viewedNaps = [...viewedNaps, saved];
         recentNaps = [...recentNaps, saved];
-        renderNapCard();
+        if (napDate === viewedDate) {
+            // The card's own summary is for viewedDate — this nap belongs on
+            // it, so a full re-render (which also closes/resets the form) is
+            // the real confirmation: the summary line updating *is* the
+            // "saved" feedback.
+            viewedNaps = [...viewedNaps, saved];
+            renderNapCard();
+        }
+        else {
+            // Logged a *different* day's nap while viewing this one (exactly
+            // the "forgot Sunday's nap, remembered it today" case) — the
+            // card above still correctly shows viewedDate's own naps, so
+            // silently doing nothing else here would look like the save
+            // didn't happen. A distinct confirmation, naming the date it
+            // actually landed on, is what makes that legible instead.
+            byId('sleep-nap-form').hidden = true;
+            byId('sleep-nap-start').value = '';
+            byId('sleep-nap-end').value = '';
+            const confirmEl = byId('sleep-nap-confirm');
+            confirmEl.textContent = `Nap logged for ${formatHeaderDate(napDate)}.`;
+            confirmEl.hidden = false;
+        }
     });
     byId('btn-sleep-edit-log').addEventListener('click', () => {
         if (!viewedLog)

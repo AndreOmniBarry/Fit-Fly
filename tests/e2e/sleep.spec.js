@@ -246,6 +246,55 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-dashboard-result')).toBeHidden();
   });
 
+  test('naps: a forgotten past day\'s nap can be logged directly from today, no History detour required', async ({ page }) => {
+    const threeDaysAgo = new Date();
+    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+    const pastDate = threeDaysAgo.toISOString().slice(0, 10);
+
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await page.locator('#btn-sleep-nap-toggle').click();
+
+    // The date field defaults to today (the card above it is today's) —
+    // change it to the forgotten day instead of navigating History.
+    await page.locator('#sleep-nap-date').fill(pastDate);
+    await page.locator('#sleep-nap-start').fill('14:00');
+    await page.locator('#sleep-nap-end').fill('14:30');
+    await page.getByRole('button', { name: 'Save nap' }).click();
+
+    // Today's own card is untouched — this nap belongs to a different
+    // day, so it correctly still shows nothing logged today, and a
+    // distinct confirmation (naming the real date) is what proves the
+    // save actually happened rather than silently doing nothing.
+    await expect(page.locator('#sleep-nap-empty')).toBeVisible();
+    const expectedLabel = threeDaysAgo.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    });
+    await expect(page.locator('#sleep-nap-confirm')).toBeVisible();
+    await expect(page.locator('#sleep-nap-confirm')).toContainText(expectedLabel);
+    await expect(page.locator('#sleep-nap-form')).toBeHidden();
+
+    // The real proof: History shows that day as napped, and viewing it
+    // directly shows the real 30-minute nap that was just logged.
+    // History opens on today's month (viewedDate is still today here) —
+    // step back a real month at a time if "3 days ago" landed in the
+    // previous one, rather than assuming they're always the same month.
+    const today = new Date();
+    const monthsBack =
+      (today.getFullYear() - threeDaysAgo.getFullYear()) * 12 + (today.getMonth() - threeDaysAgo.getMonth());
+
+    await page.locator('#btn-sleep-dashboard-date').click();
+    for (let i = 0; i < monthsBack; i++) {
+      await page.locator('#btn-sleep-history-prev-month').click();
+    }
+    const dayNumber = String(threeDaysAgo.getDate());
+    const cell = page.locator('.sleep-calendar-day--napped', { hasText: dayNumber });
+    await expect(cell).toBeVisible();
+    await cell.click();
+    await expect(page.locator('#sleep-nap-summary')).toContainText('30m');
+  });
+
   test('naps: logging a nap does not change the night score, and both persist together after reload', async ({ page }) => {
     await page.getByRole('button', { name: 'Sleep' }).click();
     await page.locator('#sleep-log-bedtime').fill('23:00');

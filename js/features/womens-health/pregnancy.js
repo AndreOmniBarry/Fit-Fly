@@ -10,6 +10,19 @@
 const NAEGELE_DAYS_FROM_LMP = 280;
 const FULL_TERM_WEEKS = 40;
 
+// Naegele's rule gives one point estimate, but only a small fraction of
+// pregnancies actually deliver on that exact date — presenting it
+// unqualified reads as far more certain than obstetric practice treats
+// it. ACOG defines "early term" as starting at 37 weeks and "late term"
+// as running through 41 weeks 6 days, with induction typically
+// discussed at 42 — the real, cited clinical window most pregnancies
+// deliver within, not a number this app invented. dueDateRange() below
+// expresses that as real calendar dates around the single due date this
+// module already computes, the same "estimate, not certainty" honesty
+// every prediction in this app follows.
+const TERM_RANGE_START_WEEKS = 37;
+const TERM_RANGE_END_WEEKS = 42;
+
 function daysBetween(isoDateA, isoDateB) {
   const msPerDay = 24 * 60 * 60 * 1000;
   return Math.round((new Date(isoDateB) - new Date(isoDateA)) / msPerDay);
@@ -27,6 +40,24 @@ export function dueDateFromLmp(lmpDate) {
 
 export function lmpFromDueDate(dueDate) {
   return addDays(dueDate, -NAEGELE_DAYS_FROM_LMP);
+}
+
+/** The real, cited clinical delivery window around the single Naegele
+ *  due date — see the module-level TERM_RANGE_START_WEEKS/
+ *  TERM_RANGE_END_WEEKS comment for where 37-42 weeks comes from.
+ *  Takes the due date (not the LMP) since that's what every caller
+ *  actually has on file, whichever way it was originally entered
+ *  (direct due date, or converted from an LMP by dueDateFromLmp above)
+ *  — lmpFromDueDate recovers the LMP this window is really anchored to.
+ * @returns {{earliest: string, likely: string, latest: string}}
+ */
+export function dueDateRange(dueDate) {
+  const lmp = lmpFromDueDate(dueDate);
+  return {
+    earliest: addDays(lmp, TERM_RANGE_START_WEEKS * 7),
+    likely: dueDate,
+    latest: addDays(lmp, TERM_RANGE_END_WEEKS * 7),
+  };
 }
 
 /** @returns {{weeks:number, days:number}} gestational age as of

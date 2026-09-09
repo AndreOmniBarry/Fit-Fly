@@ -6,6 +6,7 @@ import {
   cyclePhaseSegments,
   predictFertileWindow,
   predictionConfidence,
+  predictNextPeriodRange,
   predictNextPeriodStart,
 } from '../../../js/features/womens-health/cycle-prediction.js';
 
@@ -74,6 +75,43 @@ describe('predictNextPeriodStart', () => {
 
   it('a custom default cycle length is honored for a single-period history', () => {
     expect(predictNextPeriodStart(['2026-08-01'], { defaultCycleLengthDays: 30 })).toBe('2026-08-31');
+  });
+});
+
+describe('predictNextPeriodRange', () => {
+  it('is null with no history at all', () => {
+    expect(predictNextPeriodRange([])).toBeNull();
+  });
+
+  it('a single logged period uses the published sparse-history margin, not a false personal one', () => {
+    // predictNextPeriodStart(['2026-08-01']) = '2026-08-29' (28-day default)
+    expect(predictNextPeriodRange(['2026-08-01'])).toEqual({
+      earliest: '2026-08-25',
+      likely: '2026-08-29',
+      latest: '2026-09-02',
+      marginDays: 4,
+    });
+  });
+
+  it('a perfectly regular history still gets the real floor margin, never a false ±0', () => {
+    // Every gap in REGULAR_28_DAY_HISTORY is exactly 28 days (stddev 0) —
+    // MIN_PREDICTION_MARGIN_DAYS is what keeps this from claiming a
+    // single-day-precise prediction real biology can't actually support.
+    expect(predictNextPeriodRange(REGULAR_28_DAY_HISTORY)).toEqual({
+      earliest: '2026-09-16',
+      likely: '2026-09-18',
+      latest: '2026-09-20',
+      marginDays: 2,
+    });
+  });
+
+  it('a genuinely irregular history widens the margin to match, using the real standard deviation', () => {
+    const irregular = ['2026-01-01', '2026-01-25', '2026-03-10', '2026-03-20', '2026-05-15'];
+    const range = predictNextPeriodRange(irregular);
+    // gaps: 24, 44, 10, 56 — real, wide variability, not the 2-day floor.
+    expect(range.marginDays).toBeGreaterThan(2);
+    expect(range.earliest < range.likely).toBe(true);
+    expect(range.likely < range.latest).toBe(true);
   });
 });
 

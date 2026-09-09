@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   dueDateFromLmp,
   lmpFromDueDate,
+  dueDateRange,
   gestationalAge,
   daysUntilDue,
   trimesterForWeek,
@@ -15,6 +16,29 @@ describe('dueDateFromLmp / lmpFromDueDate', () => {
   it('round-trips: lmpFromDueDate undoes dueDateFromLmp', () => {
     const lmp = '2026-03-15';
     expect(lmpFromDueDate(dueDateFromLmp(lmp))).toBe(lmp);
+  });
+});
+
+describe('dueDateRange', () => {
+  it('brackets the single Naegele due date with the real 37-42 week ACOG term window', () => {
+    const dueDate = dueDateFromLmp('2026-01-01'); // '2026-10-08'
+    // 37 weeks = 3 weeks (21 days) before the 40-week due date;
+    // 42 weeks = 2 weeks (14 days) after it.
+    expect(dueDateRange(dueDate)).toEqual({
+      earliest: '2026-09-17',
+      likely: dueDate,
+      latest: '2026-10-22',
+    });
+  });
+
+  it('round-trips through a due date entered directly, not just one derived from an LMP', () => {
+    // No LMP on file at all is a real, supported path (see cycle-log-
+    // view.js's direct due-date entry) — the range still has to work
+    // from the due date alone.
+    const range = dueDateRange('2026-12-25');
+    expect(range.likely).toBe('2026-12-25');
+    expect(range.earliest < range.likely).toBe(true);
+    expect(range.likely < range.latest).toBe(true);
   });
 });
 

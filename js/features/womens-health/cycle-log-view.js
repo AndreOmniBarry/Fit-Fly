@@ -20,10 +20,11 @@ import {
   cyclePhaseSegments,
   predictFertileWindow,
   predictionConfidence,
+  predictNextPeriodRange,
   predictNextPeriodStart,
 } from './cycle-prediction.js';
 import { cycleLengthVariability, symptomFrequency } from './cycle-insights.js';
-import { dueDateFromLmp, gestationalAge, daysUntilDue, trimesterForWeek } from './pregnancy.js';
+import { dueDateFromLmp, dueDateRange, gestationalAge, daysUntilDue, trimesterForWeek } from './pregnancy.js';
 import { milestoneForWeek, PREGNANCY_SYMPTOMS } from './pregnancy-content.js';
 import { summarizeKickSession } from './kick-counter.js';
 import { formatDayLabel } from './day-label.js';
@@ -394,8 +395,10 @@ export function initWomensHealthFeature() {
     const periodLengthDays = getPeriodLengthDays();
     const phaseOptions = { averagePeriodLengthDays: periodLengthDays };
     const nextStart = predictNextPeriodStart(periodStartDates);
+    const range = predictNextPeriodRange(periodStartDates);
     const confidence = predictionConfidence(periodStartDates);
     const fertileWindow = predictFertileWindow(periodStartDates);
+    const cyclesLogged = cycleLengthHistory(periodStartDates).length;
 
     // "Day N · phase" only when today itself is inside the current
     // cycle (currentCyclePhase returns null once genuinely past the
@@ -424,10 +427,23 @@ export function initWomensHealthFeature() {
     // the estimate itself lands in.
     predictionCard.dataset.phase = isBleedingToday ? 'menstrual' : phase?.phase ?? '';
 
-    byId('whealth-prediction-date').textContent = `Next period estimated: ${nextStart}`;
-    byId('whealth-prediction-confidence').textContent = `estimated · ${confidence}`;
+    // A real earliest–latest window, not one unqualified date — see
+    // predictNextPeriodRange's own doc comment for where the margin
+    // comes from. marginDays === 0 can't happen (the function floors
+    // it), so "earliest === latest" never renders as a false single date.
+    byId('whealth-prediction-date').textContent = range
+      ? `Next period estimated: ${formatDayLabel(range.earliest)} – ${formatDayLabel(range.latest)}`
+      : `Next period estimated: ${formatDayLabel(nextStart)}`;
+    // Names the real basis for that window (±N days, from M actual
+    // logged cycles) instead of a bare confidence word on its own — a
+    // person can see *why* it's "low" or "high", not just be told.
+    byId('whealth-prediction-confidence').textContent = range
+      ? `±${range.marginDays} day${range.marginDays === 1 ? '' : 's'} · ${confidence} confidence${
+          cyclesLogged > 0 ? ` · from ${cyclesLogged} logged cycle${cyclesLogged === 1 ? '' : 's'}` : ' · not enough history yet'
+        }`
+      : `estimated · ${confidence}`;
     byId('whealth-fertile-window').textContent = fertileWindow
-      ? `Estimated fertile window: ${fertileWindow.start} – ${fertileWindow.end}`
+      ? `Estimated fertile window: ${formatDayLabel(fertileWindow.start)} – ${formatDayLabel(fertileWindow.end)} (ovulation ~${formatDayLabel(fertileWindow.ovulationDate)})`
       : '';
     predictionCard.hidden = false;
 
@@ -566,7 +582,12 @@ export function initWomensHealthFeature() {
     const logsByDate = new Map(allLogs.map((l) => [l.date, l]));
     const periodStartDates = getPeriodStartDates();
     const phaseOptions = { averagePeriodLengthDays: getPeriodLengthDays() };
-    const nextStart = predictNextPeriodStart(periodStartDates);
+    // The whole predicted earliest-latest window gets marked, not just
+    // one pinpoint day — a single dashed dot on one specific date reads
+    // as far more confident than any cycle prediction actually is (see
+    // predictNextPeriodRange's own doc comment). day.date is a plain
+    // ISO string, so a lexicographic range check is exact here.
+    const range = predictNextPeriodRange(periodStartDates);
 
     const grid = byId('whealth-calendar-grid');
     grid.innerHTML = '';
@@ -575,7 +596,7 @@ export function initWomensHealthFeature() {
     for (const day of days) {
       const log = logsByDate.get(day.date);
       const hasRealFlow = log?.flowIntensity && log.flowIntensity !== 'none';
-      const isPredictedStart = day.date === nextStart;
+      const isPredictedStart = range != null && day.date >= range.earliest && day.date <= range.latest;
       // currentCyclePhase looks across *every* logged period, not just
       // the latest — so a past month's days get colored by whichever of
       // their own (possibly fully historical, possibly-estimated-current)
@@ -599,7 +620,7 @@ export function initWomensHealthFeature() {
         ariaSuffix = `period logged, ${log.flowIntensity} flow`;
       } else if (isPredictedStart) {
         classes.push('whealth-calendar-day--predicted-period');
-        ariaSuffix = 'estimated next period start';
+        ariaSuffix = day.date === range.likely ? 'most likely next period start' : 'possible next period start';
       } else if (phase?.phase === 'ovulation') {
         // Same familiar "fertile window" name/color the legend and the
         // top prediction card's own copy already use for this window.
@@ -696,6 +717,14 @@ export function initWomensHealthFeature() {
       daysLeft >= 0
         ? `Estimated due ${formatDayLabel(pregnancyDueDate, { withYear: true })} (${daysLeft} day${daysLeft === 1 ? '' : 's'} to go)`
         : `Estimated due date has passed (${formatDayLabel(pregnancyDueDate, { withYear: true })}) — many pregnancies go past their estimate`;
+    // The real ACOG-cited 37-42 week term window, not just the single
+    // Naegele date above — see dueDateRange's own doc comment for where
+    // that comes from. Only ~5% of babies actually arrive on their exact
+    // due date, so a bare single date reads as far more precise than
+    // obstetric practice treats it.
+    const range = dueDateRange(pregnancyDueDate);
+    byId('whealth-pregnancy-range-label').textContent =
+      `Likely to arrive ${formatDayLabel(range.earliest)} – ${formatDayLabel(range.latest)} (full-term window)`;
     byId('whealth-pregnancy-trimester-label').textContent = TRIMESTER_LABEL[trimester];
 
     const milestone = milestoneForWeek(age.weeks);

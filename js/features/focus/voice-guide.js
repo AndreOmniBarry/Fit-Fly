@@ -41,6 +41,43 @@ export function getVoiceEngine() {
 function getSpeechSynthesis() {
     return typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 }
+// iOS Safari applies the same "only inside a real, recent user gesture"
+// restriction to speechSynthesis.speak() that kokoro-voice.ts's own
+// module comment documents for AudioContext/HTMLAudioElement — except
+// WebKit's version of it is stricter still: a call from a setTimeout or
+// a promise-chain callback, even one that started inside a genuine tap,
+// silently no-ops instead of throwing, *unless* speechSynthesis has
+// already spoken successfully from directly inside a real gesture at
+// least once this page's lifetime. Kokoro being the default engine is
+// exactly what breaks that: its own playback goes through AudioContext,
+// so speechSynthesis.speak() might never be called at all until the
+// bounded fallback timeout below fires — asynchronously, well outside
+// the tap that started the session, i.e. exactly the pattern iOS drops.
+// Without this, KOKORO_FIRST_AUDIO_TIMEOUT_MS's fallback would silently
+// fail on iOS the same way the Kokoro attempt it's falling back from
+// did — a second silent failure standing in for the first one, not a
+// working fix. primeKokoroAudio() already solves this same problem for
+// AudioContext; this is that same fix for the other audio API.
+let systemVoicePrimed = false;
+function primeSystemVoice() {
+    if (systemVoicePrimed)
+        return;
+    try {
+        const synth = getSpeechSynthesis();
+        if (!synth)
+            return;
+        systemVoicePrimed = true;
+        // volume:0 — this genuinely "speaks" (satisfying whatever real-
+        // gesture bookkeeping iOS does), but produces no audible sound of
+        // its own to notice or for it to race against anything real.
+        const utterance = new SpeechSynthesisUtterance(' ');
+        utterance.volume = 0;
+        synth.speak(utterance);
+    }
+    catch {
+        // best-effort only — see module doc comment
+    }
+}
 export function isVoiceGuideSupported() {
     return getSpeechSynthesis() != null;
 }
@@ -171,6 +208,11 @@ function speakWithSystemVoice(text, { rate = 0.92, pitch = 1 } = {}) {
 export function speak(text, { rate = 0.92, pitch = 1, kokoroVoice } = {}) {
     if (getVoiceEngine() === 'kokoro') {
         primeKokoroAudio();
+        // See primeSystemVoice()'s own doc comment: this is what makes the
+        // *fallback* below actually audible on iOS, not just the Kokoro
+        // attempt it's a fallback from — both need priming from inside this
+        // same real gesture, not just one of them.
+        primeSystemVoice();
         if (isKokoroReady()) {
             let audioStarted = false;
             void speakWithKokoro(text, {

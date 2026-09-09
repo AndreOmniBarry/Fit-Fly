@@ -34,6 +34,21 @@ const LUTEAL_PHASE_DAYS = 14; // ovulation-to-next-period is the most consistent
 const FERTILE_WINDOW_DAYS_BEFORE_OVULATION = 5;
 const FERTILE_WINDOW_DAYS_AFTER_OVULATION = 1;
 
+// A single predicted date, unqualified, reads as more certain than any
+// cycle prediction actually is — real trackers publish a window, not a
+// point. MIN_PREDICTION_MARGIN_DAYS is a floor even for someone with a
+// long, near-perfectly regular history: real cycle timing still shifts
+// day-to-day with stress, illness, travel, etc., so this app never
+// claims tighter than ±2 days no matter how flat the person's own
+// standard deviation comes out. SPARSE_HISTORY_MARGIN_DAYS is what's
+// used before there's enough personal history to compute a real
+// standard deviation at all (cycleLengthHistory needs 2+ gaps) — a
+// published population-level cycle-variability figure standing in
+// honestly for "not enough of your own data yet," never a falsely
+// tight range dressed up as personal.
+const MIN_PREDICTION_MARGIN_DAYS = 2;
+const SPARSE_HISTORY_MARGIN_DAYS = 4;
+
 function daysBetween(isoDateA, isoDateB) {
   const msPerDay = 24 * 60 * 60 * 1000;
   return Math.round((new Date(isoDateB) - new Date(isoDateA)) / msPerDay);
@@ -97,6 +112,36 @@ export function predictNextPeriodStart(periodStartDates, { defaultCycleLengthDay
   const lastStart = sorted[sorted.length - 1];
   const cycleLength = averageCycleLengthDays(periodStartDates) ?? defaultCycleLengthDays;
   return addDays(lastStart, Math.round(cycleLength));
+}
+
+/** The same prediction as predictNextPeriodStart, widened into a real
+ *  earliest–latest window instead of one unqualified date — see the
+ *  module-level MIN_PREDICTION_MARGIN_DAYS/SPARSE_HISTORY_MARGIN_DAYS
+ *  comment for where the margin itself comes from. Once there are
+ *  enough logged cycles to compute a real personal standard deviation
+ *  (cycleLengthHistory's own 2-gap floor), the margin is that person's
+ *  own real day-to-day variability, rounded to a whole day and never
+ *  let below the floor; before that, a published population-level
+ *  figure stands in honestly rather than a falsely tight range.
+ *
+ * @returns {{earliest: string, likely: string, latest: string, marginDays: number}|null}
+ *   null with no history to extrapolate from at all (same case
+ *   predictNextPeriodStart itself returns null for).
+ */
+export function predictNextPeriodRange(periodStartDates, options) {
+  const likely = predictNextPeriodStart(periodStartDates, options);
+  if (!likely) return null;
+
+  const gaps = cycleLengthHistory(periodStartDates).map((h) => h.lengthDays);
+  const marginDays =
+    gaps.length >= 2 ? Math.max(MIN_PREDICTION_MARGIN_DAYS, Math.round(standardDeviation(gaps))) : SPARSE_HISTORY_MARGIN_DAYS;
+
+  return {
+    earliest: addDays(likely, -marginDays),
+    likely,
+    latest: addDays(likely, marginDays),
+    marginDays,
+  };
 }
 
 /**

@@ -12,13 +12,13 @@ async function clearAppDb(page) {
   );
 }
 
-// Kokoro is voice guidance's default engine (see js/features/focus/
-// voice-guide.ts's getVoiceEngine()) and its real, tens-of-megabytes
-// download triggers automatically the moment any guided session speaks
-// its first line — several tests below start one. Blocking the CDN/HF
-// traffic outright keeps this suite fast and network-independent; see
-// tests/e2e/voice-guide.spec.js for the tests that actually exercise
-// that download/fallback behavior.
+// The built-in voice is voice guidance's default engine (see
+// js/features/focus/voice-guide.ts's own doc comment for why); Kokoro,
+// its real tens-of-megabytes on-device model, is opt-in from Settings
+// and never fetched here since nothing below opts into it. Blocking the
+// CDN/HF traffic anyway is defensive/no-op insurance against that
+// changing — see tests/e2e/voice-guide.spec.js for the tests that
+// actually exercise Kokoro's own opt-in/download/fallback behavior.
 async function blockKokoroNetwork(page) {
   await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
   await page.route('https://huggingface.co/**', (route) => route.abort());

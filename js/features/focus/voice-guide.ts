@@ -10,15 +10,20 @@
 //
 // A second engine sits behind the same speak()/stopSpeaking() surface —
 // Kokoro-82M, a real neural TTS model run on-device (see kokoro-voice.ts
-// for what that actually costs) — and is the *default* one: a person
-// gets the real, therapeutic-quality voice without ever visiting
-// Settings. What's opt-in is only the one thing that has a genuine cost
-// (its download) never happening until it's actually needed — see
-// speak()'s own doc comment for exactly when that is. Settings can still
-// switch back to the always-available built-in voice (settings-view.ts),
-// persisted via getPref/setPref; everything below still ends up calling
-// this module's own speak()/stopSpeaking(), so guided-session-view.ts
-// and every other caller never needs to know which engine actually spoke.
+// for what that actually costs). The built-in voice is the *default*
+// engine, not Kokoro — the reverse of this project's earlier direction,
+// changed deliberately after repeated real-device reports of Kokoro
+// staying silent even with primeKokoroAudio()/primeSystemVoice() and a
+// bounded fallback timeout all in place, none of it verifiable from this
+// project's own sandbox (no real audio output to test against). A voice
+// guide that sometimes doesn't speak is a worse default than a voice
+// guide that's always audible, even at lower synthesis quality — so
+// Settings makes Kokoro an explicit opt-in instead: choosing it there is
+// an informed choice for whoever's device handles it well, not the whole
+// app's front-line bet. Persisted via getPref/setPref; everything below
+// still ends up calling this module's own speak()/stopSpeaking(), so
+// guided-session-view.ts and every other caller never needs to know
+// which engine actually spoke.
 import { getPref } from '../../lib/storage.js';
 import {
   didKokoroLoadFail,
@@ -45,11 +50,13 @@ const KOKORO_FIRST_AUDIO_TIMEOUT_MS = 2500;
 export const VOICE_ENGINE_PREF_KEY = 'voice-engine';
 export type VoiceEngine = 'system' | 'kokoro';
 
-/** Kokoro is the default the moment no one has said otherwise — the
- *  pref only ever needs to exist at all once someone actively opts back
- *  out to the built-in voice, in Settings. */
+/** The built-in voice is the default the moment no one has said
+ *  otherwise — see the module doc comment for why. The pref only ever
+ *  needs to exist at all once someone actively opts *in* to Kokoro, in
+ *  Settings; someone who already saved 'kokoro' before this default
+ *  flipped keeps that real, explicit choice. */
 export function getVoiceEngine(): VoiceEngine {
-  return getPref(VOICE_ENGINE_PREF_KEY) === 'system' ? 'system' : 'kokoro';
+  return getPref(VOICE_ENGINE_PREF_KEY) === 'kokoro' ? 'kokoro' : 'system';
 }
 
 function getSpeechSynthesis(): SpeechSynthesis | null {

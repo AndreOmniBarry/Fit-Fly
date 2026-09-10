@@ -211,6 +211,32 @@ test.describe('women\'s health / cycle tracker', () => {
     await expect(page.locator('#whealth-prediction-date')).toContainText('Next period estimated');
   });
 
+  test('the phase indicator is a real circular wheel, drawn from actual phase segments', async ({ page }) => {
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+
+    await page.locator('#whealth-flow button[data-value="medium"]').click();
+    await page.locator('#btn-whealth-save').click();
+
+    await expect(page.locator('#whealth-cycle-wheel-wrap')).toBeVisible();
+    // Real wedges for the real (non-zero) phases, not four fixed quarters —
+    // at least the menstrual phase is guaranteed present on day 1.
+    const wedges = page.locator('#whealth-cycle-wheel-segments path');
+    await expect(wedges).not.toHaveCount(0);
+    for (const phase of await wedges.evaluateAll((els) => els.map((el) => el.dataset.phase))) {
+      expect(['menstrual', 'follicular', 'ovulation', 'luteal']).toContain(phase);
+    }
+    // The marker sits at a real, on-canvas position, not the SVG origin.
+    const marker = page.locator('#whealth-cycle-wheel-marker');
+    await expect(marker).toHaveAttribute('cx', /\d/);
+    await expect(marker).toHaveAttribute('cy', /\d/);
+    // The center readout names the real day/phase, same numbers the
+    // text label above already shows.
+    await expect(page.locator('#whealth-cycle-wheel-day')).toHaveText('Day 1');
+    await expect(page.locator('#whealth-cycle-wheel-phase')).toHaveText('Menstrual');
+  });
+
   test('both the lock screen and the main tracker react to tilt, same spatial language as the rest of the Fitness Toolkit', async ({
     page,
   }) => {

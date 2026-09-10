@@ -29,21 +29,8 @@ async function completeOnboarding(page) {
   await page.getByRole('button', { name: 'Continue to Fit Fly' }).click();
 }
 
-// The built-in voice is voice guidance's default engine (see
-// js/features/focus/voice-guide.ts's own doc comment for why); Kokoro,
-// its real tens-of-megabytes on-device model, is opt-in from Settings
-// and never fetched here since nothing below opts into it. Blocking the
-// CDN/HF traffic anyway is defensive/no-op insurance against that
-// changing — see tests/e2e/voice-guide.spec.js for the tests that
-// actually exercise Kokoro's own opt-in/download/fallback behavior.
-async function blockKokoroNetwork(page) {
-  await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
-  await page.route('https://huggingface.co/**', (route) => route.abort());
-}
-
 test.describe('focus', () => {
   test.beforeEach(async ({ page }) => {
-    await blockKokoroNetwork(page);
     await page.goto('/');
     await clearAppDb(page);
     await page.reload();
@@ -105,8 +92,8 @@ test.describe('focus', () => {
     // zero — regression coverage for the one honest fix available for
     // "it says Playing but I hear nothing": telling people what to check.
     // Scoped to this screen — Settings' own Voice guide card carries the
-    // same honest phrase for the exact same reason (kokoro-voice.ts),
-    // and it's still in the DOM (just hidden) while Focus is showing.
+    // same honest phrase for the exact same reason, and it's still in
+    // the DOM (just hidden) while Focus is showing.
     await expect(page.locator('#focus-volume')).toBeVisible();
     await expect(page.locator('#screen-focus').getByText(/media volume/i)).toBeVisible();
   });

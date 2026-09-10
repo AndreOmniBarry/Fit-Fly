@@ -564,56 +564,28 @@
       </span>
     </div>
 
-    <!-- VOICE GUIDE: Kokoro-82M, a real on-device neural TTS model
-         (js/features/focus/kokoro-voice.ts has the full honest story —
-         why it needs a one-time download, and why that engine loads
-         from a CDN instead of being vendored like everything else in
-         this app), is the default here — nothing to install, nothing
-         to toggle on. Its one real cost, the download, only ever
-         triggers automatically the first time a guided session or
-         meditation actually plays (js/features/focus/voice-guide.ts's
-         speak()); this screen only ever reflects that, or lets someone
-         opt back out to the always-available built-in voice. -->
+    <!-- VOICE GUIDE: the browser's own built-in Web Speech Synthesis —
+         no download, no CDN fetch, no model, no account. This app used
+         to also offer Kokoro-82M, a neural TTS model fetched on first
+         use; it was removed outright (not just demoted to opt-in) after
+         staying unreliable on real devices for too long, including after
+         a real, identified bug fix that couldn't be confirmed against
+         the actual reports. One engine, always on-device, always
+         audible (feature-detection aside), nothing left that can go
+         silent mid-session in a new way. -->
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <h3>Voice guide</h3>
         <p class="muted">
-          Guided sessions and breathing pacers read their cues aloud on
-          "Natural voice" by default — a real 82-million-parameter neural
-          voice model, run entirely on this device (no server ever hears
-          your sessions), with genuinely better prosody and warmth than a
-          browser's own built-in voice. The first time you actually play
-          a guided session or meditation, it downloads automatically
-          (tens of megabytes, over a network this app otherwise never
-          uses) while that first session narrates on your device's
-          built-in voice instead — every session after it uses the real
-          thing. After that one download it's cached here and works
-          offline like everything else. Prefer to skip the download
-          entirely? Switch to the built-in voice below.
+          Guided sessions and breathing pacers read their cues aloud using
+          your device's own built-in voice — nothing to download, nothing
+          ever sent to a server. Fit Fly automatically favors your
+          platform's higher-quality voice where one is available (look
+          for "Natural"/"Enhanced"/"Neural" in your device's own voice
+          settings).
         </p>
-        <div class="field">
-          <label id="lbl-settings-voice-engine">Voice engine</label>
-          <div class="chip-group" id="settings-voice-engine" role="group" aria-labelledby="lbl-settings-voice-engine">
-            <button type="button" class="chip" data-value="kokoro" aria-pressed="true">Natural voice (Kokoro AI)</button>
-            <button type="button" class="chip" data-value="system" aria-pressed="false">Built-in (device)</button>
-          </div>
-        </div>
-        <div class="field" id="settings-voice-kokoro-voice-field" hidden>
-          <label id="lbl-settings-voice-kokoro-voice">Natural voice</label>
-          <div class="chip-group" id="settings-voice-kokoro-voice" role="group" aria-labelledby="lbl-settings-voice-kokoro-voice">
-            <button type="button" class="chip" data-value="af_heart" aria-pressed="true">Heart</button>
-            <button type="button" class="chip" data-value="af_bella" aria-pressed="false">Bella</button>
-            <button type="button" class="chip" data-value="am_fenrir" aria-pressed="false">Fenrir</button>
-            <button type="button" class="chip" data-value="bf_emma" aria-pressed="false">Emma</button>
-          </div>
-        </div>
-        <div id="settings-voice-progress" hidden>
-          <div class="goal-progress-track"><div class="goal-progress-fill" id="settings-voice-progress-fill" style="width:0%;"></div></div>
-        </div>
-        <p class="muted" id="settings-voice-status" style="font-size:var(--fs-sm);"></p>
         <div class="row" style="gap:8px;">
           <button class="btn btn-secondary" id="btn-settings-voice-preview">Preview this voice</button>
-          <button class="btn btn-ghost" id="btn-settings-voice-remove" hidden>Remove downloaded voice</button>
         </div>
         <p class="muted" style="font-size:11.5px; margin-top:6px;">Plays through your media volume — check your device isn't muted or on silent if you don't hear anything.</p>
       </span>
@@ -1245,7 +1217,6 @@
         <div class="breathe-ring breathe-ring--core" id="guided-session-pacer-core"></div>
       </div>
       <p class="display" id="guided-session-caption" style="font-size:22px; margin:0; max-width:300px;" role="status" aria-live="polite">—</p>
-      <p class="muted" id="guided-session-voice-status" hidden style="font-size:var(--fs-xs); margin:4px 0 0;"></p>
     </div>
 
     <div class="focus-progress-track">

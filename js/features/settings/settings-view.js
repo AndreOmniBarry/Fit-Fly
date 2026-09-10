@@ -12,9 +12,7 @@ import { initChipGroup } from '../../lib/chip-group.js';
 import { cmToFeetInches, feetInchesToCm, kgToLb, lbToKg } from '../../lib/units.js';
 import { calculateAge } from '../onboarding/age.js';
 import { getProfile, saveProfile } from '../../db/repositories/profile.js';
-import { getVoiceEngine, VOICE_ENGINE_PREF_KEY, speak, stopSpeaking } from '../focus/voice-guide.js';
-import { didKokoroLoadFail, ensureKokoroLoaded, forgetKokoroModel, getKokoroDownloadProgress, getSavedKokoroVoice, isKokoroLoading, isKokoroReady, setSavedKokoroVoice, } from '../focus/kokoro-voice.js';
-import { setPref } from '../../lib/storage.js';
+import { speak, stopSpeaking } from '../focus/voice-guide.js';
 function byId(id) {
     const el = document.getElementById(id);
     if (!el)
@@ -107,131 +105,15 @@ export function initSettingsFeature() {
         byId('profile-save-status').textContent = 'Saved.';
     });
     // ---------- voice guide ----------
-    const voiceEngineChips = initChipGroup(byId('settings-voice-engine'), {
-        initial: getVoiceEngine(),
-        onChange: (value) => void applyVoiceEngineChoice(value),
-    });
-    const kokoroVoiceChips = initChipGroup(byId('settings-voice-kokoro-voice'), {
-        initial: getSavedKokoroVoice(),
-        onChange: (value) => setSavedKokoroVoice(value),
-    });
-    function setVoiceProgress(visible, percent = 0) {
-        byId('settings-voice-progress').hidden = !visible;
-        byId('settings-voice-progress-fill').style.width = `${percent}%`;
-    }
-    // The voice picker only means anything once Natural voice is the
-    // active, working engine — showing it while still on the built-in
-    // voice (or mid-download) would offer a choice that does nothing yet.
-    function updateKokoroVoiceFieldVisibility() {
-        byId('settings-voice-kokoro-voice-field').hidden = !(getVoiceEngine() === 'kokoro' && isKokoroReady());
-    }
-    /** Re-syncs the whole voice-guide card with reality every time Settings
-     *  opens — purely passive: this never itself starts a download. Kokoro
-     *  is the default engine, but the download it needs is only ever
-     *  triggered by an actual guided session's first speak() call (see
-     *  voice-guide.ts), or by explicitly tapping the chip below — opening
-     *  Settings just to check your profile shouldn't spend a byte on it.
-     *  If a session already started that download in the background, this
-     *  reflects its real live progress (isKokoroLoading()/
-     *  getKokoroDownloadProgress()) without starting a second one — the
-     *  same in-flight promise every caller shares (kokoro-voice.ts). */
-    function refreshVoiceEngineUI() {
-        const engine = getVoiceEngine();
-        voiceEngineChips.setValue(engine);
-        byId('btn-settings-voice-remove').hidden = engine !== 'kokoro' || !isKokoroReady();
-        updateKokoroVoiceFieldVisibility();
-        if (engine !== 'kokoro') {
-            byId('settings-voice-status').textContent = '';
-            setVoiceProgress(false);
-            return;
-        }
-        if (isKokoroReady()) {
-            byId('settings-voice-status').textContent = 'Ready.';
-            setVoiceProgress(false);
-            return;
-        }
-        if (didKokoroLoadFail()) {
-            byId('settings-voice-status').textContent =
-                "Couldn't load your natural voice last time — it'll try again automatically next time you play a guided session, or tap below to retry now.";
-            setVoiceProgress(false);
-            return;
-        }
-        if (isKokoroLoading()) {
-            byId('settings-voice-status').textContent = 'Downloading your natural voice in the background…';
-            setVoiceProgress(true, getKokoroDownloadProgress()?.percent ?? 0);
-            // Passively watches the already-in-flight load to completion —
-            // ensureKokoroLoaded() here awaits the existing promise rather
-            // than starting a new fetch, since one is already running.
-            void ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent))
-                .then(() => {
-                setVoiceProgress(false);
-                byId('settings-voice-status').textContent = 'Ready.';
-                byId('btn-settings-voice-remove').hidden = false;
-                updateKokoroVoiceFieldVisibility();
-            })
-                .catch(() => {
-                setVoiceProgress(false);
-                byId('settings-voice-status').textContent =
-                    "Couldn't download the natural voice (offline, or storage was denied) — using the built-in voice for now.";
-            });
-            return;
-        }
-        byId('settings-voice-status').textContent = 'Starts automatically the first time you play a guided session or meditation.';
-        setVoiceProgress(false);
-    }
-    /** engine==='kokoro' persists the choice immediately, before knowing
-     *  whether the download even succeeds — a transient failure below is a
-     *  real, honest status to report, never a reason to silently revert an
-     *  actual, explicit opt-in (see voice-guide.ts's own doc comment for
-     *  why Kokoro is opt-in, not the default, now). The chip stays showing
-     *  "Natural voice" through a failure on purpose; only an explicit tap
-     *  on "Built-in" ever changes the standing choice. */
-    async function applyVoiceEngineChoice(engine) {
-        if (engine === 'system') {
-            setPref(VOICE_ENGINE_PREF_KEY, 'system');
-            stopSpeaking();
-            byId('settings-voice-status').textContent = '';
-            setVoiceProgress(false);
-            byId('btn-settings-voice-remove').hidden = !isKokoroReady();
-            updateKokoroVoiceFieldVisibility();
-            return;
-        }
-        setPref(VOICE_ENGINE_PREF_KEY, 'kokoro');
-        if (isKokoroReady()) {
-            byId('settings-voice-status').textContent = 'Ready.';
-            byId('btn-settings-voice-remove').hidden = false;
-            updateKokoroVoiceFieldVisibility();
-            return;
-        }
-        byId('settings-voice-status').textContent = 'Downloading your natural voice — this only happens once…';
-        setVoiceProgress(true, 0);
-        try {
-            await ensureKokoroLoaded((p) => setVoiceProgress(true, p.percent));
-            setVoiceProgress(false);
-            byId('settings-voice-status').textContent = 'Ready — this voice now works offline too.';
-            byId('btn-settings-voice-remove').hidden = false;
-            updateKokoroVoiceFieldVisibility();
-        }
-        catch {
-            setVoiceProgress(false);
-            byId('settings-voice-status').textContent =
-                "Couldn't download the natural voice right now (needs a network connection) — it'll try again automatically next time you play a guided session, or tap the chip to retry now.";
-        }
-    }
+    // Just the browser's own built-in voice now — no engine choice, no
+    // download, nothing to refresh when Settings opens. See index.html's
+    // own comment on this card for why Kokoro was removed rather than kept
+    // as an opt-in.
     byId('btn-settings-voice-preview').addEventListener('click', () => {
         speak("Hi — this is Fit Fly's voice guide. It reads your session cues aloud, gently, so you can keep your eyes closed.");
     });
-    byId('btn-settings-voice-remove').addEventListener('click', async () => {
-        await forgetKokoroModel(true);
-        setPref(VOICE_ENGINE_PREF_KEY, 'system');
-        voiceEngineChips.setValue('system');
-        byId('settings-voice-status').textContent = 'Removed — back to the built-in voice.';
-        byId('btn-settings-voice-remove').hidden = true;
-        updateKokoroVoiceFieldVisibility();
-    });
     byId('btn-hub-settings').addEventListener('click', async () => {
         await loadProfileForm();
-        refreshVoiceEngineUI();
         showScreen('screen-settings');
     });
     byId('btn-settings-back').addEventListener('click', () => {

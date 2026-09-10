@@ -30,33 +30,10 @@ else" contract work in the browser too: it resolves to a proxy whose
 methods reject rather than throwing, so importing it is always safe
 even outside a native build.
 
-## Kokoro-js 1.2.1 (loaded from a CDN — the one exception here)
-
-Everything above is vendored specifically so this app can stay fully
-offline from its very first load. `kokoro-js` (Apache-2.0,
-https://github.com/hexgrad/kokoro, itself bundling `@huggingface/
-transformers` and ONNX Runtime Web) breaks that: it exists to run a real
-82-million-parameter neural TTS model (Kokoro-82M) whose weights live on
-Hugging Face Hub with no vendorable npm form, so using it at all means a
-genuine one-time network fetch no vendoring choice avoids — see
-js/features/focus/kokoro-voice.ts's own doc comment for the full
-reasoning. Given that, committing kokoro-js's own bundled engine (its
-self-contained browser build, `dist/kokoro.web.js`, plus the ONNX
-Runtime WebAssembly binary it loads alongside itself — ~21MB on its
-own) into this repository's permanent git history would cost real,
-irreversible size for zero offline benefit.
-
-So this one library is `import()`ed at runtime from
-`https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/dist/kokoro.web.js` — the
-CDN kokoro-js's own README recommends for no-bundler use — instead of
-being vendored. Kokoro is Voice guide's default engine, but this fetch
-only ever fires from a real `speak()` call inside an actual guided
-session or meditation (never on app boot, and never just from opening
-Settings) — see js/features/focus/voice-guide.ts's `speak()`. It's
-cached by the browser after that first load, same as the model weights
-it fetches from Hugging Face Hub, so it isn't re-fetched every session.
-This is the one place in Fit Fly's own code that talks to a third party
-at runtime at all (see the README's "Your data stays on this device" for
-the only
-other one, Nutrition's food search) — sw.js's fetch handler deliberately
-leaves this traffic untouched rather than trying to precache it.
+Fit Fly used to also load `kokoro-js` at runtime from a CDN (a real
+neural text-to-speech model with no vendorable npm form) for Voice
+guide's opt-in Kokoro engine. That engine was removed outright — see the
+README's "Voice guide" section — so nothing in this app talks to a CDN
+for a model anymore. The only remaining third party this app's own code
+talks to at runtime is Nutrition's food search (see the README's "Your
+data stays on this device").

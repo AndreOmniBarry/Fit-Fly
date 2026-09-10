@@ -48,7 +48,7 @@ is exactly what Settings' own export/import is for (see "Export &
 import" below): a real, on-device backup file, entirely in your own
 hands.
 
-**Two narrow, explicit exceptions**: Nutrition's food search sends the
+**One narrow, explicit exception**: Nutrition's food search sends the
 text you type to [Open Food Facts](https://openfoodfacts.org), a free,
 open food database, to look up nutrition facts. It only happens when you
 tap Search (never live-as-you-type), only carries the search text, and
@@ -56,18 +56,13 @@ never touches what you've actually logged, which stays local exactly
 like everything else. Recent and Favorites don't need it at all — both
 are built entirely from data already on this device.
 
-The second is a one-time download, not an ongoing habit: "Natural voice
-(Kokoro AI)" is Voice guide's default engine (see "Voice guide" below),
-and the real, on-device neural text-to-speech model it needs downloads
-automatically — from Hugging Face Hub, plus its engine from jsDelivr —
-the first time a guided session or meditation actually plays, never on
-app boot and never from just opening Settings. Once downloaded,
-generation happens entirely on this device — nothing about what a
-guided session says, or when, is ever sent anywhere — and the files are
-cached by the browser, so it's the last network request that specific
-feature ever needs. Settings can switch back to the always-available
-built-in voice at any time, which needs zero network access, same as
-everything else in the app.
+Voice guide (see "Voice guide" below) used to also offer a second,
+opt-in engine — Kokoro-82M, a neural text-to-speech model fetched from a
+CDN on first use. It's gone: it stayed unreliable on real devices for
+too long, so it was removed rather than kept around as a choice that
+sometimes didn't work. Voice guidance now only ever uses the browser's
+own built-in voice — no download, no CDN fetch, no network access at
+all, same as everything else in the app.
 
 ## Export & import
 
@@ -345,7 +340,7 @@ js/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
     settings/                    # profile edit, export/import backup UI, voice-guide engine choice (TypeScript) — see "Export & import"
     sleep/                       # Sleep mini-app: NSF-banded score/consistency/debt, dashboard, History calendar, Wind Down, Insights (TypeScript)
-    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (default on-device Kokoro-82M neural voice, built-in Web Speech as fallback/opt-out) + the shared guided-session player (TypeScript)
+    focus/                  # Focus mini-app: real Web Audio spatial engine, thunderstorms, guided sessions + voice guidance (built-in Web Speech, on-device, no download) + the shared guided-session player (TypeScript)
     meditate/                # Meditate mini-app: 12-session library of cited meditations + breathwork, real streak tracking (TypeScript)
     vitals/                   # Vitals mini-app: blood pressure + SpO2, manual entry or BLE, AHA/pulse-ox categorization, real trend/streak (TypeScript)
     steps/                     # Steps mini-app: real motion-sensed live walk or manual entry, threshold-crossing step detector, real goal/streak, native-pedometer.js (real background step counting on a native build) (TypeScript)
@@ -1078,138 +1073,25 @@ natural rate variance and a real pitch drop on the line's final clause
 ending, versus a slight lift on one that continues), with a short
 breath-length pause between them.
 
-**A second engine, opt-in, for real neural warmth: Kokoro-82M,
-on-device.** The browser's built-in voice above is free, universal, and
-needs nothing — but it's still formant/concatenative synthesis, not a
-model that actually learned prosody from real speech. Kokoro, a real
-82-million-parameter neural text-to-speech model run entirely on this
-device through [ONNX Runtime](https://onnxruntime.ai)'s WebAssembly
-backend (`kokoro-voice.ts`), is Voice guide's real, explicit *opt-in* —
-`getVoiceEngine()` returns `'kokoro'` only once Settings has actively
-turned it on, never the other way around. It used to be the default the
-other direction (`getVoiceEngine()` returning `'kokoro'` unless someone
-turned it *off*), flipped deliberately after repeated real-device
-reports of it staying silent even with every mitigation below already in
-place — a voice guide that sometimes doesn't speak is a worse default
-than one that's always audible, even at lower synthesis quality, so
-choosing Kokoro is now an informed choice for whoever's device handles
-it well, not the whole app's front-line bet. `speak()`/`stopSpeaking()`
-(`voice-guide.ts`) stay the one public surface every caller
-(`guided-session-view.ts` included) already uses — which engine actually
-spoke is invisible to them, decided per call.
-
-Three honest constraints shape how this is built, not glossed over:
-
-- *A real download, triggered by real use, not a settings trip.* Kokoro's
-  weights live on Hugging Face Hub — there's no vendorable npm form of
-  "an 82M-parameter model," so using it at all means a genuine network
-  fetch (tens of megabytes, `q4` quantization — a real, audible quality
-  trade against kokoro-js's own `q8` default, chosen deliberately for a
-  smaller, faster download: this one now starts automatically once
-  opted into, so a shorter download is also a shorter window for the one
-  failure mode no client-side code can fully avoid — a fetch discarded
-  because the tab backgrounded or reloaded mid-download can't resume; it
-  just restarts next time). That download fires the moment `speak()`'s
-  first real call lands *after* Settings has turned Kokoro on — never on
-  app boot, and never just from opening Settings to look at the toggle
-  without picking it: the first guided session or meditation after
-  opting in narrates on the built-in voice while Kokoro downloads in the
-  background (a small status line on the session screen itself says so,
-  real percentage included — deliberately placed inside the session
-  someone is already sitting through, not a separate download screen
-  that's easy to wander away from and lose progress on), and every
-  session after it gets the real thing. Settings
-  shows the same real aggregate percentage when it's watching an
-  already-in-flight download, or driving one itself after an explicit
-  retry (`aggregateProgress`, unit-tested for exactly this: summing real
-  bytes loaded/total across every file, not averaging each file's own
-  percentage, which would misreport badly once files of very different
-  sizes are downloading at once). A failed download reports the real
-  reason and is remembered for the rest of that page session (no
-  hammering a dead endpoint on every beat) — but never silently reverts
-  the standing choice back to the built-in voice; a transient failure is
-  an honest status to report, not a reason to un-choose what was never
-  actively changed away from.
-- *Loaded from a CDN, not vendored — the one deliberate exception to
-  this app's "everything vendored" rule* (see "TypeScript, without a
-  bundler" and `js/vendor/THIRD_PARTY_NOTICES.md`). Vendoring Dexie and
-  Capacitor buys real offline-from-first-load benefit. Kokoro can't
-  offer that no matter what: its model weights need that one real fetch
-  regardless, so committing kokoro-js's own engine — its bundled ONNX
-  Runtime WebAssembly binary alone is ~21MB — into this repository's
-  permanent git history would cost real, irreversible size for zero
-  offline benefit. So the engine loads once per browser from jsDelivr
-  (the CDN kokoro-js's own README recommends for no-bundler use) and is
-  cached by the browser alongside the model weights afterward — this is
-  the one feature in the app that talks to a third party at all; see
-  "Your data stays on this device" above for the other one.
-- *Real playback, primed for a real gesture — not the browser silently
-  discarding it.* Generated speech is decoded and played through a
-  shared `AudioContext`/`AudioBufferSourceNode`, the exact pattern
-  `audio-cue.js`'s `primeAudio()` and Focus's own `audio-engine.ts`
-  already rely on, rather than a plain `HTMLAudioElement` — `speak()`
-  primes it on every call. An `HTMLAudioElement.play()` reached through
-  the multi-second, multi-await chain a streamed sentence actually takes
-  to generate (WASM inference per sentence) reads as "not really" a
-  response to the original tap on stricter browsers, which then quietly
-  refuse to play it; a resumed `AudioContext`, by contrast, stays
-  `'running'` for anything scheduled on it later, gesture or not. This
-  fixed a real bug caught during manual testing: a guided session or
-  Settings' Preview button visibly "playing" — captions advancing, pacer
-  animating — with total silence and no error, because the previous
-  `HTMLAudioElement`-based path was catching a rejected `.play()` the
-  same way it caught a normal, successful playback ending.
-- *A second, more specific silent-forever bug, found and fixed later:
-  narrates fine on the built-in voice while Kokoro loads, then goes
-  silent the exact moment Kokoro finishes.* `kokoro-voice.ts`'s
-  `playBlob()` used to signal "this clip started" the instant
-  `source.start()` was called, without checking whether the shared
-  `AudioContext` had actually reached `'running'` first — and
-  `primeKokoroAudio()`'s own `resume()` is fire-and-forget, so a beat
-  running from a timer callback (every beat after the first) rather than
-  the original tap could have that resume silently never take effect.
-  `start()` on a still-suspended context never throws, so the false
-  "started" signal defeated `voice-guide.ts`'s own timeout-based
-  fallback (it looked like real audio was already playing), and the
-  clip's `onended` never fired either — a truly stuck context never
-  finishes anything — stranding not just that one clip but every beat
-  after it, silently, for the rest of the session. `playBlob()` now
-  confirms `'running'` (its own short, bounded timeout) before ever
-  reporting a clip started, and a new `kokoroFailedThisRun` flag in
-  `voice-guide.ts` makes one real failure a one-time cost per session —
-  once tripped, every later beat speaks on the built-in voice directly,
-  no second doomed attempt first — cleared at each real session boundary
-  (the session ending, or a pause) so a fresh run still gets its own
-  fair first try. Still genuinely unverifiable against real device audio
-  output from this project's own sandbox (no real hardware, no real
-  Safari to test against) — a real, reasoned fix for a specifically
-  identified bug, not a guess, but not a claim of confirmed real-device
-  behavior either.
-
-Once loaded, `speakWithKokoro` uses kokoro-js's own sentence-boundary
-splitter (correctly handling abbreviations, decimals, and quotes — real
-work this doesn't reimplement) to generate and play one real sentence at
-a time, each keeping Kokoro's own model-learned prosody intact end to
-end, with `breathPauseMs` — unit-tested, and scaling gently with
-speaking rate — inserting a real pause between sentences: the one thing
-generating them separately loses, and the one a person actually does
-when they breathe between sentences. Settings offers a real choice
-between four of Kokoro's voices once it's ready, not just its default —
-`af_heart` (its own single top-graded voice, the only one it marks "A",
-the only one it marks with ❤️, and the default for the warmth this
-feature exists for), `af_bella`, `am_fenrir`, and `bf_emma` — a curated
-shortlist of the library's other highly-graded voices rather than its
-full 28-voice list, several of which the library's own grading marks
-noticeably rougher. The choice is a real saved preference
-(`getSavedKokoroVoice`/`setSavedKokoroVoice`), read fresh by every
-`speak()` call, not just applied once at download time. A model that
-fails to reload in a later session (cache evicted, offline) falls back
-to the built-in voice for that line honestly, exactly like every other
-best-effort Web API wrapper in this app — and, same as everywhere else
-audio plays through the device's media volume rather than a separate
-app volume, a muted or silenced device produces the identical symptom
-with no programmatic signal to tell it apart; Settings' own Voice guide
-card says so plainly.
+**Kokoro-82M was removed.** This app used to also offer a second, opt-in
+engine — Kokoro, a real 82-million-parameter neural text-to-speech model
+run on-device through ONNX Runtime's WebAssembly backend, fetched from a
+CDN and Hugging Face Hub on first use. It was a real, technically
+interesting build (an on-device neural voice model with genuinely better
+prosody than formant/concatenative synthesis), but it stayed unreliable
+on real devices for too long: it went silent mid-session across multiple
+real-device reports, including after a real, specifically-identified bug
+fix (an `AudioContext` that could report a clip "started" before it had
+actually confirmed `'running'`) that this project's own sandbox had no
+way to verify against real hardware. Re-demoting it to opt-in once
+already, then patching the same class of bug again, wasn't converging —
+so it's gone outright rather than kept around as a choice that
+sometimes doesn't work. `js/features/focus/kokoro-voice.ts` and its
+Settings UI (an engine picker, a per-voice picker, a download-progress
+bar) no longer exist. `speak()`/`stopSpeaking()` (`voice-guide.ts`) stay
+the one public surface every caller (`guided-session-view.ts` included)
+already uses — now backed by exactly one engine, always on-device,
+nothing left that can go silent in a new way.
 
 **The breathing pacer reacts on four channels, not one.** Each ring
 (`guided-session-pacer-core/-mid/-outer`) moves a smaller fraction of the
@@ -2730,6 +2612,35 @@ the same "own palette, shared mechanics" pattern every other mini-app
 already carries. It's the grid's 9th tile and the first whose own data
 comes from every other mini-app at once rather than owning a store of
 its own.
+
+**Personal Bests: a real live record, structurally separate from a
+tiered badge.** A tiered badge above is "once earned, always earned" —
+it can never legitimately un-earn. A personal best (fastest pace,
+longest run, best steps day, best hydration day) is the opposite by
+definition: it's always the *current* record, and a new one replaces
+the old one rather than sitting alongside it. Forcing that into the
+tiered `earnedBadges` model would mean either a badge that un-earns
+(breaking the contract every other badge relies on) or a fixed
+threshold dressed up as a "record" (a fabricated number — the exact
+thing this whole feature was built to avoid). `js/features/badges/
+personal-bests.ts`'s `computePersonalBests` stays deliberately outside
+that model instead: no persisted "earned" row, just the real current
+best recomputed fresh from `personal-records.ts`, `steps-trend.ts`, and
+`hydration-trend.ts` every time the screen opens — the same "read
+straight from real data, never cached state that can drift" rule every
+other honest number in this app already follows. A metric with nothing
+logged yet never gets a placeholder entry, same as everywhere else.
+
+The Badges screen now filters (**All / Personal Bests / Achievements**)
+rather than showing every section unconditionally — Personal Bests and
+the Earned/Remaining tiered grid are real but structurally different
+data, so the filter splits them instead of pretending one list can
+represent both. ("Remaining" replaces the old "In Progress" label —
+same real progress-number cards, clearer wording.) There's no
+"Challenges" filter: this app has no such feature, and a filter for
+data that doesn't exist would be exactly the fabrication this feature
+exists to avoid — the same reasoning that already keeps this catalog to
+32 real tiers instead of inventing a "perfect week" score.
 
 **A real embossed medal, not a flat tinted circle.** Earned badges used
 to reuse the exact same flat `.tilt-card` treatment as a Hub tile — one

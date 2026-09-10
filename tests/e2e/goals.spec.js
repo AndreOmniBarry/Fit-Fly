@@ -401,3 +401,98 @@ test.describe('goals: notifications enabled', () => {
     await expect.poll(() => page.evaluate(() => window.__notificationTitle)).toContain('smash your goals');
   });
 });
+
+test.describe('goals: per-type tailored parameters', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+    await page.locator('#btn-home-goals').click();
+  });
+
+  test('every real goal type is offered, with no quick units or hint shown until one is picked', async ({ page }) => {
+    for (const label of ['Cardio Endurance', 'Strength', 'Skill Practice', 'Body Composition', 'Custom']) {
+      await expect(page.locator('#goal-type').getByText(label)).toBeVisible();
+    }
+    await expect(page.locator('#goal-unit-quick')).toBeHidden();
+    await expect(page.locator('#goal-type-hint')).toHaveText('');
+  });
+
+  test('picking a type reveals its own real quick-pick units and hint, replacing the previous type\'s', async ({ page }) => {
+    await page.locator('#goal-type button[data-value="cardio"]').click();
+    await expect(page.locator('#goal-unit-quick')).toBeVisible();
+    await expect(page.locator('#goal-unit-quick button[data-value="km"]')).toBeVisible();
+    await expect(page.locator('#goal-unit-quick button[data-value="kg"]')).toHaveCount(0);
+    const cardioHint = await page.locator('#goal-type-hint').textContent();
+    expect(cardioHint.length).toBeGreaterThan(10);
+
+    await page.locator('#goal-type button[data-value="strength"]').click();
+    await expect(page.locator('#goal-unit-quick button[data-value="kg"]')).toBeVisible();
+    await expect(page.locator('#goal-unit-quick button[data-value="km"]')).toHaveCount(0);
+    await expect(page.locator('#goal-type-hint')).not.toHaveText(cardioHint);
+  });
+
+  test('Custom shows a real hint but no quick-pick units — it stays genuinely freeform', async ({ page }) => {
+    await page.locator('#goal-type button[data-value="custom"]').click();
+    await expect(page.locator('#goal-unit-quick')).toBeHidden();
+    const hint = await page.locator('#goal-type-hint').textContent();
+    expect(hint.length).toBeGreaterThan(10);
+  });
+
+  test('tapping a quick-pick unit fills the real unit field, still fully editable afterward', async ({ page }) => {
+    await page.locator('#goal-type button[data-value="skill"]').click();
+    await page.locator('#goal-unit-quick button[data-value="reps"]').click();
+    await expect(page.locator('#goal-unit')).toHaveValue('reps');
+
+    // Still a real, editable free-text field — not locked to the pick.
+    await page.locator('#goal-unit').fill('sets');
+    await expect(page.locator('#goal-unit')).toHaveValue('sets');
+  });
+
+  test('a goal created with a real type shows that type\'s own icon, and the form resets to no type after creating', async ({
+    page,
+  }) => {
+    await page.locator('#goal-type button[data-value="strength"]').click();
+    await page.locator('#goal-unit-quick button[data-value="kg"]').click();
+    await page.locator('#goal-name').fill('Deadlift total');
+    await page.locator('#goal-target').fill('120');
+    await page.locator('#goal-start').fill('80');
+    await page.locator('#btn-goal-create').click();
+
+    await expect(page.locator('#goals-list use[href="#icon-dumbbell"]')).toBeVisible();
+
+    // The form itself is back to a real, untyped blank state — not
+    // still showing Strength's own quick-picks for the next goal.
+    await expect(page.locator('#goal-type button[aria-pressed="true"]')).toHaveCount(0);
+    await expect(page.locator('#goal-unit-quick')).toBeHidden();
+  });
+
+  test('a Cardio Endurance goal draws real, distinct milestone/streak copy from its own phrase bank', async ({ page }) => {
+    await page.locator('#goal-type button[data-value="cardio"]').click();
+    await page.locator('#goal-name').fill('Build endurance');
+    await page.locator('#goal-target').fill('10');
+    await page.locator('#goal-unit').fill('km');
+    await page.locator('#goal-start').fill('0');
+    await page.locator('#btn-goal-create').click();
+
+    const card = page.locator('#goals-list .card').first();
+    await card.locator('[data-progress-input]').fill('5'); // 50% — a real milestone crossed
+    await card.locator('[data-log-progress-id]').click();
+
+    await expect(card).toContainText(/endurance|cardio/i);
+  });
+
+  test('a goal created before this existed (no goalType) still shows the original target icon, no crash', async ({
+    page,
+  }) => {
+    // The exact old flow — free-text unit, no type ever picked.
+    await page.locator('#goal-name').fill('Read 12 books');
+    await page.locator('#goal-target').fill('12');
+    await page.locator('#goal-unit').fill('books');
+    await page.locator('#goal-start').fill('0');
+    await page.locator('#btn-goal-create').click();
+
+    await expect(page.locator('#goals-list use[href="#icon-target"]')).toBeVisible();
+  });
+});

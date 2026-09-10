@@ -42,6 +42,16 @@ export const STREAK_RISK_PHRASES = Object.freeze({
     "Don't let today be the gap in an otherwise solid streak.",
     'A quick check-in today keeps your streak intact.',
   ],
+  cardio: [
+    'Your endurance streak needs a session today to stay alive.',
+    "One more cardio session keeps that streak breathing.",
+    "Don't let your endurance streak flatline — get the heart rate up today.",
+  ],
+  skill: [
+    'Your practice streak is one skipped rep session from resetting.',
+    "A quick technique session today keeps your skill streak sharp.",
+    "Don't let today be the day the reps stop.",
+  ],
   generic: [
     "Your streak is one day from breaking — a quick update saves it.",
     "Time to smash your streak before it resets to zero.",
@@ -80,6 +90,16 @@ export const CLOSE_TO_TARGET_PHRASES = Object.freeze({
     'So close to your weight goal — keep it up.',
     'The last stretch of your weight goal is right here.',
   ],
+  cardio: [
+    'Your endurance goal is within striking distance — one more session.',
+    "You're closing in on that cardio target.",
+    'Nearly there on your endurance goal — keep the pace up.',
+  ],
+  skill: [
+    "You're almost at that technique goal — a few more reps.",
+    'Your skill goal is nearly locked in — keep practicing.',
+    "So close on your practice goal — finish the set.",
+  ],
   generic: [
     "So close! You're almost at this goal.",
     'Your goal is within reach — finish it off.',
@@ -117,6 +137,16 @@ const MILESTONE_PHRASES = Object.freeze({
     25: 'A quarter of the way to your weight goal.',
     50: 'Halfway to your weight goal — steady progress.',
     75: 'Almost at your weight goal — the finish line is close.',
+  },
+  cardio: {
+    25: 'A quarter of the way to your endurance goal.',
+    50: 'Halfway to your cardio goal — engine\'s warming up.',
+    75: 'Three-quarters of your endurance goal done — keep pushing.',
+  },
+  skill: {
+    25: 'A quarter of the way to your practice goal.',
+    50: 'Halfway to your skill goal — the reps are adding up.',
+    75: 'Almost at your skill goal — final reps.',
   },
 });
 

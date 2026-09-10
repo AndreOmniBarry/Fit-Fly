@@ -217,4 +217,35 @@ test.describe('voice guide: guided sessions keep working while Kokoro downloads/
 
     expect(consoleErrors).toEqual([]);
   });
+
+  // Regression coverage for the real bug fixed in kokoro-voice.ts's
+  // playBlob()/voice-guide.ts's kokoroFailedThisRun: a session that
+  // never gets a real, ready Kokoro instance (blocked network, same as
+  // every test in this file) must still run every beat through to a
+  // real completion — never stall partway once the fallback path is
+  // exercised on more than one beat. This is the same shape of failure
+  // the fix addresses (a beat's speak() call silently never resolving,
+  // permanently), just forced via the network-blocked path rather than
+  // the stuck-AudioContext path this sandbox can't simulate against a
+  // real loaded model.
+  test('a full session with Kokoro selected (but never loaded) runs through every beat to real completion, with zero console errors', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+    });
+
+    await page.clock.install();
+    await page.getByRole('button', { name: 'Focus' }).click(); // Hub -> Focus screen
+    await page.locator('#btn-guided-session-focus').click(); // the "Focus" guided session tile
+    await expect(page.locator('#guided-session-title')).toHaveText('Focus');
+
+    await page.clock.runFor('00:01:30'); // well past this session's own ~50s total
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('#guided-session-grid')).toBeVisible();
+    expect(consoleErrors).toEqual([]);
+  });
 });

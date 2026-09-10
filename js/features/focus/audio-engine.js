@@ -253,10 +253,23 @@ export class FocusAudioEngine {
                 this.startWander(this.graph, ctx, target);
             this.notify();
         }
-        catch {
-            // best-effort only — a blocked/failing Web Audio API leaves nothing
-            // playing rather than throwing into the caller
+        catch (error) {
+            // A real, previously-silent gap: this used to leave nothing
+            // playing *and* tell the UI nothing about it either — tapping a
+            // tile whose graph genuinely failed to build looked identical to
+            // the tap doing nothing at all, with no console error (nothing
+            // here ever logged) and no "didn't start" banner (that's gated on
+            // lastStartBlocked, which this branch never set). Reusing that
+            // same honest-failure banner here means any real failure — this
+            // one, not just the browser withholding playback the autoplay
+            // check above already catches — is now at least visible, and
+            // logging it is what makes a report like "this sound doesn't
+            // work" actually diagnosable from a real device's console instead
+            // of a total dead end.
+            console.error('FocusAudioEngine.start failed:', error);
             this.teardownGraph();
+            this.lastStartBlocked = true;
+            this.notify();
         }
     }
     startPositionAnimation() {

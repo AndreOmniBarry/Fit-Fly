@@ -235,6 +235,53 @@ test.describe('focus', () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  // Regression coverage for a real, previously-silent gap: start()'s
+  // catch block used to swallow a genuine graph-build failure with zero
+  // sign of it anywhere — no console entry, no UI change, tapping a
+  // tile looked identical to the tap doing nothing. It now reuses the
+  // same honest "didn't start" banner the autoplay-blocked case already
+  // shows, and logs the real error, whatever throws.
+  test('a genuine graph-build failure surfaces the same honest "didn\'t start" banner, not silence', async ({ page }) => {
+    await page.addInitScript(() => {
+      // Fails the very first BiquadFilterNode a soundscape's graph tries
+      // to create — every real soundscape has at least one filter stage,
+      // so this reliably reproduces "something inside start() threw"
+      // without depending on which specific soundscape is tapped.
+      const original = AudioContext.prototype.createBiquadFilter;
+      AudioContext.prototype.createBiquadFilter = function patchedCreateBiquadFilter() {
+        throw new Error('simulated graph-build failure');
+      };
+      window.__restoreCreateBiquadFilter = () => {
+        AudioContext.prototype.createBiquadFilter = original;
+      };
+    });
+    // addInitScript only takes effect on the *next* navigation — the
+    // shared beforeEach above already loaded this page before this test
+    // body ran, so reload once now that the patch is actually armed.
+    // App state (onboarding, DB) persists across the reload.
+    await page.reload();
+
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+
+    await page.getByRole('button', { name: 'Focus' }).click();
+    await page.locator('#focus-sound-rain').click();
+
+    await expect(page.locator('#focus-audio-blocked')).toBeVisible();
+    await expect(page.locator('#focus-now-playing')).toBeHidden();
+    await expect(page.locator('#focus-sound-rain')).toHaveAttribute('aria-pressed', 'false');
+    expect(consoleErrors.some((text) => text.includes('simulated graph-build failure'))).toBe(true);
+
+    // The failure is real and reported — not a dead end that silently
+    // never recovers either: restoring the API and trying again works.
+    await page.evaluate(() => window.__restoreCreateBiquadFilter());
+    await page.locator('#focus-sound-rain').click();
+    await expect(page.locator('#focus-now-playing-name')).toHaveText('Rain');
+    await expect(page.locator('#focus-audio-blocked')).toBeHidden();
+  });
+
   test('every soundscape — including the new rain droplets, ocean/wind wander, and fireplace crackle — plays with zero console errors', async ({
     page,
   }) => {

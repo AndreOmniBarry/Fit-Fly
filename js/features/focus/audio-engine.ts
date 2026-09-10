@@ -50,13 +50,16 @@ export interface FocusAudioState {
   volume: number;
   timerMinutes: number | null;
   remainingMs: number | null;
-  /** True right after a start() attempt where the AudioContext never
-   *  actually reached 'running' — a real, detectable failure (the browser
-   *  withheld playback despite the gesture), distinct from the far more
-   *  common case this API genuinely cannot detect: the context runs fine,
-   *  the graph plays fine, and the device is simply muted or its media
-   *  volume is at zero. See focus-view.ts's permanent volume-control hint
-   *  for that one — there's no programmatic signal for it to react to. */
+  /** True right after a start() attempt that didn't actually end up
+   *  playing — either the AudioContext never reached 'running' (the
+   *  browser withheld playback despite the gesture) or building the
+   *  graph itself threw partway through (logged to the console either
+   *  way — see start()'s own catch). Both are real, detectable failures,
+   *  distinct from the far more common case this API genuinely cannot
+   *  detect: the context runs fine, the graph plays fine, and the device
+   *  is simply muted or its media volume is at zero. See focus-view.ts's
+   *  permanent volume-control hint for that one — there's no
+   *  programmatic signal for it to react to. */
   blocked: boolean;
 }
 
@@ -328,10 +331,23 @@ export class FocusAudioEngine {
       if (soundscape.hasThunder) this.scheduleNextThunderclap(this.graph, ctx);
       for (const target of soundscape.wander ?? []) this.startWander(this.graph, ctx, target);
       this.notify();
-    } catch {
-      // best-effort only — a blocked/failing Web Audio API leaves nothing
-      // playing rather than throwing into the caller
+    } catch (error) {
+      // A real, previously-silent gap: this used to leave nothing
+      // playing *and* tell the UI nothing about it either — tapping a
+      // tile whose graph genuinely failed to build looked identical to
+      // the tap doing nothing at all, with no console error (nothing
+      // here ever logged) and no "didn't start" banner (that's gated on
+      // lastStartBlocked, which this branch never set). Reusing that
+      // same honest-failure banner here means any real failure — this
+      // one, not just the browser withholding playback the autoplay
+      // check above already catches — is now at least visible, and
+      // logging it is what makes a report like "this sound doesn't
+      // work" actually diagnosable from a real device's console instead
+      // of a total dead end.
+      console.error('FocusAudioEngine.start failed:', error);
       this.teardownGraph();
+      this.lastStartBlocked = true;
+      this.notify();
     }
   }
 

@@ -1,6 +1,6 @@
 {
   "installCommand": "echo 'static site — nothing to install'",
-  "buildCommand": "echo 'static site — nothing to build'",
+  "buildCommand": "node scripts/stamp-sw-cache-version.mjs",
   "outputDirectory": ".",
   "cleanUrls": true,
   "headers": [

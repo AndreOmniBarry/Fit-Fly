@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BADGE_GROUPS, evaluateBadgeGroup } from '../../../js/features/badges/badge-definitions.js';
+import { BADGE_GROUPS, badgeAchievementCopy, evaluateBadgeGroup } from '../../../js/features/badges/badge-definitions.js';
 
 describe('evaluateBadgeGroup', () => {
   const group = {
@@ -65,5 +65,22 @@ describe('BADGE_GROUPS catalog', () => {
   it('every group id is also unique', () => {
     const groupIds = BADGE_GROUPS.map((g) => g.id);
     expect(new Set(groupIds).size).toBe(groupIds.length);
+  });
+});
+
+describe('badgeAchievementCopy', () => {
+  const earned = { name: 'Sleep Starter', category: 'Sleep', threshold: 3, metricLabel: 'consecutive nights logged' };
+
+  it('builds a real title and a body citing the badge\'s own name/category/threshold, never a fabricated line', () => {
+    const copy = badgeAchievementCopy(earned);
+    expect(copy.title).toBe('New badge earned!');
+    expect(copy.body).toContain('Sleep Starter');
+    expect(copy.body).toContain('Sleep');
+    expect(copy.body).toContain('3 consecutive nights logged');
+  });
+
+  it('formats a non-integer threshold the same way progressLabel does, not a raw float', () => {
+    const copy = badgeAchievementCopy({ ...earned, threshold: 12.5 });
+    expect(copy.body).toContain('12.5 consecutive nights logged');
   });
 });

@@ -2596,6 +2596,32 @@ same "shared primitive, not another duplicate" call `calendar-grid.ts`
 already made for Sleep's and the Cycle Tracker's calendars — and all
 five call sites now delegate to it instead of carrying their own copy.
 
+**A real in-session celebration, not just a quieter number update the
+next time you happen to open Badges.** `evaluateAllBadges` now marks
+which tiers this exact call is the one that first recorded —
+`isNewlyEarned`, true once per tier, never again on a later check
+against the same already-earned one. `badges-view.ts`'s `announceNewlyEarnedBadges`
+is the one place that reads it: a shared, screen-agnostic toast
+(`js/lib/achievement-toast.ts`, `#app-achievement-toast` in index.html —
+floats above whichever screen is open, top-center so it never collides
+with the Stopwatch FAB or the voice mic below) pops in with the badge's
+own real name/category/threshold (`badgeAchievementCopy` in badge-
+definitions.ts — no fabricated congratulatory line, the same "4 of 7"
+honest-number rule `progressLabel` already holds a locked tier to) and
+auto-dismisses on the same timer language as Hydration's own record
+toast. Since Badges evaluates on every Hub visit (not only when the
+Badges screen itself opens), finishing an activity and returning to the
+Hub is enough to see it — genuinely in-session, not deferred to the next
+time you happen to check the grid. A real system Notification fires
+alongside it too, but only if notification permission is already
+granted (Goals' own "Enable notifications" button is still the one place
+that ever asks — this never prompts on its own, same rule every other
+notification-worthy moment in this app already follows). Run's own PR
+trophy card at the end of a run picked up the same system-notification
+half of this (not a second toast — the trophy card is already this
+screen's own real "you just did that" moment; the notification is for
+the summary screen having gone to the background before it's read).
+
 The screen groups tiers into **Earned** (with a real earned date, most
 recent first) and **In Progress** (with a real progress number — "4 of 7
 consecutive nights logged" — never a vague "almost there"), reusing the

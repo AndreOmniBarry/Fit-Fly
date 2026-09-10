@@ -170,3 +170,19 @@ export function evaluateBadgeGroup(group: BadgeGroup, currentValue: number): Bad
     currentValue,
   }));
 }
+
+/** The title/body copy for a just-earned badge's celebration (in-session
+ *  toast and/or system Notification) — real fields straight off the
+ *  badge itself, the same "N of X metricLabel" number progressLabel
+ *  already builds for a locked tier, never a fabricated congratulatory
+ *  line. Pure so it's testable without touching the DOM or a database. */
+export function badgeAchievementCopy(badge: Pick<BadgeStatus, 'name' | 'category' | 'threshold' | 'metricLabel'>): {
+  title: string;
+  body: string;
+} {
+  const threshold = Number.isInteger(badge.threshold) ? badge.threshold : badge.threshold.toFixed(1);
+  return {
+    title: 'New badge earned!',
+    body: `${badge.name} — ${badge.category}, ${threshold} ${badge.metricLabel}`,
+  };
+}

@@ -451,3 +451,24 @@ textarea.input{
 .program-calendar-legend span{ display:flex; align-items:center; gap:5px; }
 .program-calendar-dot{ display:inline-block; width:8px; height:8px; border-radius:50%; font-style:normal; background:var(--accent); }
 .program-calendar-dot--rest{ background:transparent; border:1.5px dashed var(--ink-muted); }
+
+/* ---------- Stopwatch: a real lap/split list, fastest/slowest called
+   out only once there's real data to compare (see classifyLaps in
+   stopwatch-laps.ts) ---------- */
+.stopwatch-lap-row{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; padding:10px 14px;
+  font-variant-numeric:tabular-nums;
+}
+.stopwatch-lap-number{ font-size:var(--fs-sm); color:var(--ink-muted); flex-shrink:0; }
+.stopwatch-lap-time{ font-weight:700; display:flex; align-items:center; gap:6px; }
+.stopwatch-lap-split{ font-size:var(--fs-sm); flex-shrink:0; }
+.stopwatch-lap-row--fastest{ border-color:var(--success); background:var(--success-soft); }
+.stopwatch-lap-row--slowest{ border-color:var(--danger); background:var(--danger-soft); }
+.stopwatch-lap-badge{
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+  padding:2px 6px; border-radius:6px;
+}
+.stopwatch-lap-row--fastest .stopwatch-lap-badge{ background:var(--success); color:#fff; }
+.stopwatch-lap-row--slowest .stopwatch-lap-badge{ background:var(--danger); color:#fff; }

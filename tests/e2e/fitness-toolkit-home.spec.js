@@ -40,6 +40,7 @@ test.describe('fitness toolkit home', () => {
       'btn-home-log-activity',
       'btn-home-history',
       'btn-home-rest-timer',
+      'btn-home-stopwatch',
       'btn-home-program',
       'btn-home-heart-rate',
       'btn-home-womens-health',

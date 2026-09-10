@@ -18,6 +18,7 @@ function getSpeechRecognitionClass() {
 const COMMAND_ACTIONS = Object.freeze({
   'go-home': () => showScreen('screen-hub'),
   'start-rest-timer': () => byId('btn-home-rest-timer')?.click(),
+  'start-stopwatch': () => byId('btn-home-stopwatch')?.click(),
   'log-activity': () => byId('btn-home-log-activity')?.click(),
   'start-run': () => byId('btn-home-run')?.click(),
   'show-run-history': () => byId('btn-home-run-history')?.click(),
@@ -42,6 +43,7 @@ const COMMAND_ACTIONS = Object.freeze({
 const COMMAND_FEEDBACK = Object.freeze({
   'go-home': 'Going home',
   'start-rest-timer': 'Opening the rest timer',
+  'start-stopwatch': 'Opening the stopwatch',
   'log-activity': 'Opening activity log',
   'start-run': 'Opening run mode',
   'show-run-history': 'Opening run history',

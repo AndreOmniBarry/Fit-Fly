@@ -909,6 +909,35 @@ generated Web Audio, run at a requested 48kHz:
   `scheduleNextThunderclap` — each clap gets its own one-shot `PannerNode`
   positioned in a random direction, independent of the continuous rain
   layer's own motion, since real thunder doesn't travel with the rain.
+- **A continuous filtered-noise bed was the whole story before, and it
+  showed** — every soundscape reduced to the same underlying texture at a
+  different cutoff frequency, which is exactly why they started to sound
+  alike. Two more DSP layers close that gap, applied only where a real
+  version of the sound actually needs them:
+  - **Discrete transient textures** (`texture-impulses.ts`) — real rain
+    droplet ticks and fireplace crackle-pops, not more filtered hiss.
+    `generateImpulseTrain` places short noise-burst impulses at onsets
+    drawn from a genuine Poisson process (exponentially-distributed
+    inter-arrival gaps — the actual statistics behind "random raindrops",
+    not an evenly-spaced grid dressed up to look random), each with its
+    own randomized duration/amplitude/decay. Rain and Thunderstorm get a
+    sparse, fast, short-decay version (droplets); Fireplace gets a
+    sparser, longer, rounder-decay version (pops) — baked into the same
+    kind of loopable buffer as every noise layer, no live scheduling
+    needed.
+  - **Live gain/filter wander** (`wander.ts`) — the wave-swell/gust
+    modulation a static filter chain can never produce on its own.
+    `generateWanderCurve` produces a list of (time, value) breakpoints
+    with both the gap *and* the target value randomized per segment, so
+    scheduling them onto a real `AudioParam` via
+    `linearRampToValueAtTime` (`audio-engine.ts`'s `scheduleWander`,
+    refilling itself ahead of running out — the same recursive-reschedule
+    shape as `scheduleNextThunderclap`) produces a smooth but genuinely
+    irregular "breathing", never a metronomic LFO. Ocean wanders its
+    wave-body's gain *and* filter cutoff (louder and brighter at the
+    crest) plus its foam layer's gain independently; Wind wanders its
+    body's gain and filter cutoff for real gusting; River gets a gentler
+    version on just its babble layer.
 
 `js/features/focus/audio-engine.ts` is the thin, stateful
 orchestration layer that wires all of the above into a real Web Audio

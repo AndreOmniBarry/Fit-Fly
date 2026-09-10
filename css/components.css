@@ -76,17 +76,31 @@
    .tilt-press layer — .card already carries the row's padding, so this
    only needs to lay its own children out and carry the press-spring. */
 .fitness-home-list{ perspective:1000px; }
-.fitness-home-list .card-button:nth-child(1){ animation-delay:.02s; }
-.fitness-home-list .card-button:nth-child(2){ animation-delay:.05s; }
-.fitness-home-list .card-button:nth-child(3){ animation-delay:.08s; }
-.fitness-home-list .card-button:nth-child(4){ animation-delay:.11s; }
-.fitness-home-list .card-button:nth-child(5){ animation-delay:.14s; }
-.fitness-home-list .card-button:nth-child(6){ animation-delay:.17s; }
-.fitness-home-list .card-button:nth-child(7){ animation-delay:.2s; }
-.fitness-home-list .card-button:nth-child(8){ animation-delay:.23s; }
-.fitness-home-list .card-button:nth-child(9){ animation-delay:.26s; }
-.fitness-home-list .card-button:nth-child(10){ animation-delay:.29s; }
-.fitness-home-list .card-button:nth-child(11){ animation-delay:.32s; }
+/* :nth-of-type, not :nth-child — the list now interleaves plain
+   .fitness-home-section-label <h3> headers between groups of rows (see
+   index.html), and :nth-of-type counts a <button>'s position only among
+   its <button> siblings, so a header sibling of a different tag never
+   shifts this stagger. */
+.fitness-home-list .card-button:nth-of-type(1){ animation-delay:.02s; }
+.fitness-home-list .card-button:nth-of-type(2){ animation-delay:.05s; }
+.fitness-home-list .card-button:nth-of-type(3){ animation-delay:.08s; }
+.fitness-home-list .card-button:nth-of-type(4){ animation-delay:.11s; }
+.fitness-home-list .card-button:nth-of-type(5){ animation-delay:.14s; }
+.fitness-home-list .card-button:nth-of-type(6){ animation-delay:.17s; }
+.fitness-home-list .card-button:nth-of-type(7){ animation-delay:.2s; }
+.fitness-home-list .card-button:nth-of-type(8){ animation-delay:.23s; }
+.fitness-home-list .card-button:nth-of-type(9){ animation-delay:.26s; }
+.fitness-home-list .card-button:nth-of-type(10){ animation-delay:.29s; }
+.fitness-home-list .card-button:nth-of-type(11){ animation-delay:.32s; }
+/* Real section grouping (Training / Health Tracking / Goals) instead of
+   one flat, undifferentiated list — the first label sits flush under the
+   profile banner/heading above, every later one gets real breathing room
+   from the section before it. */
+.fitness-home-section-label{
+  margin:var(--space-4) 0 -6px; font-size:12.5px; font-weight:700;
+  text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-muted);
+}
+.fitness-home-section-label:first-child{ margin-top:0; }
 .fitness-row-face{
   display:flex; align-items:center; justify-content:space-between; width:100%;
 }

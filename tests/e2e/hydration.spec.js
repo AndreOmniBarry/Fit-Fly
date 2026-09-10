@@ -287,6 +287,46 @@ test.describe('hydration', () => {
     expect(averagedBarLabel).toContain('Week of');
   });
 
+  test('the mascot\'s mouth genuinely changes shape as real progress moves from empty toward goal', async ({ page }) => {
+    const mouth = page.locator('#hydration-figure-mouth');
+    const emptyD = await mouth.getAttribute('d');
+    await expect(page.locator('#hydration-figure')).toHaveAttribute('data-level', 'low');
+
+    // Enough to cross the real 40% "mid" band against the default
+    // 2,200ml goal (1,000ml is ~45%).
+    await page.locator('#hydration-custom-ml').fill('1000');
+    await page.locator('#btn-hydration-custom-save').click();
+    await expect(page.locator('#hydration-today-ml')).toHaveText('1,000', { timeout: 3000 });
+    await expect(page.locator('#hydration-figure')).toHaveAttribute('data-level', 'mid');
+    const midD = await mouth.getAttribute('d');
+    expect(midD).not.toBe(emptyD);
+
+    // Push past the goal — the mascot's mouth becomes a real, distinct
+    // smile shape (and blush shows up), never the same path reused.
+    await page.locator('#hydration-custom-ml').fill('1300');
+    await page.locator('#btn-hydration-custom-save').click();
+    await expect(page.locator('#hydration-today-ml')).toHaveText('2,300', { timeout: 3000 });
+    await expect(page.locator('#hydration-figure')).toHaveAttribute('data-level', 'full');
+    const fullD = await mouth.getAttribute('d');
+    expect(fullD).not.toBe(midD);
+    expect(fullD).not.toBe(emptyD);
+
+    const blushOpacity = await page
+      .locator('#hydration-figure-blush-left')
+      .evaluate((el) => getComputedStyle(el).opacity);
+    expect(parseFloat(blushOpacity)).toBeGreaterThan(0);
+  });
+
+  test('the Reminders card renders as a real banner with a bottle icon', async ({ page }) => {
+    const banner = page.locator('.hydration-reminder-banner');
+    await expect(banner).toBeVisible();
+    await expect(banner.locator('.hydration-reminder-banner-icon use')).toHaveAttribute('href', '#icon-bottle');
+    // Every id the reminder logic actually drives is still here, unchanged
+    // by the new surrounding layout.
+    await expect(banner.locator('#hydration-notify-status')).toBeVisible();
+    await expect(banner.locator('#btn-hydration-enable-notify')).toBeVisible();
+  });
+
   test('the screen reacts to tilt, same spatial language as the Hub', async ({ page }) => {
     await page.mouse.move(400, 60);
     await page.waitForTimeout(500);

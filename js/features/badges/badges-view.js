@@ -9,7 +9,7 @@ import { attachTilt } from '../../lib/tilt.js';
 import { iconMarkup } from '../../lib/icons.js';
 import { getNotificationPermission, showNotification } from '../../lib/notifications.js';
 import { queueAchievementToasts } from '../../lib/achievement-toast.js';
-import { evaluateAllBadges } from './badge-engine.js';
+import { evaluateAllBadges, evaluatePersonalBests } from './badge-engine.js';
 import { badgeAchievementCopy } from './badge-definitions.js';
 import { setBadgesTileSubtitle } from '../hub/hub-view.js';
 function byId(id) {
@@ -18,6 +18,7 @@ function byId(id) {
         throw new Error(`badges-view: missing #${id}`);
     return el;
 }
+let activeFilter = 'all';
 export function initBadgesFeature() {
     byId('btn-home-badges').addEventListener('click', async () => {
         await renderBadges();
@@ -26,12 +27,30 @@ export function initBadgesFeature() {
     byId('btn-badges-back').addEventListener('click', () => showScreen('screen-hub'));
     const tilt = attachTilt(byId('screen-badges'));
     byId('screen-badges').addEventListener('pointerdown', () => void tilt.requestMotionPermission(), { once: true });
+    byId('badges-filter-toggle').addEventListener('click', (e) => {
+        const btn = e.target.closest('.chip[data-value]');
+        if (!btn)
+            return;
+        activeFilter = btn.dataset.value;
+        for (const chip of byId('badges-filter-toggle').querySelectorAll('.chip')) {
+            chip.setAttribute('aria-pressed', String(chip === btn));
+        }
+        applyFilterVisibility();
+    });
     // The Hub tile's own "X earned" subtitle needs real data as soon as the
     // Hub itself loads, and again every time the person returns to it —
     // logging a milestone in Steps, say, and going straight back to the Hub
     // without ever opening this screen should still update the count.
     void refreshHubTile();
     onScreenShown('screen-hub', () => void refreshHubTile());
+}
+/** Shows/hides the Personal Bests and Achievements sections per the
+ *  active filter chip — a display concern only, never re-fetches, so
+ *  switching filters back and forth is instant and never re-triggers
+ *  the new-badge announcement path. */
+function applyFilterVisibility() {
+    byId('badges-personalbests-section').hidden = activeFilter === 'achievements';
+    byId('badges-achievements-section').hidden = activeFilter === 'personal-bests';
 }
 // One real, immediate celebration the moment the app actually notices a
 // badge crossed — a toast (screen-agnostic, works from the Hub or
@@ -88,10 +107,26 @@ function progressLabel(badge) {
     const threshold = Number.isInteger(badge.threshold) ? badge.threshold : badge.threshold.toFixed(1);
     return `${value} of ${threshold} ${badge.metricLabel}`;
 }
+/** Personal-best cards reuse the earned-medal look (they're always a real,
+ *  currently-standing record, never a locked/in-progress state) but show
+ *  the real value in place of an earned date. */
+function personalBestCardMarkup(pb) {
+    return `
+    <div class="card badge-card badge-card--earned tilt-card tilt-enter" style="--card-seed:${cardSeed(pb.id).toFixed(3)};">
+      <span class="badge-card-icon" data-tilt-depth="1" aria-hidden="true">${iconMarkup(pb.icon, { size: 22 })}</span>
+      <strong>${pb.label}</strong>
+      <p class="muted" style="font-size:var(--fs-sm);">${pb.category}</p>
+      <p class="muted" style="font-size:var(--fs-xs);">${pb.value}</p>
+    </div>
+  `;
+}
 async function renderBadges() {
-    const badges = await evaluateAllBadges();
+    const [badges, personalBests] = await Promise.all([evaluateAllBadges(), evaluatePersonalBests()]);
     const earned = badges.filter((b) => b.earned);
     const locked = badges.filter((b) => !b.earned);
+    byId('badges-personalbests-grid').innerHTML = personalBests.length
+        ? personalBests.map(personalBestCardMarkup).join('')
+        : '<p class="muted center-text">No personal bests yet — log a run, some steps, or water to set your first real record.</p>';
     byId('badges-earned-count').textContent = String(earned.length);
     byId('badges-total-count').textContent = String(badges.length);
     byId('badges-earned-grid').innerHTML = earned.length
@@ -117,6 +152,7 @@ async function renderBadges() {
         </div>
       `)
         .join('');
+    applyFilterVisibility();
     await refreshHubTile(badges);
 }
 //# sourceMappingURL=badges-view.js.map

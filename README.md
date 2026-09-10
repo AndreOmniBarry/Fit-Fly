@@ -2239,6 +2239,29 @@ Tapping any non-future calendar day now opens *that* date's entry to log
 or edit — a real retroactive log, the same capability Sleep History
 already has, instead of the form only ever reading and writing today.
 
+**A circular phase wheel, not a flat progress bar.** The prediction
+card's "where am I in my cycle" indicator used to be a segmented div bar
+with a `left:`-positioned marker — functional, but it read as generic
+progress UI rather than a cycle tracker. `js/features/womens-health/
+cycle-wheel-geometry.js` is a small, deliberately DOM-free geometry module
+(pure functions, no document access) that turns the same
+`cyclePhaseSegments()` output the old bar used into a real SVG donut ring:
+each phase renders as a wedge sized by its actual angular share of the
+cycle (`buildCycleWheelSegments`), never four equal quarters, with a
+marker dot (`markerPosition`) at today's real position around it and a
+day-number/phase readout at the ring's own center. Day 1 sits at 12
+o'clock and the ring reads clockwise from there — the same convention a
+wall calendar (or any real circular cycle tracker) already uses. Every
+angle and path string is independently unit-tested
+(`tests/unit/womens-health/cycle-wheel-geometry.test.js`) since the module
+never touches the DOM; `cycle-log-view.js`'s `renderCycleWheel` is the
+only thing that turns those path strings into real `<path>`/`<circle>`
+elements. The phase legend underneath is unchanged — same colors, same
+"is-current" highlighting — and the separate month-grid calendar above
+(day-by-day logging/editing) is untouched too; the wheel replaces only
+the old flat progress bar, a presentation-only swap with zero risk to the
+prediction math, encryption, or calendar.
+
 ## Pregnancy mode
 
 A real mode switch inside the same protected section — one PIN

@@ -24,6 +24,7 @@ import {
   predictNextPeriodStart,
 } from './cycle-prediction.js';
 import { cycleLengthVariability, symptomFrequency } from './cycle-insights.js';
+import { buildCycleWheelSegments, markerPosition } from './cycle-wheel-geometry.js';
 import { dueDateFromLmp, dueDateRange, gestationalAge, daysUntilDue, trimesterForWeek } from './pregnancy.js';
 import { milestoneForWeek, PREGNANCY_SYMPTOMS } from './pregnancy-content.js';
 import { summarizeKickSession } from './kick-counter.js';
@@ -43,6 +44,16 @@ import {
 function byId(id) {
   return document.getElementById(id);
 }
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+// Matches the #whealth-cycle-wheel viewBox in index.html — a 160x160 box
+// with a ring thick enough to read each phase's real share of the cycle
+// at a glance, and a hole wide enough for the day/phase readout at its
+// center.
+const WHEEL_CENTER = { cx: 80, cy: 80 };
+const WHEEL_OUTER_R = 70;
+const WHEEL_INNER_R = 46;
+const WHEEL_GEOMETRY = { center: WHEEL_CENTER, outerRadius: WHEEL_OUTER_R, innerRadius: WHEEL_INNER_R };
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -447,26 +458,28 @@ export function initWomensHealthFeature() {
       : '';
     predictionCard.hidden = false;
 
-    renderPhaseBar(periodStartDates, phaseOptions, phase);
+    renderCycleWheel(periodStartDates, phaseOptions, phase);
   }
 
-  /** The actual visual "phase indicator" — a segmented bar shaped by the
-   *  person's own real cycle/period lengths (cyclePhaseSegments), with a
-   *  marker at today's real position in it. Hidden whenever there's no
-   *  phase to place a marker at (currentCyclePhase itself returned null —
-   *  see its own doc comment for exactly when that is), since a bar with
-   *  no "you are here" marker would be misleading rather than useful. */
-  function renderPhaseBar(periodStartDates, phaseOptions, phase) {
-    const bar = byId('whealth-phase-bar');
-    const track = byId('whealth-phase-bar-track');
-    track.innerHTML = '';
+  /** The actual visual "phase indicator" — a ring shaped by the person's
+   *  own real cycle/period lengths (cyclePhaseSegments), each wedge's real
+   *  angular share of the circle (never four equal quarters), with a
+   *  marker dot at today's real position in it and the day/phase readout
+   *  at the ring's own center. Hidden whenever there's no phase to place
+   *  a marker at (currentCyclePhase itself returned null — see its own
+   *  doc comment for exactly when that is), since a ring with no "you are
+   *  here" marker would be misleading rather than useful. */
+  function renderCycleWheel(periodStartDates, phaseOptions, phase) {
+    const wrap = byId('whealth-cycle-wheel-wrap');
+    const segmentsGroup = byId('whealth-cycle-wheel-segments');
+    segmentsGroup.innerHTML = '';
 
     const segments = cyclePhaseSegments(periodStartDates, phaseOptions);
     if (!segments || !phase) {
-      bar.hidden = true;
+      wrap.hidden = true;
       return;
     }
-    bar.hidden = false;
+    wrap.hidden = false;
 
     const orderedSegments = [
       ['menstrual', segments.menstrualDays],
@@ -474,18 +487,25 @@ export function initWomensHealthFeature() {
       ['ovulation', segments.ovulationDays],
       ['luteal', segments.lutealDays],
     ];
-    const totalDays = orderedSegments.reduce((sum, [, days]) => sum + days, 0);
-    for (const [phaseName, days] of orderedSegments) {
-      if (days <= 0) continue;
-      const segment = document.createElement('div');
-      segment.className = 'whealth-phase-bar-segment';
-      segment.dataset.phase = phaseName;
-      segment.style.width = `${(days / totalDays) * 100}%`;
-      track.append(segment);
+    const wheelSegments = buildCycleWheelSegments(orderedSegments, WHEEL_GEOMETRY);
+    for (const segment of wheelSegments) {
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', segment.d);
+      path.setAttribute('class', 'whealth-cycle-wheel-segment');
+      path.dataset.phase = segment.phase;
+      segmentsGroup.append(path);
     }
 
-    const markerPercent = Math.min(100, Math.max(0, ((phase.cycleDayNumber - 1) / segments.cycleLengthDays) * 100));
-    byId('whealth-phase-bar-marker').style.left = `${markerPercent}%`;
+    const marker = markerPosition(phase.cycleDayNumber, segments.cycleLengthDays, WHEEL_GEOMETRY);
+    const markerEl = byId('whealth-cycle-wheel-marker');
+    markerEl.setAttribute('cx', String(marker.x));
+    markerEl.setAttribute('cy', String(marker.y));
+
+    byId('whealth-cycle-wheel-day').textContent = `Day ${phase.cycleDayNumber}`;
+    // The ring's own center is small — the trailing " phase" the legend/
+    // label elsewhere spells out in full adds nothing here that the
+    // wedge color + legend below it doesn't already say.
+    byId('whealth-cycle-wheel-phase').textContent = PHASE_LABEL[phase.phase].replace(/ phase$/, '');
 
     for (const el of document.querySelectorAll('#whealth-phase-bar-legend [data-phase]')) {
       el.classList.toggle('is-current', el.dataset.phase === phase.phase);

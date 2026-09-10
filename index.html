@@ -2611,9 +2611,15 @@
           <span class="data-badge estimated" id="whealth-prediction-confidence">estimated</span>
         </div>
 
-        <div class="whealth-phase-bar" id="whealth-phase-bar" role="img" aria-label="Progress through the estimated cycle phases" hidden>
-          <div class="whealth-phase-bar-track" id="whealth-phase-bar-track"></div>
-          <div class="whealth-phase-bar-marker" id="whealth-phase-bar-marker"></div>
+        <div class="whealth-cycle-wheel-wrap" id="whealth-cycle-wheel-wrap" hidden>
+          <svg class="whealth-cycle-wheel" id="whealth-cycle-wheel" viewBox="0 0 160 160" role="img" aria-label="Progress through the estimated cycle phases">
+            <g id="whealth-cycle-wheel-segments"></g>
+            <circle class="whealth-cycle-wheel-marker" id="whealth-cycle-wheel-marker" r="5"></circle>
+          </svg>
+          <div class="whealth-cycle-wheel-center">
+            <strong id="whealth-cycle-wheel-day">Day —</strong>
+            <span class="muted" id="whealth-cycle-wheel-phase"></span>
+          </div>
         </div>
         <div class="whealth-phase-bar-legend" id="whealth-phase-bar-legend">
           <span data-phase="menstrual">Menstrual</span>

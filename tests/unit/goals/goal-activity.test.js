@@ -44,3 +44,27 @@ describe('inferActivityType: reads the real name/unit a person already typed', (
     expect(() => inferActivityType({})).not.toThrow();
   });
 });
+
+describe('inferActivityType: an explicit goalType (goal-types.js\'s picker) always wins over guessing', () => {
+  it('maps each real explicit type to its own real activity type', () => {
+    expect(inferActivityType({ name: 'Anything', unit: 'kg', goalType: 'cardio' })).toBe('cardio');
+    expect(inferActivityType({ name: 'Anything', unit: 'kg', goalType: 'strength' })).toBe('strength');
+    expect(inferActivityType({ name: 'Anything', unit: 'kg', goalType: 'skill' })).toBe('skill');
+    expect(inferActivityType({ name: 'Anything', unit: 'kg', goalType: 'body' })).toBe('weight');
+  });
+
+  it('overrides what the name/unit alone would have guessed', () => {
+    // "kg" alone would normally infer 'weight' — an explicit Strength
+    // type (a real, common case: tracking a lift total in kg) must win.
+    expect(inferActivityType({ name: 'Deadlift total', unit: 'kg', goalType: 'strength' })).toBe('strength');
+  });
+
+  it('"custom" has no real type of its own — falls through to the same regex inference as always', () => {
+    expect(inferActivityType({ name: 'Run a 5K', unit: 'km', goalType: 'custom' })).toBe('run');
+    expect(inferActivityType({ name: 'Save $1000', unit: '%', goalType: 'custom' })).toBe('generic');
+  });
+
+  it('an unrecognized goalType is ignored, not a crash', () => {
+    expect(inferActivityType({ name: 'Daily walk', unit: 'steps', goalType: 'not-a-real-type' })).toBe('walk');
+  });
+});

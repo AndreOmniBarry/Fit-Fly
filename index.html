@@ -2981,6 +2981,19 @@
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <h3>New Goal</h3>
+        <!-- A real type picker, not one identical form for every kind of
+             goal — a cardio endurance goal and a skill-practice goal
+             don't want the same units offered. Picking one only tailors
+             what this form offers below (quick-pick units, the hint);
+             the underlying math (goal-progress.js) stays exactly as
+             generic as it always was, and Custom keeps this fully
+             freeform for anyone who'd rather just type their own unit.
+             See js/features/goals/goal-types.js. -->
+        <div class="field">
+          <label id="lbl-goal-type">Goal type</label>
+          <div class="chip-group" id="goal-type" role="group" aria-labelledby="lbl-goal-type"></div>
+          <p class="muted" id="goal-type-hint" style="font-size:var(--fs-sm); margin:6px 0 0;"></p>
+        </div>
         <div class="field">
           <label for="goal-name">What are you working toward?</label>
           <input class="input" type="text" id="goal-name" placeholder="e.g. Run a 5K">
@@ -2995,6 +3008,7 @@
             <input class="input" type="text" id="goal-unit" placeholder="e.g. km, kg, days">
           </div>
         </div>
+        <div class="chip-group" id="goal-unit-quick" role="group" aria-label="Quick-pick a unit for this goal type" hidden></div>
         <div class="field">
           <label id="lbl-goal-direction">Direction</label>
           <div class="chip-group" id="goal-direction" role="group" aria-labelledby="lbl-goal-direction">

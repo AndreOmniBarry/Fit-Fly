@@ -10,6 +10,7 @@ import { renderTrendChart } from '../../lib/trend-chart.js';
 import { calculateProgressPercent, daysUntilDeadline, isGoalAchieved, remainingToTarget } from './goal-progress.js';
 import { newlyCrossedMilestones } from './milestones.js';
 import { inferActivityType } from './goal-activity.js';
+import { GOAL_TYPES, getGoalType } from './goal-types.js';
 import { pickMilestoneMessage } from './goal-phrases.js';
 import { buildGoalsNotification } from './reminders.js';
 import { createGoal, listActiveGoals, logGoalProgress, markGoalAchieved } from '../../db/repositories/goals.js';
@@ -35,8 +36,45 @@ function loggedDates(goal) {
 // alongside it always read identically.
 const pendingMilestoneByGoalId = new Map();
 
+/** The hint + quick-pick unit chips under the type picker — real,
+ *  per-type guidance instead of one blank free-text field for every kind
+ *  of goal. A quick-pick chip only ever fills #goal-unit's own value
+ *  (never a second, competing "selected unit" state of its own) — the
+ *  free-text field stays the one real source of truth, so typing a
+ *  different unit afterward always wins. */
+function renderUnitQuickPicks(typeId) {
+  const type = getGoalType(typeId);
+  const quickEl = byId('goal-unit-quick');
+  byId('goal-type-hint').textContent = type?.hint ?? '';
+
+  if (!type || type.units.length === 0) {
+    quickEl.hidden = true;
+    quickEl.innerHTML = '';
+    return;
+  }
+  quickEl.hidden = false;
+  quickEl.innerHTML = type.units
+    .map((unit) => `<button type="button" class="chip" data-value="${escapeHtml(unit)}">${escapeHtml(unit)}</button>`)
+    .join('');
+}
+
 export function initGoalsFeature() {
   const directionChips = initChipGroup(byId('goal-direction'), { initial: 'increase' });
+
+  byId('goal-type').innerHTML = GOAL_TYPES.map(
+    (type) => `<button type="button" class="chip" data-value="${type.id}" aria-pressed="false">${escapeHtml(type.label)}</button>`
+  ).join('');
+  const typeChips = initChipGroup(byId('goal-type'), {
+    initial: null,
+    onChange: (value) => renderUnitQuickPicks(value),
+  });
+  renderUnitQuickPicks(null);
+
+  byId('goal-unit-quick').addEventListener('click', (event) => {
+    const chip = event.target.closest('.chip');
+    if (!chip) return;
+    byId('goal-unit').value = chip.dataset.value;
+  });
 
   // Same spatial-tilt language as the rest of the Fitness Toolkit.
   const goalsScreen = byId('screen-goals');
@@ -71,12 +109,19 @@ export function initGoalsFeature() {
       startValue,
       currentValue: startValue,
       deadline: byId('goal-deadline').value || null,
+      // Optional — purely tailors the create form and (via
+      // inferActivityType) which real phrase bank this goal's
+      // notifications draw from; 'custom'/null both mean "no real type",
+      // same as a goal created before this existed.
+      goalType: typeChips.getValue(),
     });
 
     for (const id of ['goal-name', 'goal-target', 'goal-unit', 'goal-start', 'goal-deadline']) {
       byId(id).value = '';
     }
     directionChips.setValue('increase');
+    typeChips.setValue(null);
+    renderUnitQuickPicks(null);
     await renderGoals();
   });
 
@@ -227,13 +272,17 @@ function renderGoalCard(goal) {
   pendingMilestoneByGoalId.delete(goal.id); // shown at most once
 
   const history = goal.history ?? [];
+  // A real icon per goal type (cardio/strength/skill/body), not the same
+  // generic target for every goal — see goal-types.js. Falls back to the
+  // original target icon for Custom or a goal with no type at all.
+  const typeIcon = getGoalType(goal.goalType)?.icon ?? 'target';
 
   return `
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <div class="row-between">
           <span class="row" style="gap:10px; align-items:center; flex-wrap:wrap;">
-            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-target"></use></svg></span>
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-${typeIcon}"></use></svg></span>
             <strong>${escapeHtml(goal.name)}</strong>
             ${
               streak >= 2

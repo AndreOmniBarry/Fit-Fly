@@ -7,7 +7,7 @@ import {
 } from '../../../js/features/goals/goal-phrases.js';
 import { MILESTONE_MESSAGES, MILESTONE_THRESHOLDS } from '../../../js/features/goals/milestones.js';
 
-const ACTIVITY_TYPES = ['walk', 'run', 'hydration', 'sleep', 'strength', 'weight', 'generic'];
+const ACTIVITY_TYPES = ['walk', 'run', 'hydration', 'sleep', 'strength', 'weight', 'cardio', 'skill', 'generic'];
 
 describe('pickPhrase', () => {
   it('is deterministic for an injected random function', () => {

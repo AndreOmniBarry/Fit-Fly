@@ -215,8 +215,14 @@ export function initSleepFeature() {
         }
         byId('sleep-hypnogram-start').textContent = log.bedTime ? formatClockTime(log.bedTime) : '—';
         byId('sleep-hypnogram-end').textContent = log.wakeTime ? formatClockTime(log.wakeTime) : '—';
+        byId('sleep-hypnogram-cycles').textContent =
+            model.cycleCount > 0 ? `· ${model.cycleCount} cycle${model.cycleCount === 1 ? '' : 's'}` : '';
+        // Duration alongside share — "18% · 1h 26m" reads as a real quantity,
+        // not just a proportion of the night, the same "give the actual
+        // number, not only its share" rule Steps'/Hydration's own trend
+        // tooltips already follow.
         const legend = byId('sleep-hypnogram-legend');
-        legend.innerHTML = STAGE_ORDER.map((stage) => `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}%</span>`).join('');
+        legend.innerHTML = STAGE_ORDER.map((stage) => `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}% · ${formatDurationHM(model.stageMinutes[stage])}</span>`).join('');
     }
     function renderResult(log) {
         byId('sleep-log-form').hidden = true;

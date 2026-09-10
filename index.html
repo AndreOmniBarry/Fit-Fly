@@ -974,7 +974,10 @@
            about no fake overnight sensing. -->
       <div class="sleep-hypnogram-card tilt-card tilt-enter" id="sleep-hypnogram-card" style="margin-top:var(--space-4);" hidden>
         <div class="row-between">
-          <strong style="font-size:14px;">Sleep stages</strong>
+          <span class="row" style="gap:6px; align-items:baseline;">
+            <strong style="font-size:14px;">Sleep stages</strong>
+            <span class="muted" id="sleep-hypnogram-cycles" style="font-size:12px;"></span>
+          </span>
           <span class="muted" style="font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em;">Modeled</span>
         </div>
         <div class="sleep-hypnogram-bar" id="sleep-hypnogram-bar" role="img" aria-label="Modeled sleep stage timeline"></div>

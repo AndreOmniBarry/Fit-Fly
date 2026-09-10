@@ -400,6 +400,12 @@ test.describe('sleep: modeled sleep-stage hypnogram', () => {
 
     await expect(page.locator('#sleep-hypnogram-start')).toHaveText('11:00p');
     await expect(page.locator('#sleep-hypnogram-end')).toHaveText('7:00a');
+
+    // The real cycle count the model already computes internally, now
+    // actually surfaced — and each stage's real duration alongside its
+    // share, not just a bare percentage.
+    await expect(page.locator('#sleep-hypnogram-cycles')).toContainText('cycle');
+    await expect(page.locator('#sleep-hypnogram-legend')).toContainText('h');
   });
 
   test('viewing a past night from History renders that night\'s own stages, not tonight\'s', async ({ page }) => {

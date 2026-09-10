@@ -35,6 +35,13 @@ export interface HypnogramModel {
   stageMinutes: Record<SleepStage, number>;
   /** Same breakdown as a 0-100 share per stage, rounded for display. */
   stagePercent: Record<SleepStage, number>;
+  /** How many ~90-minute ultradian cycles this modeled night was built
+   *  from (see effectiveCycles below) — the same real number the model
+   *  already needs internally to shape the deep/REM progression, just
+   *  also handed out so the UI can show "5 sleep cycles" rather than
+   *  silently discarding a number it already computed. Always ≥1, even
+   *  for a very short night (see MIN_CYCLE_MINUTES). */
+  cycleCount: number;
 }
 
 const CYCLE_TARGET_MINUTES = 90;
@@ -67,7 +74,7 @@ function boundaryAwakeFraction(quality: number | null): number {
 export function buildHypnogramModel(durationMinutes: number, quality: number | null = null): HypnogramModel {
   const emptyStageMinutes: Record<SleepStage, number> = { awake: 0, rem: 0, light: 0, deep: 0 };
   if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-    return { segments: [], totalMinutes: 0, stageMinutes: emptyStageMinutes, stagePercent: { ...emptyStageMinutes } };
+    return { segments: [], totalMinutes: 0, stageMinutes: emptyStageMinutes, stagePercent: { ...emptyStageMinutes }, cycleCount: 0 };
   }
 
   // Sleep-onset latency: a real, near-universal opening stretch of light
@@ -137,7 +144,7 @@ export function buildHypnogramModel(durationMinutes: number, quality: number | n
     deep: Math.round((stageMinutes.deep / durationMinutes) * 100),
   };
 
-  return { segments, totalMinutes: durationMinutes, stageMinutes, stagePercent };
+  return { segments, totalMinutes: durationMinutes, stageMinutes, stagePercent, cycleCount: effectiveCycles };
 }
 
 export const STAGE_LABEL: Record<SleepStage, string> = {
@@ -153,6 +160,7 @@ export const STAGE_LABEL: Record<SleepStage, string> = {
 export function hypnogramSummaryLine(model: HypnogramModel, category: SleepCategory | null): string {
   if (model.totalMinutes === 0) return '';
   const parts = [
+    `${model.cycleCount} sleep cycle${model.cycleCount === 1 ? '' : 's'}`,
     `${model.stagePercent.deep}% deep`,
     `${model.stagePercent.rem}% REM`,
     `${model.stagePercent.light}% light`,

@@ -2381,6 +2381,22 @@ someone's about to decide how hard to push today's session, not stranded
 on a screen of its own. No check-in today means no banner at all: a nag
 to go log one would be noise, not value.
 
+**No longer its own Hub-adjacent screen.** Readiness used to live as a
+standalone row in the Fitness Toolkit list, one more destination to
+visit before or after logging sleep — a genuine self-report and a
+genuine morning routine, but a separate one from the Sleep dashboard
+someone had usually *just* opened. It's now a "How today looks" card
+directly on Sleep's own dashboard (`js/features/sleep/sleep-view.ts`,
+`#sleep-readiness-card` in `index.html`) — same unchanged scoring logic
+in `readiness.js`, same `readinessCheckins` store, same My Program
+banner reading it back; only where it lives moved. The card also no
+longer asks for hours of sleep a second time: once tonight's own Sleep
+log exists, its duration feeds `calculateReadiness` directly, so the
+card only ever needs energy/soreness on top of it. It stays scoped to
+*today* — a past night opened from Sleep's History calendar hides the
+card rather than offering a retroactive check-in, the same restriction
+the old standalone screen always had.
+
 ## Goals + notifications
 
 `js/features/goals/goal-progress.js` is one generic progress calculation

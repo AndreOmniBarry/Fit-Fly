@@ -11,16 +11,20 @@ import { listNapLogsForDate, listNapLogsInRange, saveNapLog, } from '../../db/re
 import { getProfile } from '../../db/repositories/profile.js';
 import { calculateAge } from '../onboarding/age.js';
 import { calculateSleepScore } from './sleep-score.js';
-import { describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
+import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
 import { calculateSleepDebtWithNaps, describeNapDebtCredit } from './nap-debt.js';
 import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
 import { bucketSleepInsightNights, buildSleepInsightAreaGeometry } from './sleep-insight-chart.js';
 import { computeNapTimes, computeSleepLogTimes } from './sleep-duration.js';
 import { describeNapsForDate } from './nap-summary.js';
+import { buildHypnogramModel, STAGE_LABEL } from './sleep-hypnogram.js';
 import { formatMonthLabel, getMonthGridDays, monthDateRange } from '../../lib/calendar-grid.js';
 import { formatClockTime, formatDurationHM, formatTimeInputValue } from './format.js';
 import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
+import { calculateReadiness, readinessActionSuggestion } from '../recovery/readiness.js';
+import { getReadinessCheckinForDate, saveReadinessCheckin, } from '../../db/repositories/readiness.js';
+import { listRecentSessions } from '../../db/repositories/sessions.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import { formatBucketAxisLabel, formatBucketDetailLabel, timeRangeBounds, timeRangeDescription, } from '../../lib/time-range.js';
 function byId(id) {
@@ -185,6 +189,35 @@ export function initSleepFeature() {
             container.append(col);
         }
     }
+    const STAGE_ORDER = ['deep', 'light', 'rem', 'awake'];
+    /** Renders the modeled sleep-stage timeline for whichever night just got
+     *  scored — a real, honestly-labeled visualization (see
+     *  sleep-hypnogram.ts's own doc comment on why "modeled", never
+     *  "measured") built purely from that night's own logged bed/wake span
+     *  and self-rated quality. Works the same whether `log` is tonight's
+     *  freshly-saved entry or a past night opened from History — the model
+     *  only needs a real duration, not "today". */
+    function renderHypnogram(log) {
+        const card = byId('sleep-hypnogram-card');
+        const model = buildHypnogramModel(log.durationMinutes, log.quality);
+        if (model.segments.length === 0) {
+            card.hidden = true;
+            return;
+        }
+        card.hidden = false;
+        const bar = byId('sleep-hypnogram-bar');
+        bar.innerHTML = '';
+        for (const segment of model.segments) {
+            const span = document.createElement('span');
+            span.className = `sleep-hypnogram-segment sleep-hypnogram-segment--${segment.stage}`;
+            span.style.flexGrow = String(segment.endMinutes - segment.startMinutes);
+            bar.append(span);
+        }
+        byId('sleep-hypnogram-start').textContent = log.bedTime ? formatClockTime(log.bedTime) : '—';
+        byId('sleep-hypnogram-end').textContent = log.wakeTime ? formatClockTime(log.wakeTime) : '—';
+        const legend = byId('sleep-hypnogram-legend');
+        legend.innerHTML = STAGE_ORDER.map((stage) => `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}%</span>`).join('');
+    }
     function renderResult(log) {
         byId('sleep-log-form').hidden = true;
         byId('sleep-dashboard-result').hidden = false;
@@ -196,6 +229,7 @@ export function initSleepFeature() {
         byId('sleep-stat-bedtime').textContent = log.bedTime ? formatClockTime(log.bedTime) : '—';
         byId('sleep-stat-wake').textContent = log.wakeTime ? formatClockTime(log.wakeTime) : '—';
         byId('sleep-stat-duration').textContent = formatDurationHM(log.durationMinutes);
+        renderHypnogram(log);
         renderWeekStrip();
         byId('btn-sleep-edit-log').textContent =
             log.date === todayDateString() ? "Edit tonight's log" : `Edit ${formatHeaderDate(log.date)}'s log`;
@@ -235,6 +269,7 @@ export function initSleepFeature() {
             recentNaps = [];
         }
         renderNapCard();
+        void loadReadiness(date);
         if (viewedLog) {
             renderResult(viewedLog);
         }
@@ -517,6 +552,92 @@ export function initSleepFeature() {
         historyMonth = next.getMonth();
         void loadHistoryMonth();
     }
+    // ---------- "How today looks" — Readiness, collapsed into Sleep ----------
+    // Same transparent, rule-based score this app always had (see
+    // js/features/recovery/readiness.js, untouched) — only its home moved.
+    // A quick energy/soreness check-in and last night's own sleep are the
+    // same morning routine, not two separate destinations to visit; this
+    // card reuses tonight's already-logged duration directly instead of
+    // asking the person to re-type hours they just entered above it.
+    const readinessEnergyChips = initChipGroup(byId('sleep-readiness-energy'), { initial: null });
+    const readinessSorenessChips = initChipGroup(byId('sleep-readiness-soreness'), { initial: null });
+    async function countRecentReadinessSessions(withinDays = 2) {
+        const sessions = await listRecentSessions(20);
+        const cutoff = Date.now() - withinDays * 24 * 60 * 60 * 1000;
+        return sessions.filter((s) => new Date(s.startedAt).getTime() >= cutoff).length;
+    }
+    function renderReadinessResult(result) {
+        const categoryEl = byId('sleep-readiness-category');
+        categoryEl.hidden = false;
+        categoryEl.textContent = `estimated · ${result.category}`;
+        const scoreLineEl = byId('sleep-readiness-score-line');
+        scoreLineEl.hidden = false;
+        scoreLineEl.textContent = `${result.score} / 100`;
+        const suggestionEl = byId('sleep-readiness-suggestion');
+        suggestionEl.hidden = false;
+        suggestionEl.textContent = readinessActionSuggestion(result.category);
+        const reasoningEl = byId('sleep-readiness-reasoning');
+        reasoningEl.hidden = result.reasoning.length === 0;
+        reasoningEl.innerHTML = result.reasoning.map((line) => `<li>${line}</li>`).join('');
+    }
+    function hideReadinessResult() {
+        byId('sleep-readiness-category').hidden = true;
+        byId('sleep-readiness-score-line').hidden = true;
+        byId('sleep-readiness-suggestion').hidden = true;
+        byId('sleep-readiness-reasoning').hidden = true;
+    }
+    /** Readiness is only ever about *today* — a past night opened from
+     *  History doesn't get a retroactive check-in (the same restriction the
+     *  standalone screen this replaced always had), so the whole card hides
+     *  itself for any other viewed date instead of showing controls that
+     *  don't make sense for a day that's already over. */
+    async function loadReadiness(date) {
+        const card = byId('sleep-readiness-card');
+        if (date !== todayDateString()) {
+            card.hidden = true;
+            return;
+        }
+        card.hidden = false;
+        byId('err-sleep-readiness').hidden = true;
+        const existing = await getReadinessCheckinForDate(date);
+        if (existing) {
+            readinessEnergyChips.setValue(existing.energyLevel != null ? String(existing.energyLevel) : null);
+            readinessSorenessChips.setValue(existing.sorenessLevel != null ? String(existing.sorenessLevel) : null);
+            renderReadinessResult({ score: existing.score, category: existing.category, reasoning: [] });
+        }
+        else {
+            readinessEnergyChips.setValue(null);
+            readinessSorenessChips.setValue(null);
+            hideReadinessResult();
+        }
+    }
+    byId('btn-sleep-readiness-save').addEventListener('click', async () => {
+        const energyLevel = readinessEnergyChips.getValue() ? Number(readinessEnergyChips.getValue()) : null;
+        const sorenessLevel = readinessSorenessChips.getValue() ? Number(readinessSorenessChips.getValue()) : null;
+        // Never re-asked here — today's own Sleep log (right above this card
+        // once it exists) is the real number; this card only ever adds
+        // energy/soreness on top of it, not a second sleep-hours field.
+        const sleepHours = viewedLog && viewedDate === todayDateString() ? viewedLog.durationMinutes / 60 : null;
+        const hasInput = sleepHours != null || energyLevel != null || sorenessLevel != null;
+        byId('err-sleep-readiness').hidden = hasInput;
+        if (!hasInput)
+            return;
+        const recentSessionCount = await countRecentReadinessSessions();
+        const sleepDebtMinutes = recentLogs.length > 0 ? calculateSleepDebt(recentLogs).debtMinutes : null;
+        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes });
+        if (!result)
+            return; // calculateReadiness's own "not enough input" guard — unreachable given the hasInput check above, kept for type safety
+        await saveReadinessCheckin({
+            date: viewedDate,
+            sleepHours,
+            energyLevel,
+            sorenessLevel,
+            recentSessionCount,
+            score: result.score,
+            category: result.category,
+        });
+        renderReadinessResult(result);
+    });
     /** Wind Down's ambient-sound picker + Begin button drive the exact same
      *  shared engine Focus's own screen uses (see audio-engine.ts's
      *  getFocusAudioEngine()) — picking a quick sound here and opening the

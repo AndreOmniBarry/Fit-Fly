@@ -10,7 +10,6 @@ import { initRunFeature } from './features/run/run-tracker.js';
 import { initHeartRateFeature } from './features/heart-rate/heart-rate-view.js';
 import { initWomensHealthFeature } from './features/womens-health/cycle-log-view.js';
 import { initNutritionFeature } from './features/nutrition/nutrition-view.js';
-import { initReadinessFeature } from './features/recovery/readiness-view.js';
 import { initGoalsFeature } from './features/goals/goals-view.js';
 import { initVoiceFeature } from './features/voice/voice-control.js';
 import { initHubFeature } from './features/hub/hub-view.js';
@@ -77,7 +76,10 @@ async function init() {
   initHeartRateFeature();
   initWomensHealthFeature();
   initNutritionFeature();
-  initReadinessFeature();
+  // Readiness has no standalone init of its own anymore — it's now part
+  // of Sleep's own dashboard (see initSleepFeature below), collapsed in
+  // as the "How today looks" card. Its scoring logic and saved check-ins
+  // are untouched (js/features/recovery/readiness.js).
   initGoalsFeature();
   initVoiceFeature();
   initHubFeature();

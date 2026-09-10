@@ -500,14 +500,21 @@ test.describe('my program', () => {
   test("logging a readiness check-in shows up on My Program with a real, category-matched suggestion", async ({ page }) => {
     await completeOnboarding(page, { goal: 'build-muscle' });
 
-    await page.locator('#btn-home-readiness').click();
-    await page.locator('#readiness-sleep').fill('4');
-    await page.locator('#readiness-energy button[data-value="1"]').click();
-    await page.locator('#readiness-soreness button[data-value="5"]').click();
-    await page.locator('#btn-readiness-save').click();
-    await expect(page.locator('#readiness-category')).toContainText('low');
-    await page.locator('#btn-readiness-back').click();
-
+    // Readiness is now "How today looks", collapsed into Sleep — see
+    // tests/e2e/sleep.spec.js for its own dedicated coverage; this test
+    // only needs to confirm My Program still picks up whatever it saves.
+    // completeOnboarding above already lands on Fitness Toolkit — Sleep
+    // is a Hub tile, so back out to the Hub first.
+    await page.locator('#btn-fitness-toolkit-back').click();
+    await page.getByRole('button', { name: 'Sleep' }).click();
+    await page.locator('#sleep-readiness-energy button[data-value="1"]').click();
+    await page.locator('#sleep-readiness-soreness button[data-value="5"]').click();
+    await page.locator('#btn-sleep-readiness-save').click();
+    await expect(page.locator('#sleep-readiness-category')).toContainText('low');
+    // Back to the Hub, then into Fitness Toolkit for My Program — the
+    // same two-step route completeOnboarding itself took to get there.
+    await page.locator('#btn-sleep-dashboard-back').click();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
     await page.getByRole('button', { name: 'My Program' }).click();
     await expect(page.locator('#program-readiness-banner')).toBeVisible();
     await expect(page.locator('#program-readiness-category')).toContainText('low');

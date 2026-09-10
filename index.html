@@ -54,6 +54,7 @@
     <symbol id="icon-lightbulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1.1 1.3 1.1 2.2h5c0-.9.5-1.7 1.1-2.2A6 6 0 0 0 12 3Z"/></symbol>
     <symbol id="icon-sparkle" viewBox="0 0 24 24"><path d="M12 2l2.5 6.5L21 11l-6.5 2.5L12 20l-2.5-6.5L3 11l6.5-2.5L12 2Z"/></symbol>
     <symbol id="icon-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+    <symbol id="icon-stopwatch" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2"/><path d="M9.5 2.5h5"/><path d="M12 2.5V5"/><path d="M19 6l1.5-1.5"/></symbol>
     <symbol id="icon-cloud-rain" viewBox="0 0 24 24"><path d="M6.5 17.5A4.5 4.5 0 0 1 7 8.6a6 6 0 0 1 11.3 2.1A4 4 0 0 1 17.5 18h-11Z"/><path d="M8 20l-1 2M12 20l-1 2M16 20l-1 2"/></symbol>
     <symbol id="icon-waves" viewBox="0 0 24 24"><path d="M2 16q3-4 5 0t5 0 5 0 5 0"/><path d="M2 11q3-4 5 0t5 0 5 0 5 0" opacity="0.55"/></symbol>
     <symbol id="icon-droplet" viewBox="0 0 24 24"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11Z"/></symbol>
@@ -685,6 +686,18 @@
             <span>
               <strong>Rest Timer</strong>
               <p class="muted" style="font-size:var(--fs-sm);">Time your rest between sets.</p>
+            </span>
+          </span>
+          <span aria-hidden="true">›</span>
+        </span>
+      </button>
+      <button class="card card-button tilt-card tilt-enter" id="btn-home-stopwatch">
+        <span class="fitness-row-face tilt-press row-between">
+          <span class="row" style="gap:12px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-stopwatch"></use></svg></span>
+            <span>
+              <strong>Stopwatch</strong>
+              <p class="muted" style="font-size:var(--fs-sm);">Start, lap, split — for any sport or activity.</p>
             </span>
           </span>
           <span aria-hidden="true">›</span>
@@ -2189,6 +2202,50 @@
     </div>
   </section>
 
+  <!-- STOPWATCH: a real sports stopwatch — start/lap/split/pause, good for
+       any sport or activity, not tied to a specific exercise or program
+       the way Rest Timer's own countdown is. In-memory only for this
+       session (see stopwatch-view.ts's own doc comment on why no lap
+       history is written to the database). -->
+  <section class="screen" id="screen-stopwatch" hidden>
+    <div class="row-between">
+      <h2>Stopwatch</h2>
+      <button class="icon-btn" id="btn-stopwatch-back" aria-label="Back">←</button>
+    </div>
+
+    <div class="stack center-text" style="margin-top:var(--space-4); align-items:center;">
+      <div id="stopwatch-display" data-tilt-depth="1" style="font-family:var(--font-display); font-size:3.2rem; font-variant-numeric:tabular-nums;">0:00.00</div>
+      <p class="muted" id="stopwatch-status">Ready</p>
+    </div>
+
+    <div class="row" style="margin-top:var(--space-4);">
+      <button class="btn btn-ghost btn-block" id="btn-stopwatch-secondary" disabled>Lap</button>
+      <button class="btn btn-primary btn-block" id="btn-stopwatch-primary">Start</button>
+    </div>
+
+    <div class="card stack tilt-card tilt-enter" style="margin-top:var(--space-4);">
+      <span class="tilt-press stack">
+        <div class="field">
+          <label id="lbl-stopwatch-alert-interval">Alert every</label>
+          <div class="chip-group" id="stopwatch-alert-interval" role="group" aria-labelledby="lbl-stopwatch-alert-interval">
+            <button type="button" class="chip" data-value="0" aria-pressed="true">Off</button>
+            <button type="button" class="chip" data-value="1" aria-pressed="false">1 min</button>
+            <button type="button" class="chip" data-value="5" aria-pressed="false">5 min</button>
+            <button type="button" class="chip" data-value="10" aria-pressed="false">10 min</button>
+          </div>
+          <p class="muted" style="font-size:var(--fs-xs); margin-top:6px;">
+            A beep, a buzz, and (if enabled) a system notification each time this much elapses — real while this app is open, same honest limit as every other reminder here.
+          </p>
+        </div>
+      </span>
+    </div>
+
+    <div class="stack" style="margin-top:var(--space-4);">
+      <h3>Laps</h3>
+      <div class="stack" id="stopwatch-laps"></div>
+    </div>
+  </section>
+
   <!-- RUN -->
   <section class="screen miniapp-night theme-run" id="screen-run" hidden>
     <div class="row-between">
@@ -3103,6 +3160,20 @@
     </div>
     <div class="stack tilt-stagger" id="activity-history-list"></div>
   </section>
+
+  <!-- STOPWATCH FAB: floats above every screen, same "loitering, always
+       reachable" pattern as the voice mic button below — visible only
+       while a real session is running/paused and you've navigated away
+       from the Stopwatch screen itself (see stopwatch-view.ts's
+       renderFab). Bottom-left so it never collides with the mic's own
+       bottom-right spot. -->
+  <button
+    class="btn btn-secondary"
+    id="btn-stopwatch-fab"
+    hidden
+    aria-label="Stopwatch running — tap to return to it"
+    style="position:fixed; bottom:calc(var(--space-5) + env(safe-area-inset-bottom)); left:var(--space-4); box-shadow:var(--shadow-md); z-index:10; font-variant-numeric:tabular-nums; padding:8px 14px;"
+  >0:00.00</button>
 
   <!-- VOICE CONTROL: floats above every screen, feature-detected -->
   <button

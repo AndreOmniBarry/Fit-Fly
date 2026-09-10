@@ -2,4 +2,5 @@
 // tsconfig.json).
 export function primeAudio(): void;
 export function playCompletionBeep(): void;
+export function playSplitCue(): void;
 export function vibrateDevice(pattern?: number | number[]): void;

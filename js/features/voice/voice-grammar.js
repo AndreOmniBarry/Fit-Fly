@@ -8,6 +8,7 @@
 export const VOICE_COMMANDS = Object.freeze([
   { id: 'go-home', phrases: ['go home', 'home', 'take me home'] },
   { id: 'start-rest-timer', phrases: ['start timer', 'start rest timer', 'start the timer', 'open rest timer'] },
+  { id: 'start-stopwatch', phrases: ['start stopwatch', 'open stopwatch', 'stopwatch'] },
   { id: 'log-activity', phrases: ['log activity', 'log an activity', 'log my activity'] },
   { id: 'start-run', phrases: ['start run', 'start a run', 'start running', 'go for a run'] },
   { id: 'show-run-history', phrases: ['run history', 'show run history', 'open run history', 'my runs'] },

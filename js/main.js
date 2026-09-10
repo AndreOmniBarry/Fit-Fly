@@ -5,6 +5,7 @@ import { initOnboardingWizard } from './features/onboarding/wizard.js';
 import { formatCategoryLabel } from './features/onboarding/category-label.js';
 import { initActivityFeature } from './features/activity/activity-log.js';
 import { initRestTimerFeature } from './features/timers/rest-timer.js';
+import { initStopwatchFeature } from './features/timers/stopwatch-view.js';
 import { initProgramFeature } from './features/programs/program-view.js';
 import { initRunFeature } from './features/run/run-tracker.js';
 import { initHeartRateFeature } from './features/heart-rate/heart-rate-view.js';
@@ -71,6 +72,7 @@ async function init() {
   initRouter();
   initActivityFeature();
   initRestTimerFeature();
+  initStopwatchFeature();
   initProgramFeature();
   initRunFeature();
   initHeartRateFeature();

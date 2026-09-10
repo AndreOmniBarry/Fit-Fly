@@ -226,4 +226,59 @@ test.describe('focus', () => {
     await expect(page.locator('#focus-now-playing-name')).toHaveText('Thunderstorm');
     expect(consoleErrors).toEqual([]);
   });
+
+  test('every soundscape — including the new rain droplets, ocean/wind wander, and fireplace crackle — plays with zero console errors', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await page.getByRole('button', { name: 'Focus' }).click();
+    for (const id of ['rain', 'ocean', 'river', 'wind', 'fireplace', 'steady-noise']) {
+      await page.locator(`#focus-sound-${id}`).click();
+      await expect(page.locator('#focus-now-playing-status')).toContainText('Playing');
+      await expect(page.locator('#focus-audio-blocked')).toBeHidden();
+      await page.waitForTimeout(150);
+    }
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('Ocean\'s wave wander and Wind\'s gust wander keep running cleanly through several real refill cycles', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    // Same fake-JS-timers-only rationale as the Thunderstorm test above —
+    // this exercises audio-engine.ts's own scheduleWander() recursive
+    // refill loop (the wave/gust equivalent of scheduleNextThunderclap)
+    // without a real multi-minute wait. Web Audio's own AudioParam
+    // automation still runs on the real audio-hardware clock regardless.
+    await page.clock.install();
+
+    await page.getByRole('button', { name: 'Focus' }).click();
+    await page.locator('#focus-sound-ocean').click();
+    await expect(page.locator('#focus-now-playing-name')).toHaveText('Ocean Waves');
+
+    // Several real refills deep — each wander chunk covers ~25s, refilling
+    // ~19s in, so 3 minutes is well past a handful of them.
+    await page.clock.runFor('00:03:00');
+    await page.waitForTimeout(100);
+    await expect(page.locator('#focus-now-playing-name')).toHaveText('Ocean Waves');
+
+    await page.locator('#focus-sound-wind').click();
+    await expect(page.locator('#focus-now-playing-name')).toHaveText('Wind');
+    await page.clock.runFor('00:03:00');
+    await page.waitForTimeout(100);
+    await expect(page.locator('#focus-now-playing-name')).toHaveText('Wind');
+
+    expect(consoleErrors).toEqual([]);
+  });
 });

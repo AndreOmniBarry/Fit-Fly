@@ -18,8 +18,11 @@ import { createPrng } from './prng.js';
 import { positionAtTime } from './spatial-motion.js';
 import { generateImpulseResponse } from './impulse-response.js';
 import { generateThunderclapBurst, randomThunderclapDuration } from './thunder.js';
+import { generateImpulseTrain } from './texture-impulses.js';
+import { generateWanderCurve } from './wander.js';
 import { getSoundscape } from './soundscapes.js';
 import type { NoiseColor } from './noise-synthesis.js';
+import type { ImpulseLayer, NoiseLayer, WanderTarget } from './soundscapes.js';
 
 declare global {
   interface Window {
@@ -37,6 +40,8 @@ const POSITION_UPDATE_INTERVAL_MS = 200; // how often the panner's target positi
 const STATE_POLL_INTERVAL_MS = 1000;
 const MIN_THUNDER_DELAY_S = 9;
 const MAX_THUNDER_DELAY_S = 32; // real storms don't clap on a beat — a wide, randomized gap is what keeps it from feeling looped
+const WANDER_CHUNK_SECONDS = 25; // how far ahead each scheduled batch of wander breakpoints reaches
+const WANDER_REFILL_LEAD_S = 6; // refill this far before the current chunk would actually run out
 
 export interface FocusAudioState {
   supported: boolean;
@@ -67,6 +72,17 @@ function generateNoiseBuffer(color: NoiseColor, length: number, seed: number): F
   return crossfadeLoopBuffer(raw, Math.floor(LOOP_CROSSFADE_SECONDS * SAMPLE_RATE));
 }
 
+/** Same seamless-loop treatment as generateNoiseBuffer — an impulse
+ *  texture (rain droplets, fire pops) is mostly silence, so a crossfade
+ *  right at the loop seam is inaudible in practice, and reusing the exact
+ *  same technique means no special-casing the loop point for this layer
+ *  kind. */
+function generateImpulseLayerBuffer(layer: ImpulseLayer, length: number, seed: number, sampleRate: number): Float32Array {
+  const rng = createPrng(seed);
+  const raw = generateImpulseTrain(sampleRate, length / sampleRate, layer.impulse, rng);
+  return crossfadeLoopBuffer(raw, Math.floor(LOOP_CROSSFADE_SECONDS * SAMPLE_RATE));
+}
+
 function toAudioBuffer(ctx: AudioContext, data: Float32Array, sampleRate: number): AudioBuffer {
   const buffer = ctx.createBuffer(1, data.length, sampleRate);
   // lib.dom's copyToChannel signature wants Float32Array<ArrayBuffer>
@@ -78,6 +94,7 @@ function toAudioBuffer(ctx: AudioContext, data: Float32Array, sampleRate: number
 }
 
 interface ActiveLayer {
+  id: string;
   source: AudioBufferSourceNode;
   filters: BiquadFilterNode[];
   gain: GainNode;
@@ -94,6 +111,9 @@ interface ActiveGraph {
   /** Pending "play the next thunderclap" timer — see
    *  scheduleNextThunderclap. null when this soundscape has no thunder. */
   thunderTimeoutId: ReturnType<typeof setTimeout> | null;
+  /** Pending "refill the next chunk of wander breakpoints" timers — see
+   *  scheduleWander. Empty when this soundscape has no wander targets. */
+  wanderTimeoutIds: ReturnType<typeof setTimeout>[];
 }
 
 export class FocusAudioEngine {
@@ -234,16 +254,20 @@ export class FocusAudioEngine {
       panner.connect(dryGain).connect(masterGain);
       panner.connect(wetGain).connect(convolver).connect(masterGain);
 
-      const layers: ActiveLayer[] = soundscape.layers.map((layer, i) => {
-        const length = Math.floor(LAYER_BUFFER_SECONDS * ctx.sampleRate);
-        const data = generateNoiseBuffer(layer.color, length, hashSeed(soundscapeId, layer.id, i));
-        const audioBuffer = toAudioBuffer(ctx, data, ctx.sampleRate);
+      const bufferLength = Math.floor(LAYER_BUFFER_SECONDS * ctx.sampleRate);
 
+      /** Wires one layer's already-generated buffer through its own
+       *  filter chain and gain, into the shared panner — the one piece
+       *  genuinely identical between a continuous NoiseLayer and a
+       *  discrete ImpulseLayer, so both build through this same helper
+       *  rather than duplicating the node-wiring twice. */
+      const attachLayer = (id: string, data: Float32Array, filterStages: NoiseLayer['filters'], layerGain: number): ActiveLayer => {
+        const audioBuffer = toAudioBuffer(ctx, data, ctx.sampleRate);
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.loop = true;
 
-        const filters = layer.filters.map((stage) => {
+        const filters = filterStages.map((stage) => {
           const filter = ctx.createBiquadFilter();
           filter.type = stage.type;
           filter.frequency.value = stage.frequency;
@@ -253,7 +277,7 @@ export class FocusAudioEngine {
         });
 
         const gain = ctx.createGain();
-        gain.gain.value = layer.gain;
+        gain.gain.value = layerGain;
 
         let node: AudioNode = source;
         for (const filter of filters) {
@@ -263,8 +287,24 @@ export class FocusAudioEngine {
         node.connect(gain).connect(panner);
         source.start();
 
-        return { source, filters, gain };
+        return { id, source, filters, gain };
+      };
+
+      const noiseLayers: ActiveLayer[] = soundscape.layers.map((layer, i) => {
+        const data = generateNoiseBuffer(layer.color, bufferLength, hashSeed(soundscapeId, layer.id, i));
+        return attachLayer(layer.id, data, layer.filters, layer.gain);
       });
+
+      // Discrete transient textures (rain droplets, fire crackle-pops) —
+      // see ImpulseLayer's own doc comment on why these are baked into
+      // the same kind of loopable buffer rather than scheduled live like
+      // thunder's one-shot bursts.
+      const impulseLayers: ActiveLayer[] = (soundscape.impulseLayers ?? []).map((layer, i) => {
+        const data = generateImpulseLayerBuffer(layer, bufferLength, hashSeed(soundscapeId, layer.id, i), ctx.sampleRate);
+        return attachLayer(layer.id, data, layer.filters, layer.gain);
+      });
+
+      const layers: ActiveLayer[] = [...noiseLayers, ...impulseLayers];
 
       this.graph = {
         layers,
@@ -275,6 +315,7 @@ export class FocusAudioEngine {
         motionStartTime: ctx.currentTime,
         motionProfile: soundscape.motion,
         thunderTimeoutId: null,
+        wanderTimeoutIds: [],
       };
       this.soundscapeId = soundscapeId;
 
@@ -285,6 +326,7 @@ export class FocusAudioEngine {
       this.startPositionAnimation();
       this.restartCountdown();
       if (soundscape.hasThunder) this.scheduleNextThunderclap(this.graph, ctx);
+      for (const target of soundscape.wander ?? []) this.startWander(this.graph, ctx, target);
       this.notify();
     } catch {
       // best-effort only — a blocked/failing Web Audio API leaves nothing
@@ -371,6 +413,58 @@ export class FocusAudioEngine {
     };
   }
 
+  /** Resolves a WanderTarget to the real AudioParam it drives — the
+   *  layer's own gain, or one of its filters' cutoff frequency — or null
+   *  if the target names a layer/filter that (through a config mistake)
+   *  doesn't actually exist on this graph. Never throws; a bad target
+   *  just silently does nothing, the same defensive spirit as the rest
+   *  of this engine. */
+  private resolveWanderParam(graph: ActiveGraph, target: WanderTarget): AudioParam | null {
+    const layer = graph.layers.find((l) => l.id === target.layerId);
+    if (!layer) return null;
+    if (target.param === 'gain') return layer.gain.gain;
+    const filter = layer.filters[target.filterIndex ?? 0];
+    return filter ? filter.frequency : null;
+  }
+
+  /** Kicks off a real, indefinitely-continuing wander on one AudioParam —
+   *  a wave's gain, say — starting from that param's own current (static)
+   *  value so the first swing begins smoothly from wherever the layer
+   *  actually started, not a jump. See scheduleWander for the actual
+   *  recursive refill. */
+  private startWander(graph: ActiveGraph, ctx: AudioContext, target: WanderTarget): void {
+    const param = this.resolveWanderParam(graph, target);
+    if (!param) return;
+    this.scheduleWander(graph, ctx, param, target);
+  }
+
+  /** Schedules one real chunk of wander breakpoints (see wander.ts) onto
+   *  `param` starting from its own live current value — cancelling any
+   *  stale future automation first, the standard Web Audio pattern for
+   *  extending an AudioParam's automation curve without a jump or a
+   *  collision with whatever was scheduled before — then reschedules
+   *  itself to refill well before this chunk runs out, for as long as
+   *  this graph stays the active one. */
+  private scheduleWander(graph: ActiveGraph, ctx: AudioContext, param: AudioParam, target: WanderTarget): void {
+    const seedValue = param.value;
+    param.cancelScheduledValues(ctx.currentTime);
+    param.setValueAtTime(seedValue, ctx.currentTime);
+
+    const curve = generateWanderCurve(WANDER_CHUNK_SECONDS, target, seedValue);
+    const startTime = ctx.currentTime;
+    for (const breakpoint of curve) {
+      if (breakpoint.timeSeconds <= 0) continue; // already set via setValueAtTime above
+      param.linearRampToValueAtTime(breakpoint.value, startTime + breakpoint.timeSeconds);
+    }
+
+    const refillDelayMs = Math.max(1000, (WANDER_CHUNK_SECONDS - WANDER_REFILL_LEAD_S) * 1000);
+    const timeoutId = setTimeout(() => {
+      if (this.graph !== graph) return; // stopped or switched to a different soundscape in the meantime
+      this.scheduleWander(graph, ctx, param, target);
+    }, refillDelayMs);
+    graph.wanderTimeoutIds.push(timeoutId);
+  }
+
   /** Disposes exactly the audio nodes belonging to one captured graph.
    *  Deliberately touches nothing on `this` — see stop()'s deferred call
    *  below: by the time this runs, `this.graph` may already be a *newer*
@@ -378,6 +472,7 @@ export class FocusAudioEngine {
    *  never reach in and clobber that. */
   private disposeGraphNodes(graph: ActiveGraph): void {
     if (graph.thunderTimeoutId != null) clearTimeout(graph.thunderTimeoutId);
+    for (const timeoutId of graph.wanderTimeoutIds) clearTimeout(timeoutId);
     for (const layer of graph.layers) {
       try {
         layer.source.stop();

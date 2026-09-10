@@ -75,6 +75,47 @@ describe('SOUNDSCAPES catalog', () => {
     expect(thunder).toHaveLength(1);
     expect(thunder[0].id).toBe('thunderstorm');
   });
+
+  it('every impulse layer (rain droplets, fire pops) has real, valid parameters', () => {
+    for (const s of SOUNDSCAPES) {
+      for (const layer of s.impulseLayers ?? []) {
+        expect(layer.gain).toBeGreaterThan(0);
+        expect(layer.gain).toBeLessThanOrEqual(1);
+        for (const filter of layer.filters) expect(filter.frequency).toBeGreaterThan(0);
+        expect(layer.impulse.density).toBeGreaterThan(0);
+        expect(layer.impulse.minDurationSeconds).toBeGreaterThan(0);
+        expect(layer.impulse.maxDurationSeconds).toBeGreaterThanOrEqual(layer.impulse.minDurationSeconds);
+        expect(layer.impulse.minGain).toBeGreaterThan(0);
+        expect(layer.impulse.maxGain).toBeGreaterThanOrEqual(layer.impulse.minGain);
+        expect(layer.impulse.maxGain).toBeLessThanOrEqual(1);
+        expect(layer.impulse.decayRate).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('every wander target aims at a real layer this same soundscape actually has', () => {
+    for (const s of SOUNDSCAPES) {
+      const realLayerIds = new Set([...s.layers.map((l) => l.id), ...(s.impulseLayers ?? []).map((l) => l.id)]);
+      for (const target of s.wander ?? []) {
+        expect(realLayerIds.has(target.layerId)).toBe(true);
+        expect(target.minValue).toBeLessThan(target.maxValue);
+        expect(target.minSegmentSeconds).toBeGreaterThan(0);
+        expect(target.maxSegmentSeconds).toBeGreaterThanOrEqual(target.minSegmentSeconds);
+      }
+    }
+  });
+
+  it('rain, thunderstorm, and fireplace get real droplet/crackle transients, not just filtered noise', () => {
+    for (const id of ['rain', 'thunderstorm', 'fireplace']) {
+      expect(getSoundscape(id).impulseLayers?.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('ocean and wind get real live gain/filter wander, not a static texture', () => {
+    for (const id of ['ocean', 'wind']) {
+      expect(getSoundscape(id).wander?.length).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe('getSoundscape', () => {

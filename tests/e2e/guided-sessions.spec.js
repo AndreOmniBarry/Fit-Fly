@@ -45,14 +45,22 @@ test.describe('guided sessions', () => {
     await page.getByRole('button', { name: 'Focus' }).click();
   });
 
-  test('shows all four guided sessions with zero console errors', async ({ page }) => {
+  test('shows every guided session, including the sport-specific ones, with zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {
       if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
-    for (const id of ['breathing-focus', 'relax', 'focus', 'sleep-focus']) {
+    for (const id of [
+      'breathing-focus',
+      'relax',
+      'focus',
+      'sleep-focus',
+      'swim-breath',
+      'marathon-breath',
+      'cardio-depth-breath',
+    ]) {
       await expect(page.locator(`#btn-guided-session-${id}`)).toBeVisible();
     }
 
@@ -128,6 +136,23 @@ test.describe('guided sessions', () => {
     expect(pacerVar.trim()).toBe('4s');
   });
 
+  test('the marathon pacing session drives a real 3:2 inhale:exhale pacer, timed to each real beat', async ({ page }) => {
+    await page.locator('#btn-guided-session-marathon-breath').click();
+    // The first two beats are prose (their own real, word-count-derived
+    // durations add up to ~16s) — wait for the real cycle to start.
+    await expect(page.locator('#guided-session-caption')).toHaveText('In — 2 — 3', { timeout: 20_000 });
+    let pacerVar = await page.evaluate(() =>
+      getComputedStyle(document.getElementById('guided-session-pacer')).getPropertyValue('--pacer-transition-ms')
+    );
+    expect(pacerVar.trim()).toBe('3s'); // the real 3-count inhale
+
+    await expect(page.locator('#guided-session-caption')).toHaveText('Out — 2', { timeout: 6_000 });
+    pacerVar = await page.evaluate(() =>
+      getComputedStyle(document.getElementById('guided-session-pacer')).getPropertyValue('--pacer-transition-ms')
+    );
+    expect(pacerVar.trim()).toBe('2s'); // the real 2-count exhale — the odd 3:2 ratio itself
+  });
+
   test('the voice toggle switches on and off', async ({ page }) => {
     await page.locator('#btn-guided-session-focus').click();
     const initial = await page.locator('#btn-guided-session-voice-toggle').getAttribute('aria-pressed');
@@ -165,6 +190,26 @@ test.describe('guided sessions', () => {
     // timers as simulated time advances; fastForward fires each
     // currently-pending timer at most once and won't follow the chain.
     await page.clock.runFor('00:01:30'); // well past Focus's ~50s total
+    await page.waitForTimeout(200);
+
+    await expect(page.locator('#guided-session-grid')).toBeVisible();
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('a full sport-specific session (Cardio Depth Training) runs through every beat to completion, with zero console errors', async ({
+    page,
+  }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await page.clock.install();
+    await page.locator('#btn-guided-session-cardio-depth-breath').click();
+    await expect(page.locator('#guided-session-title')).toHaveText('Cardio Depth Training');
+
+    await page.clock.runFor('00:02:30'); // well past its real ~100s total
     await page.waitForTimeout(200);
 
     await expect(page.locator('#guided-session-grid')).toBeVisible();

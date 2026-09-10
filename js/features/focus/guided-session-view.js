@@ -20,6 +20,9 @@ const SESSION_ICON = {
     relax: 'leaf',
     focus: 'target',
     'sleep-focus': 'moon-stars',
+    'swim-breath': 'waves',
+    'marathon-breath': 'footprints',
+    'cardio-depth-breath': 'heart-pulse',
 };
 const PACER_PHASE = {
     in: { scale: 1.15, opacity: 1, brightness: 1.18 },

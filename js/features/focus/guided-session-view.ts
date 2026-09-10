@@ -24,6 +24,9 @@ const SESSION_ICON: Record<string, IconName> = {
   relax: 'leaf',
   focus: 'target',
   'sleep-focus': 'moon-stars',
+  'swim-breath': 'waves',
+  'marathon-breath': 'footprints',
+  'cardio-depth-breath': 'heart-pulse',
 };
 
 const PACER_PHASE: Record<NonNullable<SessionBeat['breathPhase']>, { scale: number; opacity: number; brightness: number }> = {

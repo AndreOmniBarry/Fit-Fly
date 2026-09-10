@@ -509,3 +509,35 @@ textarea.input{
 @media (prefers-reduced-motion: reduce){
   .app-achievement-toast.is-active{ animation:none; }
 }
+
+/* ---------- Programs: real 7-day week strip (js/features/programs/
+   weekly-schedule.js) ---------- */
+/* Every real day of the week, not just the 2-4 training days — a rest
+   day renders right alongside a training day instead of simply not
+   existing anywhere on this screen. Horizontally scrollable so it never
+   forces the card wider than the screen on a narrow phone. */
+.program-week-strip{
+  display:flex; gap:8px; overflow-x:auto; padding-bottom:2px;
+}
+.program-week-strip-cell{
+  display:flex; flex-direction:column; align-items:center; gap:3px;
+  flex:0 0 auto; width:52px; padding:8px 4px;
+  border-radius:var(--radius-md); border:1px solid var(--border);
+  background:var(--surface);
+}
+.program-week-strip-cell[data-kind="training"]{
+  border-color:var(--accent); background:var(--accent-soft);
+}
+.program-week-strip-cell[data-today="true"]{
+  box-shadow:0 0 0 2px var(--accent);
+}
+.program-week-strip-weekday{
+  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+  color:var(--ink-muted);
+}
+.program-week-strip-date{ font-size:var(--fs-sm); font-weight:700; }
+.program-week-strip-label{
+  font-size:9px; text-align:center; line-height:1.15; color:var(--ink-muted);
+  min-height:2.3em;
+}
+.program-week-strip-cell[data-kind="training"] .program-week-strip-label{ color:var(--accent-strong); font-weight:600; }

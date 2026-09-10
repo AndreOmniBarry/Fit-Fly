@@ -28,6 +28,7 @@ import { applyCategoryAccent } from '../../lib/theme.js';
 import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';
 import { getCurrentWeekNumber } from './week-number.js';
+import { buildProgramWeekStrip } from './weekly-schedule.js';
 import { bestEstimatedOneRepMax } from './one-rep-max.js';
 import {
   classifyProgramCalendarDay,
@@ -76,6 +77,15 @@ let activeProgramStartDate = null;
 // only one is ever meant to be visible at a time.
 let activeRestTimer = null;
 
+// Which week's plan is currently showing — real navigation (Prev/Next),
+// not the real current week's own auto-advancing weekNumber. null means
+// "not yet set" (renderProgramScreen resolves it to the real current
+// week on the very first render). Distinct from the real current week
+// whenever someone has browsed away from it with Prev/Next; see
+// renderProgramScreen's own isPreview handling for what changes while
+// it is.
+let viewedWeekNumber = null;
+
 // Calendar state — the program's own logged sessions (fetched once when
 // the calendar opens; the dataset is one person's own session history,
 // small enough to hold in full and just re-filter per viewed month,
@@ -99,10 +109,28 @@ let setCountByRow = new Map();
 
 export function initProgramFeature() {
   byId('btn-home-program').addEventListener('click', async () => {
-    await renderProgramScreen();
+    await renderProgramScreen({ resetToCurrentWeek: true });
     showScreen('screen-program');
   });
   byId('btn-program-back').addEventListener('click', () => showScreen('screen-home'));
+
+  // ---------- week navigation ----------
+  // Real Prev/Next control over which week's plan is showing — the
+  // actual gap this closes: weekNumber used to only ever auto-advance
+  // from real elapsed time since the program started, with no way to
+  // look ahead at next week's plan or back at a past one.
+  byId('btn-program-week-prev').addEventListener('click', async () => {
+    if (viewedWeekNumber == null || viewedWeekNumber <= 1) return;
+    viewedWeekNumber -= 1;
+    await renderProgramScreen();
+  });
+  byId('btn-program-week-next').addEventListener('click', async () => {
+    viewedWeekNumber = (viewedWeekNumber ?? 1) + 1;
+    await renderProgramScreen();
+  });
+  byId('btn-program-week-current').addEventListener('click', async () => {
+    await renderProgramScreen({ resetToCurrentWeek: true });
+  });
 
   // ---------- calendar ----------
   byId('btn-program-calendar').addEventListener('click', async () => {
@@ -173,7 +201,7 @@ export function initProgramFeature() {
     }
 
     byId('program-goal-picker').hidden = true;
-    await renderProgramScreen();
+    await renderProgramScreen({ resetToCurrentWeek: true });
   });
 
   // Same spatial-tilt language as the Fitness Toolkit home list — scoped
@@ -272,7 +300,13 @@ async function getInjuryBodyAreaTags() {
   return tag === 'other' ? [] : [tag];
 }
 
-async function renderProgramScreen() {
+/** @param {object} [options]
+ *  @param {boolean} [options.resetToCurrentWeek] - forces viewedWeekNumber
+ *    back to the real current week — every entry point *except* Prev/Next
+ *    itself passes this, so opening the screen fresh (or after a goal
+ *    change that regenerates everything) never leaves someone stranded
+ *    on whatever week they'd last browsed to. */
+async function renderProgramScreen({ resetToCurrentWeek = false } = {}) {
   stopInlineRestTimer(); // #program-days is about to be replaced wholesale below
   setCountByRow = new Map();
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
@@ -281,7 +315,8 @@ async function renderProgramScreen() {
   const program = await ensureActiveProgram(assignment.category, profile.experienceLevel, assignment.trainingFocus);
   activeProgramId = program.id;
   activeProgramStartDate = localDateFromIso(program.startedAt);
-  const weekNumber = getCurrentWeekNumber(program.startedAt);
+  const realCurrentWeekNumber = getCurrentWeekNumber(program.startedAt);
+  if (resetToCurrentWeek || viewedWeekNumber == null) viewedWeekNumber = realCurrentWeekNumber;
   const injuryBodyAreaTags = await getInjuryBodyAreaTags();
 
   const generated = generateProgram({
@@ -289,18 +324,45 @@ async function renderProgramScreen() {
     experienceLevel: profile.experienceLevel,
     trainingFocus: assignment.trainingFocus,
     injuryBodyAreaTags,
-    weekNumber,
+    weekNumber: viewedWeekNumber,
   });
+  // A real, read-only preview once Prev/Next has moved off the real
+  // current week — logging a set only ever makes sense against today,
+  // never against whichever week Prev/Next happens to be showing.
+  const isPreview = viewedWeekNumber !== realCurrentWeekNumber;
 
   byId('program-goal-label').textContent = formatCategoryLabel(assignment.category, assignment.trainingFocus);
   animateCountUp(byId('program-week-number'), generated.weekNumber);
   byId('program-block-label').textContent = `Block ${generated.blockNumber}`;
   byId('program-deload-banner').hidden = !generated.isDeload;
-  calendarPlannedDaysPerWeek = generated.days.length;
+
+  byId('program-week-preview-banner').hidden = !isPreview;
+  if (isPreview) byId('program-week-preview-label').textContent = `Week ${viewedWeekNumber}`;
+  byId('btn-program-week-prev').disabled = viewedWeekNumber <= 1;
+
+  renderWeekStrip(buildProgramWeekStrip(activeProgramStartDate, viewedWeekNumber, generated.days));
+
+  // "This week" progress and today's readiness are both real, *today*
+  // signals — kept tied to the real current week's own training-day
+  // count regardless of which week is being previewed, so Prev/Next
+  // never makes either one silently describe the wrong week.
+  calendarPlannedDaysPerWeek = isPreview
+    ? generateProgram({
+        category: assignment.category,
+        experienceLevel: profile.experienceLevel,
+        trainingFocus: assignment.trainingFocus,
+        injuryBodyAreaTags,
+        weekNumber: realCurrentWeekNumber,
+      }).days.length
+    : generated.days.length;
   await renderWeeklyProgress();
-  await renderReadinessBanner();
+  if (isPreview) {
+    byId('program-readiness-banner').hidden = true;
+  } else {
+    await renderReadinessBanner();
+  }
   byId('program-reasoning').innerHTML = generated.reasoning.map((line) => `<li>${line}</li>`).join('');
-  byId('program-days').innerHTML = generated.days.map(renderDay).join('');
+  byId('program-days').innerHTML = generated.days.map((day) => renderDay(day, isPreview)).join('');
 
   const allExerciseIds = new Set();
   for (const day of generated.days) {
@@ -357,11 +419,15 @@ function nextSetNumber(dayIndex, exerciseId) {
   return count;
 }
 
-function renderDay(day) {
+/** `readOnly` hides the Log inputs/button and rest-timer row entirely —
+ *  used while previewing a week that isn't the real current one (see
+ *  renderProgramScreen's own isPreview), since logging a set only ever
+ *  makes sense against today. */
+function renderDay(day, readOnly = false) {
   const body =
     day.exercises.length === 0
       ? '<p class="muted">Nothing safe matched this slot this week.</p>'
-      : day.exercises.map((exercise) => renderExercise(day.dayIndex, exercise)).join('');
+      : day.exercises.map((exercise) => renderExercise(day.dayIndex, exercise, readOnly)).join('');
   const icon = DAY_TYPE_ICONS[day.dayType] ?? 'dumbbell';
 
   return `
@@ -395,7 +461,12 @@ function renderDay(day) {
 // held, not a rep count that never meant anything for it; a cardio bout
 // shows seconds *and*, only for an exercise that actually covers ground
 // (`distanceTrackable`), an optional real distance in km.
-function renderExercise(dayIndex, exercise) {
+/** `readOnly` (previewing a week that isn't the real current one — see
+ *  renderDay's own doc comment) drops the Log inputs/button and rest-
+ *  timer row entirely, rather than just disabling them: there's nothing
+ *  honest to disable-and-explain here, logging against a previewed week
+ *  was never a real action to begin with. */
+function renderExercise(dayIndex, exercise, readOnly = false) {
   const libraryEntry = getLibraryExercise(exercise.exerciseId);
   const cueLine = libraryEntry ? `<span class="muted" style="font-size:var(--fs-xs);">${libraryEntry.cues[0]}</span>` : '';
 
@@ -422,6 +493,21 @@ function renderExercise(dayIndex, exercise) {
              <input class="input" type="number" min="0" step="0.5" id="${weightInputId(dayIndex, exercise.exerciseId)}" placeholder="kg">`
           : `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">`;
 
+  const loggingSection = readOnly
+    ? ''
+    : `
+      <div class="row">
+        ${logInputs}
+        <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-rest-sec="${exercise.restSec}">Log</button>
+      </div>
+      <div class="row-between program-rest-timer" id="${restRowId(dayIndex, exercise.exerciseId)}" data-exercise-name="${exercise.name}" hidden>
+        <span class="row" style="gap:6px;">
+          <span class="muted" style="font-size:var(--fs-xs);">Resting — ${exercise.name}<span id="${restSetLabelId(dayIndex, exercise.exerciseId)}"></span></span>
+          <strong id="${restDisplayId(dayIndex, exercise.exerciseId)}" style="font-variant-numeric:tabular-nums;"></strong>
+        </span>
+        <button type="button" class="btn btn-ghost" data-skip-rest>Skip</button>
+      </div>`;
+
   return `
     <div class="stack" style="border-top:1px solid var(--border); padding-top:var(--space-3);">
       <div class="row" style="align-items:flex-start;">
@@ -433,19 +519,32 @@ function renderExercise(dayIndex, exercise) {
           ${oneRepMaxSlot}
         </div>
       </div>
-      <div class="row">
-        ${logInputs}
-        <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-rest-sec="${exercise.restSec}">Log</button>
-      </div>
-      <div class="row-between program-rest-timer" id="${restRowId(dayIndex, exercise.exerciseId)}" data-exercise-name="${exercise.name}" hidden>
-        <span class="row" style="gap:6px;">
-          <span class="muted" style="font-size:var(--fs-xs);">Resting — ${exercise.name}<span id="${restSetLabelId(dayIndex, exercise.exerciseId)}"></span></span>
-          <strong id="${restDisplayId(dayIndex, exercise.exerciseId)}" style="font-variant-numeric:tabular-nums;"></strong>
-        </span>
-        <button type="button" class="btn btn-ghost" data-skip-rest>Skip</button>
-      </div>
+      ${loggingSection}
     </div>
   `;
+}
+
+/** The real 7-day schedule (weekly-schedule.js's buildProgramWeekStrip)
+ *  as a horizontal strip of compact cells — every day of the week
+ *  represented, training or rest, not just the 2-4 training-day cards
+ *  below it. */
+function renderWeekStrip(strip) {
+  const today = todayIsoDate();
+  byId('program-week-strip').innerHTML = strip
+    .map((entry) => {
+      const isTraining = entry.day != null;
+      const label = isTraining ? (DAY_TYPE_LABELS[entry.day.dayType] ?? entry.day.dayType) : 'Rest';
+      const dayNumber = Number(entry.date.slice(-2));
+      const isToday = entry.date === today;
+      return `
+        <div class="program-week-strip-cell" role="listitem" data-kind="${isTraining ? 'training' : 'rest'}" data-today="${isToday}" aria-label="${entry.weekdayLabel} ${dayNumber}, ${label}${isToday ? ', today' : ''}">
+          <span class="program-week-strip-weekday" aria-hidden="true">${entry.weekdayLabel}</span>
+          <span class="program-week-strip-date" aria-hidden="true">${dayNumber}</span>
+          <span class="program-week-strip-label" aria-hidden="true">${label}</span>
+        </div>
+      `;
+    })
+    .join('');
 }
 
 /** Renders the looping movement-category demo (movement-demo-svg.js) for

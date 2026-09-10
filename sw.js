@@ -27,21 +27,28 @@
 //      actually used.
 //
 // There's no build step here to fingerprint these files automatically
-// (see README's "no bundler" section) — bump CACHE_VERSION by hand
-// whenever a precached shell file's content changes, so installed PWAs
-// pick up the update instead of serving a stale shell forever.
+// (see README's "no bundler" section), so a browser's update-check for
+// this service worker — a byte-for-byte diff of this very file against
+// what's installed — needs CACHE_VERSION below to actually change on
+// every real deploy, or no browser ever sees a reason to install a new
+// worker and skipWaiting()/clients.claim() never run.
 //
-// This actually matters more than the paragraph above makes it sound:
-// a browser's update-check for a service worker is a byte-for-byte diff
-// of this very file against what's installed. CACHE_VERSION sat at 'v1'
-// through this entire project's build history — every deploy shipped
-// real changes to index.html/main.js/the CSS, but because THIS file
-// never changed, no browser ever saw a reason to install a new worker,
-// so skipWaiting()/clients.claim() below never actually ran even once.
-// Every installed PWA was quietly stuck on whatever it first cached,
-// with only individual already-fetched JS modules opportunistically
-// refreshing via the fetch handler's stale-while-revalidate — never the
-// shell itself.
+// This used to be a hand-maintained string, and that failed badly, twice:
+// CACHE_VERSION sat at 'v1' through this entire project's early build
+// history (every deploy shipped real changes to index.html/main.js/the
+// CSS, but this file itself never changed, so no installed PWA ever
+// picked up a single one of them), and after that was first noticed and
+// bumped to 'v2', it then sat unbumped again through 26 further commits
+// and 13 merged feature PRs — the exact same silent-staleness failure
+// recurring because "remember to bump this by hand" is not a real
+// process, it's a hope. scripts/stamp-sw-cache-version.mjs (wired into
+// vercel.json's buildCommand) replaces the placeholder below with the
+// real commit SHA on every actual deploy now, so there is no "remember"
+// step left standing between a real deploy and a real cache-busting
+// version — every deploy is definitionally a new commit, so every
+// deploy is definitionally a new CACHE_VERSION. The 'dev' placeholder
+// only ever ships from a local `npm run serve` that skipped the stamp
+// script (or a checkout with no build step at all) — never from Vercel.
 //
 // Bumping this alone is still only half the fix: it makes the diff
 // meaningful, but the browser has to actually fetch this file from the
@@ -50,8 +57,7 @@
 // just as completely as a never-changing CACHE_VERSION did — see
 // vercel.json's headers entry for /sw.js (Cache-Control: no-store),
 // which is what guarantees this specific file is never served stale.
-// Bump this on every real deploy from here on.
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'dev';
 const CACHE_NAME = `fit-fly-${CACHE_VERSION}`;
 
 const APP_SHELL = [

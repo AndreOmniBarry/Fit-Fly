@@ -243,10 +243,22 @@ app's assets are already bundled straight into the APK/IPA at build
 time, so a browser-style HTTP cache on top of that would be pure
 overhead, not a real gap.
 
-There's no build step here to fingerprint these files automatically —
-`sw.js`'s own `CACHE_VERSION` constant gets bumped by hand whenever a
-precached shell file's content changes, so an already-installed PWA
-picks up the update instead of serving a stale shell forever.
+There's no build step here to fingerprint these files automatically, so
+`sw.js`'s own `CACHE_VERSION` constant has to actually change on every
+real deploy for an already-installed PWA to notice a new worker exists
+at all (a browser's own update-check is a byte-for-byte diff of `sw.js`
+itself). **This used to be a hand-bumped string, and that failed twice,
+badly**: it sat at `'v1'` through this project's entire early build
+history (every deploy shipped real feature changes, but this one file
+never did, so no installed PWA ever picked up a single one of them), and
+after that was caught and bumped once, it then sat unbumped again
+through 26 further commits and 13 merged PRs — "remember to bump this by
+hand" turned out not to be a real process twice in a row.
+`scripts/stamp-sw-cache-version.mjs` (Vercel's own `buildCommand`, see
+`vercel.json`) now replaces `CACHE_VERSION` with the real deploy
+commit's SHA on every build — every deploy is definitionally a new
+commit, so every deploy is now definitionally a new `CACHE_VERSION`,
+with no "remember" step left for anyone to skip.
 
 ## Accessibility
 
@@ -961,17 +973,22 @@ here.
 
 **"It says Playing but I hear nothing" has two real causes, and only one
 of them is a bug this app can detect.** A genuine failure — the browser
-withheld playback despite `start()` running inside a real click handler —
-is now caught explicitly: `FocusAudioState.blocked` goes true only when
-the `AudioContext` never actually reaches `'running'`, and the screen
-shows an honest "Playback didn't start — tap a sound again" banner
-instead of a `Playing` state for a context producing no sound at all. The
-far more common cause — the device is muted or its media volume is at
-zero — has **no web API to detect at all**, deliberately; a website
-cannot know or override that, and shouldn't try to. The only honest fix
-is the permanent hint under the volume slider: *"Plays through your
-media volume — check your device isn't muted or on silent if you don't
-hear anything."*
+withheld playback despite `start()` running inside a real click handler,
+*or* building the graph itself threw partway through — is now caught
+explicitly: `FocusAudioState.blocked` goes true whenever the
+`AudioContext` never actually reaches `'running'`, and also now
+whenever `start()`'s own graph-build throws for any other reason (logged
+to the console either way — see `start()`'s own `catch`, which used to
+swallow a real failure completely: no console entry, no state change, a
+tap on a tile that genuinely failed looked identical to the tap doing
+nothing at all). Either way the screen shows an honest "Playback didn't
+start — tap a sound again" banner instead of a silent `Playing` state
+for a context producing no sound at all. The far more common cause — the
+device is muted or its media volume is at zero — has **no web API to
+detect at all**, deliberately; a website cannot know or override that,
+and shouldn't try to. The only honest fix is the permanent hint under
+the volume slider: *"Plays through your media volume — check your
+device isn't muted or on silent if you don't hear anything."*
 
 **The catalog carries the same spatial-tilt language as the Hub and
 Sleep's dashboard**, `attachTilt()`'d the same way. The sound/session
@@ -1061,15 +1078,22 @@ natural rate variance and a real pitch drop on the line's final clause
 ending, versus a slight lift on one that continues), with a short
 breath-length pause between them.
 
-**A second engine, on by default, for real neural warmth: Kokoro-82M,
+**A second engine, opt-in, for real neural warmth: Kokoro-82M,
 on-device.** The browser's built-in voice above is free, universal, and
 needs nothing — but it's still formant/concatenative synthesis, not a
 model that actually learned prosody from real speech. Kokoro, a real
 82-million-parameter neural text-to-speech model run entirely on this
 device through [ONNX Runtime](https://onnxruntime.ai)'s WebAssembly
-backend (`kokoro-voice.ts`), is Voice guide's *default* engine —
-`getVoiceEngine()` returns `'kokoro'` unless Settings has explicitly
-turned it off, not the other way around. `speak()`/`stopSpeaking()`
+backend (`kokoro-voice.ts`), is Voice guide's real, explicit *opt-in* —
+`getVoiceEngine()` returns `'kokoro'` only once Settings has actively
+turned it on, never the other way around. It used to be the default the
+other direction (`getVoiceEngine()` returning `'kokoro'` unless someone
+turned it *off*), flipped deliberately after repeated real-device
+reports of it staying silent even with every mitigation below already in
+place — a voice guide that sometimes doesn't speak is a worse default
+than one that's always audible, even at lower synthesis quality, so
+choosing Kokoro is now an informed choice for whoever's device handles
+it well, not the whole app's front-line bet. `speak()`/`stopSpeaking()`
 (`voice-guide.ts`) stay the one public surface every caller
 (`guided-session-view.ts` included) already uses — which engine actually
 spoke is invisible to them, decided per call.
@@ -1081,19 +1105,20 @@ Three honest constraints shape how this is built, not glossed over:
   "an 82M-parameter model," so using it at all means a genuine network
   fetch (tens of megabytes, `q4` quantization — a real, audible quality
   trade against kokoro-js's own `q8` default, chosen deliberately for a
-  smaller, faster download: this one now starts automatically, so a
-  shorter download is also a shorter window for the one failure mode
-  no client-side code can fully avoid — a fetch discarded because the
-  tab backgrounded or reloaded mid-download can't resume; it just
-  restarts next time). That download fires the moment `speak()`'s first
-  real call lands — someone's very first guided session or meditation —
-  never on app boot, and never just from opening Settings to check a
-  profile field: that first session narrates on the built-in voice while
-  Kokoro downloads in the background (a small status line on the
-  session screen itself says so, real percentage included — deliberately
-  placed inside the session someone is already sitting through, not a
-  separate download screen that's easy to wander away from and lose
-  progress on), and every session after it gets the real thing. Settings
+  smaller, faster download: this one now starts automatically once
+  opted into, so a shorter download is also a shorter window for the one
+  failure mode no client-side code can fully avoid — a fetch discarded
+  because the tab backgrounded or reloaded mid-download can't resume; it
+  just restarts next time). That download fires the moment `speak()`'s
+  first real call lands *after* Settings has turned Kokoro on — never on
+  app boot, and never just from opening Settings to look at the toggle
+  without picking it: the first guided session or meditation after
+  opting in narrates on the built-in voice while Kokoro downloads in the
+  background (a small status line on the session screen itself says so,
+  real percentage included — deliberately placed inside the session
+  someone is already sitting through, not a separate download screen
+  that's easy to wander away from and lose progress on), and every
+  session after it gets the real thing. Settings
   shows the same real aggregate percentage when it's watching an
   already-in-flight download, or driving one itself after an explicit
   retry (`aggregateProgress`, unit-tested for exactly this: summing real
@@ -1134,6 +1159,32 @@ Three honest constraints shape how this is built, not glossed over:
   animating — with total silence and no error, because the previous
   `HTMLAudioElement`-based path was catching a rejected `.play()` the
   same way it caught a normal, successful playback ending.
+- *A second, more specific silent-forever bug, found and fixed later:
+  narrates fine on the built-in voice while Kokoro loads, then goes
+  silent the exact moment Kokoro finishes.* `kokoro-voice.ts`'s
+  `playBlob()` used to signal "this clip started" the instant
+  `source.start()` was called, without checking whether the shared
+  `AudioContext` had actually reached `'running'` first — and
+  `primeKokoroAudio()`'s own `resume()` is fire-and-forget, so a beat
+  running from a timer callback (every beat after the first) rather than
+  the original tap could have that resume silently never take effect.
+  `start()` on a still-suspended context never throws, so the false
+  "started" signal defeated `voice-guide.ts`'s own timeout-based
+  fallback (it looked like real audio was already playing), and the
+  clip's `onended` never fired either — a truly stuck context never
+  finishes anything — stranding not just that one clip but every beat
+  after it, silently, for the rest of the session. `playBlob()` now
+  confirms `'running'` (its own short, bounded timeout) before ever
+  reporting a clip started, and a new `kokoroFailedThisRun` flag in
+  `voice-guide.ts` makes one real failure a one-time cost per session —
+  once tripped, every later beat speaks on the built-in voice directly,
+  no second doomed attempt first — cleared at each real session boundary
+  (the session ending, or a pause) so a fresh run still gets its own
+  fair first try. Still genuinely unverifiable against real device audio
+  output from this project's own sandbox (no real hardware, no real
+  Safari to test against) — a real, reasoned fix for a specifically
+  identified bug, not a guess, but not a claim of confirmed real-device
+  behavior either.
 
 Once loaded, `speakWithKokoro` uses kokoro-js's own sentence-boundary
 splitter (correctly handling abbreviations, decimals, and quotes — real
@@ -1909,6 +1960,33 @@ logged by hand. Both are real gaps now:
   `startedAt`), and threading a chosen date through that whole flow is a
   real, separate piece of work, not a natural extension of a calendar
   *view*.
+
+**A real 7-day week strip, and real Prev/Next control over which week is
+showing.** My Program used to only ever list its 2-4 training days as a
+flat "Day 1/2/3" list, with no visible week shape at all — real rest days
+simply didn't exist anywhere on the screen — and `weekNumber` only ever
+auto-advanced from real elapsed time since the program started, with no
+way to look ahead at next week's plan or back at a past one.
+`js/features/programs/weekly-schedule.js`'s `buildProgramWeekStrip` (new,
+pure, unit-tested) fixes both: it assigns each of the week's real
+training days to a real weekday within the program's own rolling 7-day
+week (a fixed spread-not-clustered pattern per day-count, e.g. a 4-day
+week lands Mon/Tue/Thu/Fri, never four days in a row), and fills every
+other day in with an explicit rest-day cell — a real, full week, not
+just the training days with the rest of the week left unrepresented.
+Real Prev/Next buttons around the Week number now let you browse other
+weeks' plans; browsing away from the real current week is a genuine
+read-only preview (a visible "Viewing Week N — not your current week"
+banner, no Log inputs or rest-timer rows rendered at all — logging only
+ever makes sense against today), with a one-tap "Back to current week"
+to return. This is a deliberate, direct exception to `program-calendar.js`'s
+own "never a fabricated scheduled Tuesday" stance a few paragraphs up —
+that one describes real logged history and still makes no such claim;
+this is a forward-looking schedule, and a program with no visible week
+shape reads as unstructured next to what a real training app shows.
+Opening My Program fresh (from the Hub, or after changing your goal)
+always resets back to the real current week rather than leaving you
+stranded wherever Prev/Next was last left.
 
 ## Run mode
 

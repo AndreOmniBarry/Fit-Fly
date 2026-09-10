@@ -543,6 +543,79 @@ test.describe('my program', () => {
   });
 });
 
+test.describe('my program: real week strip and navigation', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+  });
+
+  test('the week strip shows all 7 real days, training days matching the program\'s own day count and the rest genuinely marked as rest', async ({
+    page,
+  }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' }); // hypertrophy: 4 real training days
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await expect(page.locator('.program-week-strip-cell')).toHaveCount(7);
+    await expect(page.locator('.program-week-strip-cell[data-kind="training"]')).toHaveCount(4);
+    await expect(page.locator('.program-week-strip-cell[data-kind="rest"]')).toHaveCount(3);
+  });
+
+  test('Next previews the following week read-only — no Log buttons, a real "not your current week" banner — and Back returns to normal', async ({
+    page,
+  }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#program-week-preview-banner')).toBeHidden();
+    await expect(page.locator('[data-log-set]').first()).toBeVisible();
+
+    await page.locator('#btn-program-week-next').click();
+    await expect(page.locator('#program-week-number')).toHaveText('2');
+    await expect(page.locator('#program-week-preview-banner')).toBeVisible();
+    await expect(page.locator('#program-week-preview-label')).toHaveText('Week 2');
+    // A real preview, not just a label change — no way to log a set
+    // against a week that isn't actually happening right now.
+    await expect(page.locator('[data-log-set]')).toHaveCount(0);
+    await expect(page.locator('.program-rest-timer')).toHaveCount(0);
+
+    await page.locator('#btn-program-week-current').click();
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#program-week-preview-banner')).toBeHidden();
+    await expect(page.locator('[data-log-set]').first()).toBeVisible();
+  });
+
+  test('Prev is disabled at week 1 — never a broken "week 0"', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#btn-program-week-prev')).toBeDisabled();
+
+    await page.locator('#btn-program-week-next').click();
+    await expect(page.locator('#btn-program-week-prev')).toBeEnabled();
+    await page.locator('#btn-program-week-prev').click();
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#btn-program-week-prev')).toBeDisabled();
+  });
+
+  test('reopening My Program from the Hub always lands back on the real current week, not wherever Prev/Next was left', async ({
+    page,
+  }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await page.locator('#btn-program-week-next').click();
+    await page.locator('#btn-program-week-next').click();
+    await expect(page.locator('#program-week-number')).toHaveText('3');
+
+    await page.locator('#btn-program-back').click();
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-week-number')).toHaveText('1');
+    await expect(page.locator('#program-week-preview-banner')).toBeHidden();
+  });
+});
+
 test.describe('my program: change goal', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

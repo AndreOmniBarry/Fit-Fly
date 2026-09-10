@@ -14,13 +14,33 @@
 // engine, not Kokoro — the reverse of this project's earlier direction,
 // changed deliberately after repeated real-device reports of Kokoro
 // staying silent even with primeKokoroAudio()/primeSystemVoice() and a
-// bounded fallback timeout all in place, none of it verifiable from this
-// project's own sandbox (no real audio output to test against). A voice
-// guide that sometimes doesn't speak is a worse default than a voice
-// guide that's always audible, even at lower synthesis quality — so
-// Settings makes Kokoro an explicit opt-in instead: choosing it there is
-// an informed choice for whoever's device handles it well, not the whole
-// app's front-line bet. Persisted via getPref/setPref; everything below
+// bounded fallback timeout all in place. A voice guide that sometimes
+// doesn't speak is a worse default than a voice guide that's always
+// audible, even at lower synthesis quality — so Settings makes Kokoro an
+// explicit opt-in instead: choosing it there is an informed choice for
+// whoever's device handles it well, not the whole app's front-line bet.
+//
+// The actual bug behind "narrates fine, then goes silent the moment
+// Kokoro finishes loading" was a real, specific one, found and fixed
+// here: kokoro-voice.ts's playBlob() used to fire its onAudioStart
+// signal the instant source.start() was called, without checking
+// whether the shared AudioContext had actually reached 'running' first
+// — and primeKokoroAudio()'s own resume() is fire-and-forget, so once a
+// beat runs from a timer callback (every beat after the first) rather
+// than the original tap, that resume can silently never take effect.
+// start() on a still-suspended context never throws, so the false
+// "started" signal defeated this file's own timeout-based fallback below
+// (audioStarted looked true), and the source's onended never fires
+// either (a truly stuck context never finishes anything) — stranding not
+// just that one clip but the rest of the session, silently, forever.
+// playBlob() now confirms 'running' (with its own bounded timeout)
+// before ever reporting a clip started, and kokoroFailedThisRun below
+// makes one real failure a one-time cost per session instead of a
+// doomed retry on every later beat. Still genuinely can't be verified
+// against real device audio output from this project's own sandbox —
+// this is a real, reasoned fix for a real, identified bug, not a guess,
+// but "confirmed working on a real iPhone" is a claim only real-device
+// testing can back up. Persisted via getPref/setPref; everything below
 // still ends up calling this module's own speak()/stopSpeaking(), so
 // guided-session-view.ts and every other caller never needs to know
 // which engine actually spoke.
@@ -163,6 +183,19 @@ function splitIntoClauses(text: string): string[] {
 
 let chainToken = 0;
 
+// Once a real Kokoro attempt genuinely fails to produce audio during a
+// running session (a resume that never confirmed 'running' — see
+// kokoro-voice.ts's playBlob() — or the bounded timeout below expiring),
+// retrying it on every later beat just repeats the exact same failure:
+// another silent stall before falling back, beat after beat, for
+// whatever's left of the session. This flag makes that a one-time cost
+// instead — once tripped, every later speak() call in the same run goes
+// straight to the system voice, no second doomed attempt first.
+// stopSpeaking() clears it at every real session boundary this module
+// already sees (a session ending, and pause/resume), so a fresh session
+// still gets its own fair first try.
+let kokoroFailedThisRun = false;
+
 /** Speaks one line, cancelling whatever was still being said — a guided
  *  session's beats are meant to replace each other, never overlap.
  *
@@ -240,7 +273,11 @@ export function speak(
     // attempt it's a fallback from — both need priming from inside this
     // same real gesture, not just one of them.
     primeSystemVoice();
-    if (isKokoroReady()) {
+    // See kokoroFailedThisRun's own doc comment: once one real attempt
+    // this run has already failed to produce audio, every later beat
+    // skips straight to the system voice instead of repeating the same
+    // stall-then-fallback every single time.
+    if (isKokoroReady() && !kokoroFailedThisRun) {
       let audioStarted = false;
       void speakWithKokoro(text, {
         voice: kokoroVoice ?? getSavedKokoroVoice(),
@@ -254,7 +291,10 @@ export function speak(
         // Only if nothing from this attempt was ever actually heard: the
         // timeout below already owns that decision once real audio has
         // started, so this and the timeout never both speak the same line.
-        if (!audioStarted) speakWithSystemVoice(text, { rate, pitch });
+        if (!audioStarted) {
+          kokoroFailedThisRun = true;
+          speakWithSystemVoice(text, { rate, pitch });
+        }
       });
       // See KOKORO_FIRST_AUDIO_TIMEOUT_MS's own comment: give this a real,
       // bounded window to actually start producing sound before falling
@@ -263,6 +303,7 @@ export function speak(
       // speakToken) — audibly late beats a permanently silent session.
       setTimeout(() => {
         if (!audioStarted) {
+          kokoroFailedThisRun = true;
           stopKokoroSpeaking();
           speakWithSystemVoice(text, { rate, pitch });
         }
@@ -273,7 +314,7 @@ export function speak(
     // system voice above/below) — but still caught: didKokoroLoadFail()
     // is how a *future* speak() call learns this failed, an uncaught
     // rejection here would just be a spurious console error on top.
-    if (!didKokoroLoadFail()) ensureKokoroLoaded().catch(() => {});
+    if (!kokoroFailedThisRun && !didKokoroLoadFail()) ensureKokoroLoaded().catch(() => {});
   }
   speakWithSystemVoice(text, { rate, pitch });
 }
@@ -286,4 +327,9 @@ export function stopSpeaking(): void {
     // best-effort only
   }
   stopKokoroSpeaking();
+  // A real session boundary (the session ending, or a pause) — give
+  // Kokoro a fresh, fair first try again next time speak() is called,
+  // rather than carrying a failure from a previous run/segment forward
+  // forever.
+  kokoroFailedThisRun = false;
 }

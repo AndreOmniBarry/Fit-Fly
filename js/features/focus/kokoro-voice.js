@@ -267,6 +267,10 @@ export async function speakWithKokoro(text, { voice = DEFAULT_KOKORO_VOICE, spee
         await new Promise((resolve) => setTimeout(resolve, pauseMs));
     }
 }
+// How long a still-'suspended' context gets, after a real resume()
+// attempt, before this clip gives up on it — see playBlob's own comment
+// for the real bug this closes.
+const CONTEXT_RESUME_TIMEOUT_MS = 800;
 async function playBlob(blob, token, onAudioStart) {
     primeKokoroAudio(); // best-effort: re-resume in case the context lapsed since the last prime
     const ctx = sharedAudioCtx;
@@ -283,6 +287,38 @@ async function playBlob(blob, token, onAudioStart) {
     }
     if (token !== speakToken)
         return;
+    // The real bug this used to have: primeKokoroAudio()'s own resume() is
+    // fire-and-forget, so a context that's still 'suspended' right here
+    // (a later beat's speak() call, running from a timer callback rather
+    // than the original tap — exactly what a running guided session does
+    // after its first beat) would still get a source.start() call below.
+    // That never throws — Web Audio just queues the node against a context
+    // that may never actually resume — so onAudioStart used to fire
+    // regardless, falsely telling voice-guide.ts's speak() this clip
+    // started, which defeated its own timeout-based fallback to the system
+    // voice. With nothing ever actually audible and onended never firing
+    // (a truly stuck-suspended context never finishes playing anything),
+    // that stranded this whole call forever: not just this one clip
+    // silent, but every beat after it, permanently, for the rest of the
+    // session — see this file's own module comment for why a resume from
+    // outside the original gesture can't be assumed to work at all. Giving
+    // it one real, bounded chance to actually reach 'running' — and
+    // bailing out *before* calling onAudioStart if it doesn't — is what
+    // lets that same timeout fallback actually do its job instead of being
+    // quietly defeated by a false-positive "it started" signal.
+    if (ctx.state === 'suspended') {
+        try {
+            await Promise.race([
+                ctx.resume(),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('resume timeout')), CONTEXT_RESUME_TIMEOUT_MS)),
+            ]);
+        }
+        catch {
+            return; // never confirmed running — let the caller's own fallback take over
+        }
+        if (ctx.state !== 'running' || token !== speakToken)
+            return;
+    }
     await new Promise((resolve) => {
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;

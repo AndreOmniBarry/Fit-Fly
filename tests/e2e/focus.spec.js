@@ -62,7 +62,15 @@ test.describe('focus', () => {
     for (const id of ['rain', 'thunderstorm', 'ocean', 'river', 'wind', 'fireplace', 'steady-noise']) {
       await expect(page.locator(`#focus-sound-${id}`)).toBeVisible();
     }
-    for (const id of ['breathing-focus', 'relax', 'focus', 'sleep-focus']) {
+    for (const id of [
+      'breathing-focus',
+      'relax',
+      'focus',
+      'sleep-focus',
+      'swim-breath',
+      'marathon-breath',
+      'cardio-depth-breath',
+    ]) {
       await expect(page.locator(`#btn-guided-session-${id}`)).toBeVisible();
     }
     await expect(page.locator('#focus-now-playing')).toBeHidden();

@@ -114,11 +114,91 @@ function buildSleepFocus() {
         beats,
     };
 }
+/** A dryland drill for the quick-inhale/long-steady-exhale ratio behind
+ *  bilateral swim breathing (breathing to alternating sides every third
+ *  stroke) — never a breath-hold/CO2-tolerance drill, since practicing
+ *  breath-holds is a real, documented shallow-water-blackout risk when
+ *  it carries over into the pool; this stays a pure, safe on-land rhythm
+ *  practice for the exhale-control half of the pattern. */
+function buildSwimBreath() {
+    const cycle = [breathBeat('Quick breathe in', 'in', 1.5), breathBeat('Long, steady breathe out', 'out', 4)];
+    const beats = [
+        proseBeat("Sit tall, like you're mid-stroke, about to turn your head to breathe.", 1.5),
+        proseBeat('This is the rhythm behind bilateral breathing — a quick breath in, then a long, steady breath out before the next one.', 1.5),
+    ];
+    for (let i = 0; i < 6; i++)
+        beats.push(...cycle);
+    beats.push(proseBeat("In the water, that quick inhale turns to one side as your arm recovers — the rhythm itself doesn't change.", 1.5));
+    for (let i = 0; i < 6; i++)
+        beats.push(...cycle);
+    beats.push(proseBeat("That's the pattern. Take it with you to the pool.", 1.5));
+    return {
+        id: 'swim-breath',
+        name: "Swimmer's Breath",
+        description: 'The quick-in, long-steady-out rhythm behind bilateral swim breathing.',
+        basis: "The exhale-control half of bilateral breathing (alternating-side breathing every third stroke) — a quick inhale, then a long controlled exhale before the next. Deliberately not a breath-hold/CO2-tolerance drill; those carry a real shallow-water-blackout risk when practiced toward holding breath underwater.",
+        beats,
+    };
+}
+/** Practices the 3:2 inhale:exhale rhythm from run-coaching's "rhythmic
+ *  breathing" — an odd total count so the exhale lands on a different
+ *  foot strike each time, spreading impact evenly between both feet
+ *  instead of always landing on the same one (the default with a 2:2
+ *  pattern most runners fall into unconsciously). Paced here for seated
+ *  practice, not real running cadence — the ratio is what transfers. */
+function buildMarathonBreath() {
+    const cycle = [breathBeat('In — 2 — 3', 'in', 3), breathBeat('Out — 2', 'out', 2)];
+    const beats = [
+        proseBeat("We'll practice a 3:2 rhythm — three counts in, two counts out.", 1.5),
+        proseBeat("Odd total count means your exhale lands on a different foot each time you run — even impact, side to side.", 1.5),
+    ];
+    for (let i = 0; i < 7; i++)
+        beats.push(...cycle);
+    beats.push(proseBeat('Same ratio, faster or slower — it scales with your real pace on the road.', 1.5));
+    for (let i = 0; i < 7; i++)
+        beats.push(...cycle);
+    beats.push(proseBeat("That's the count. Bring it with you on your next long run.", 1.5));
+    return {
+        id: 'marathon-breath',
+        name: 'Marathon Pacing Breath',
+        description: 'A 3:2 rhythmic-breathing pattern that alternates foot-strike impact.',
+        basis: "Rhythmic breathing from run-coaching literature (Budd Coates' 3:2 inhale:exhale ratio, popularized in \"Running on Air\") — an odd count so exhale-strike side alternates every breath, versus a 2:2 pattern that always exhales on the same foot.",
+        beats,
+    };
+}
+/** Diaphragmatic ("belly") breathing with an extended exhale — a
+ *  breathing-efficiency drill endurance athletes use to build fuller,
+ *  more controlled breaths instead of shallow chest breathing. Framed
+ *  honestly as capacity/efficiency practice, never a claimed VO2 max or
+ *  performance guarantee this app has no way to measure. */
+function buildCardioDepthBreath() {
+    const cycle = [breathBeat('Breathe in, low into your belly', 'in', 4), breathBeat('Long, controlled breathe out', 'out', 6)];
+    const beats = [
+        proseBeat('Rest a hand on your belly, just below your ribs.', 1.5),
+        proseBeat('Breathe so that hand rises — not your chest or shoulders. Low and full.', 2),
+    ];
+    for (let i = 0; i < 4; i++)
+        beats.push(...cycle);
+    beats.push(proseBeat("Keep the same low breath, and stretch the exhale out a little longer each time.", 1.5));
+    for (let i = 0; i < 4; i++)
+        beats.push(...cycle);
+    beats.push(proseBeat('That fuller, lower breath is the one to reach for mid-effort, when your breathing gets shallow.', 2));
+    return {
+        id: 'cardio-depth-breath',
+        name: 'Cardio Depth Training',
+        description: 'Diaphragmatic breathing with an extended exhale, for fuller breaths under effort.',
+        basis: 'Diaphragmatic ("belly") breathing with an extended exhale ratio — a breathing-efficiency drill used in endurance training to build fuller, more controlled breaths instead of shallow chest breathing. Practice, not a measured fitness claim.',
+        beats,
+    };
+}
 export const GUIDED_SESSIONS = Object.freeze([
     buildBreathingFocus(),
     buildRelax(),
     buildFocusSession(),
     buildSleepFocus(),
+    buildSwimBreath(),
+    buildMarathonBreath(),
+    buildCardioDepthBreath(),
 ]);
 export function getGuidedSession(id) {
     return GUIDED_SESSIONS.find((s) => s.id === id);

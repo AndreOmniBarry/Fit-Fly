@@ -987,7 +987,7 @@ implementation of the mechanism, used in three places.
 
 ### Guided sessions
 
-Four short (under-a-minute to ~3-minute) sessions, each built on one real,
+Seven short (under-a-minute to ~3-minute) sessions, each built on one real,
 named, well-established technique — never invented copy standing in for
 one — documented with its source in `guided-sessions.ts`'s `basis` field
 on every entry:
@@ -1002,6 +1002,28 @@ on every entry:
   arrive before starting something, with zero clinical language attached.
 - **Sleep Focus** — a guided body scan, feet to head, the standard
   technique behind most sleep-focused meditations.
+
+**Sport-specific breathwork**, sitting alongside the four above rather
+than replacing any of them — each built on a technique real to that
+sport, not a generic breathing pattern with a sport's name attached:
+
+- **Swimmer's Breath** — the quick-inhale/long-steady-exhale ratio behind
+  bilateral breathing (breathing to alternating sides every third
+  stroke). Deliberately *not* a breath-hold/CO2-tolerance drill: those
+  carry a real, documented shallow-water-blackout risk when practiced
+  toward holding breath underwater, so this stays a safe, on-land rhythm
+  practice for the exhale-control half of the pattern only.
+- **Marathon Pacing Breath** — a 3:2 inhale:exhale count, the rhythmic-
+  breathing pattern from run-coaching literature (Budd Coates' "Running
+  on Air"). An odd total count means the exhale lands on a different
+  foot strike every time, spreading impact evenly between both feet
+  instead of always landing on the same one — the default with the 2:2
+  pattern most runners fall into unconsciously.
+- **Cardio Depth Training** — diaphragmatic ("belly") breathing with an
+  extended exhale, a breathing-efficiency drill endurance athletes use to
+  build fuller, more controlled breaths instead of shallow chest
+  breathing. Framed honestly as practice, never a claimed VO2 max or
+  performance outcome this app has no way to measure.
 
 Every session is an ordered list of "beats" (`guided-sessions.ts`'s
 `SessionBeat`) — a line of text plus an *exact* duration, deliberately not

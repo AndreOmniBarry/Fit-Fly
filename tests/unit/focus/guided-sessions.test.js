@@ -2,9 +2,19 @@ import { describe, expect, it } from 'vitest';
 import { GUIDED_SESSIONS, getGuidedSession, totalDurationSeconds } from '../../../js/features/focus/guided-sessions.js';
 
 describe('GUIDED_SESSIONS catalog', () => {
-  it('has all four sessions asked for', () => {
+  it('has every session asked for, including the sport-specific ones', () => {
     const ids = GUIDED_SESSIONS.map((s) => s.id).sort();
-    expect(ids).toEqual(['breathing-focus', 'focus', 'relax', 'sleep-focus'].sort());
+    expect(ids).toEqual(
+      [
+        'breathing-focus',
+        'focus',
+        'relax',
+        'sleep-focus',
+        'swim-breath',
+        'marathon-breath',
+        'cardio-depth-breath',
+      ].sort()
+    );
   });
 
   it('every id is unique', () => {
@@ -67,6 +77,53 @@ describe('Breathing Focus: box breathing structure', () => {
     for (const beat of session.beats) {
       if (beat.breathPhase) expect(beat.durationSeconds).toBe(4);
     }
+  });
+});
+
+describe("Swimmer's Breath: quick-in, long-steady-out rhythm", () => {
+  const session = getGuidedSession('swim-breath');
+
+  it('every inhale is quick and every exhale is longer — the real bilateral-breathing ratio', () => {
+    const inBeats = session.beats.filter((b) => b.breathPhase === 'in');
+    const outBeats = session.beats.filter((b) => b.breathPhase === 'out');
+    expect(inBeats.length).toBeGreaterThan(0);
+    expect(inBeats).toHaveLength(outBeats.length);
+    for (const beat of inBeats) expect(beat.durationSeconds).toBeLessThan(outBeats[0].durationSeconds);
+  });
+
+  it('never mentions holding the breath — a real shallow-water-blackout risk, not a dryland drill', () => {
+    for (const beat of session.beats) expect(beat.text.toLowerCase()).not.toMatch(/hold your breath|breath.?hold/);
+  });
+});
+
+describe('Marathon Pacing Breath: 3:2 rhythmic-breathing structure', () => {
+  const session = getGuidedSession('marathon-breath');
+
+  it('every inhale is exactly 3 counts and every exhale exactly 2 — the real odd-count ratio', () => {
+    const inBeats = session.beats.filter((b) => b.breathPhase === 'in');
+    const outBeats = session.beats.filter((b) => b.breathPhase === 'out');
+    expect(inBeats.length).toBeGreaterThan(0);
+    expect(inBeats).toHaveLength(outBeats.length);
+    for (const beat of inBeats) expect(beat.durationSeconds).toBe(3);
+    for (const beat of outBeats) expect(beat.durationSeconds).toBe(2);
+  });
+});
+
+describe('Cardio Depth Training: diaphragmatic breathing with an extended exhale', () => {
+  const session = getGuidedSession('cardio-depth-breath');
+
+  it('every exhale is longer than the matching inhale — a real extended-exhale ratio, not equal counts', () => {
+    const inBeats = session.beats.filter((b) => b.breathPhase === 'in');
+    const outBeats = session.beats.filter((b) => b.breathPhase === 'out');
+    expect(inBeats.length).toBeGreaterThan(0);
+    expect(inBeats).toHaveLength(outBeats.length);
+    for (let i = 0; i < inBeats.length; i++) expect(outBeats[i].durationSeconds).toBeGreaterThan(inBeats[i].durationSeconds);
+  });
+
+  it('never claims a measured fitness outcome (VO2 max, performance) this app has no way to measure', () => {
+    const bannedClaims = /vo2|performance improve|increase(s)? your (fitness|endurance)/i;
+    expect(session.description).not.toMatch(bannedClaims);
+    for (const beat of session.beats) expect(beat.text).not.toMatch(bannedClaims);
   });
 });
 

@@ -4,6 +4,7 @@ export interface RunRecord {
   id: string;
   startedAt: string;
   distanceMeters: number;
+  avgPaceSecPerKm?: number | null;
   [key: string]: unknown;
 }
 

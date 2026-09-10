@@ -1520,11 +1520,31 @@
       <span id="badges-earned-count">0</span> of <span id="badges-total-count">0</span> earned — every one reads a real streak or lifetime total already logged.
     </p>
 
-    <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">EARNED</span>
-    <div class="badge-grid tilt-stagger" id="badges-earned-grid" style="margin-top:var(--space-3);"></div>
+    <!-- Filters what's shown below, not what's tracked — Personal Bests
+         (a live current record) and Achievements (a fixed tier, earned
+         once) are real but structurally different data (see
+         personal-bests.ts), so this splits them rather than forcing one
+         list to pretend to be the other. No "Challenges" filter: this app
+         has no such feature, and a filter for data that doesn't exist
+         would be exactly the fabrication this app avoids everywhere else. -->
+    <div class="chip-group" id="badges-filter-toggle" role="group" aria-label="Badge filter" style="margin-top:var(--space-4);">
+      <button type="button" class="chip" data-value="all" aria-pressed="true">All</button>
+      <button type="button" class="chip" data-value="personal-bests" aria-pressed="false">Personal Bests</button>
+      <button type="button" class="chip" data-value="achievements" aria-pressed="false">Achievements</button>
+    </div>
 
-    <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">IN PROGRESS</span>
-    <div class="badge-grid tilt-stagger" id="badges-locked-grid" style="margin-top:var(--space-3);"></div>
+    <div id="badges-personalbests-section">
+      <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">PERSONAL BESTS</span>
+      <div class="badge-grid tilt-stagger" id="badges-personalbests-grid" style="margin-top:var(--space-3);"></div>
+    </div>
+
+    <div id="badges-achievements-section">
+      <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">EARNED</span>
+      <div class="badge-grid tilt-stagger" id="badges-earned-grid" style="margin-top:var(--space-3);"></div>
+
+      <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">REMAINING</span>
+      <div class="badge-grid tilt-stagger" id="badges-locked-grid" style="margin-top:var(--space-3);"></div>
+    </div>
   </section>
 
   <!-- HEARING: a real ambient-noise check-in from the phone's own

@@ -24,8 +24,11 @@ import { calculateMeditationStreak, totalMinutes } from '../meditate/meditate-tr
 import { calculateVitalsStreak } from '../vitals/vitals-streak.js';
 import { calculateStepsStreak, bestStepsDayEver } from '../steps/steps-trend.js';
 import { calculateHydrationStreak } from '../hydration/hydration-trend.js';
+import { getDistanceUnit } from '../run/run-units.js';
 import { BADGE_GROUPS, evaluateBadgeGroup } from './badge-definitions.js';
+import { computePersonalBests } from './personal-bests.js';
 import type { BadgeStatus } from './types.js';
+import type { PersonalBest } from './personal-bests.js';
 import type { AppDb } from '../../db/client.js';
 
 export interface EvaluatedBadge extends BadgeStatus {
@@ -113,4 +116,18 @@ export async function evaluateAllBadges(db: AppDb = getDb()): Promise<EvaluatedB
     earnedAt: finalEarnedAtById.get(s.id) ?? null,
     isNewlyEarned: newlyEarnedIds.has(s.id),
   }));
+}
+
+/** Every real personal best (see personal-bests.ts's own doc comment for
+ *  why these stay structurally separate from the tiered badges above) —
+ *  its own, separate real-data read since a personal best is always the
+ *  current live number, never a persisted "earned" row to cross-reference
+ *  against. */
+export async function evaluatePersonalBests(db: AppDb = getDb()): Promise<PersonalBest[]> {
+  const [runs, stepEntries, hydrationEntries] = await Promise.all([
+    listAllRuns(db),
+    listAllStepEntries(db),
+    listAllHydrationEntries(db),
+  ]);
+  return computePersonalBests({ runs, stepEntries, hydrationEntries, distanceUnit: getDistanceUnit() });
 }

@@ -82,6 +82,42 @@ test.describe('badges', () => {
     expect(earnedAtSecond).toBe(earnedAtFirst);
   });
 
+  test('personal bests start honest — no fabricated record before any real data exists', async ({ page }) => {
+    await page.getByRole('button', { name: 'Badges' }).click();
+    await expect(page.locator('#badges-personalbests-grid')).toContainText('No personal bests yet');
+  });
+
+  test('a real steps day sets a live personal best, shown with its real value — not a tiered/locked card', async ({ page }) => {
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('9500');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+
+    await page.getByRole('button', { name: 'Badges' }).click();
+    const pbCard = page.locator('#badges-personalbests-grid .badge-card--earned');
+    await expect(pbCard).toContainText('Best Steps Day');
+    await expect(pbCard).toContainText('9,500 steps');
+  });
+
+  test('the All/Personal Bests/Achievements filter really does filter, not just relabel', async ({ page }) => {
+    await page.getByRole('button', { name: 'Badges' }).click();
+
+    await expect(page.locator('#badges-personalbests-section')).toBeVisible();
+    await expect(page.locator('#badges-achievements-section')).toBeVisible();
+
+    await page.locator('#badges-filter-toggle .chip[data-value="personal-bests"]').click();
+    await expect(page.locator('#badges-personalbests-section')).toBeVisible();
+    await expect(page.locator('#badges-achievements-section')).toBeHidden();
+
+    await page.locator('#badges-filter-toggle .chip[data-value="achievements"]').click();
+    await expect(page.locator('#badges-personalbests-section')).toBeHidden();
+    await expect(page.locator('#badges-achievements-section')).toBeVisible();
+
+    await page.locator('#badges-filter-toggle .chip[data-value="all"]').click();
+    await expect(page.locator('#badges-personalbests-section')).toBeVisible();
+    await expect(page.locator('#badges-achievements-section')).toBeVisible();
+  });
+
   test('back returns to the Hub', async ({ page }) => {
     await page.getByRole('button', { name: 'Badges' }).click();
     await page.locator('#btn-badges-back').click();

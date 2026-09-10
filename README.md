@@ -2731,6 +2731,35 @@ already carries. It's the grid's 9th tile and the first whose own data
 comes from every other mini-app at once rather than owning a store of
 its own.
 
+**Personal Bests: a real live record, structurally separate from a
+tiered badge.** A tiered badge above is "once earned, always earned" —
+it can never legitimately un-earn. A personal best (fastest pace,
+longest run, best steps day, best hydration day) is the opposite by
+definition: it's always the *current* record, and a new one replaces
+the old one rather than sitting alongside it. Forcing that into the
+tiered `earnedBadges` model would mean either a badge that un-earns
+(breaking the contract every other badge relies on) or a fixed
+threshold dressed up as a "record" (a fabricated number — the exact
+thing this whole feature was built to avoid). `js/features/badges/
+personal-bests.ts`'s `computePersonalBests` stays deliberately outside
+that model instead: no persisted "earned" row, just the real current
+best recomputed fresh from `personal-records.ts`, `steps-trend.ts`, and
+`hydration-trend.ts` every time the screen opens — the same "read
+straight from real data, never cached state that can drift" rule every
+other honest number in this app already follows. A metric with nothing
+logged yet never gets a placeholder entry, same as everywhere else.
+
+The Badges screen now filters (**All / Personal Bests / Achievements**)
+rather than showing every section unconditionally — Personal Bests and
+the Earned/Remaining tiered grid are real but structurally different
+data, so the filter splits them instead of pretending one list can
+represent both. ("Remaining" replaces the old "In Progress" label —
+same real progress-number cards, clearer wording.) There's no
+"Challenges" filter: this app has no such feature, and a filter for
+data that doesn't exist would be exactly the fabrication this feature
+exists to avoid — the same reasoning that already keeps this catalog to
+32 real tiers instead of inventing a "perfect week" score.
+
 **A real embossed medal, not a flat tinted circle.** Earned badges used
 to reuse the exact same flat `.tilt-card` treatment as a Hub tile — one
 shared screen-wide tilt reading, every card rotating in perfect

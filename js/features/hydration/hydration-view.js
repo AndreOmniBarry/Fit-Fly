@@ -1,11 +1,14 @@
-// Hydration: a real running total for today, drawn as a glass that
-// fills with water — the fill's y/height are set from the actual ml
+// Hydration: a real running total for today, drawn inside a friendly
+// droplet mascot — the fill's y/height are set from the actual ml
 // logged vs. the daily goal, the same "real attribute drives the data,
 // CSS only eases it" language as Sleep's score ring and Steps' goal
 // ring. The scrolling wave riding the surface, and its tilt-reactive
 // lean when the device tilts (see .hydration-liquid-tilt in
 // mini-apps.css), are purely decorative — they never encode data
-// themselves, just track the fill's real top edge.
+// themselves, just track the fill's real top edge. The mascot's face is
+// mostly fixed (a character, not a measurement) except its mouth, whose
+// real shape (see EXPRESSION_MOUTH_D below) is the one expressive piece
+// actually driven by real progress toward goal.
 import { showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { animateCountUp } from '../../lib/count-up.js';
@@ -25,11 +28,22 @@ const DEFAULT_INTERVAL_HOURS = 2;
 const INTERVAL_PREF_KEY = 'hydrationReminderIntervalHours';
 const LAST_REMINDER_PREF_KEY = 'lastHydrationReminderAt';
 const HOUR_MS = 60 * 60 * 1000;
-// Matches the glass's real rim-to-base coordinates in index.html's
-// viewBox="0 0 100 170" (not the whole 0-170 box, which includes empty
-// margin) — so the water genuinely rises inside the drawn glass.
-const FIGURE_TOP_Y = 13;
-const FIGURE_BOTTOM_Y = 160;
+// Matches the droplet mascot's real point-to-base coordinates in
+// index.html's viewBox="0 0 100 170" (not the whole 0-170 box, which
+// includes empty margin) — so the water genuinely rises inside the drawn
+// outline.
+const FIGURE_TOP_Y = 14;
+const FIGURE_BOTTOM_Y = 154;
+// Three real mouth shapes, all built from the same Q-curve command
+// structure (not a switch between L and Q) specifically so
+// .hydration-figure-mouth's CSS `d` transition can actually interpolate
+// between them — a flat "line" is just a Q curve whose control point sits
+// at the same y as its endpoints, not a literally different path type.
+const EXPRESSION_MOUTH_D = {
+    low: 'M42,124 Q50,116 58,124', // control point above the endpoints — a gentle frown
+    mid: 'M42,122 Q50,122 58,122', // control point level with the endpoints — a flat, neutral line
+    full: 'M40,120 Q50,132 60,120', // control point well below the endpoints — a real smile
+};
 // The trend chart's own state — see steps-view.ts's identical comment;
 // same reasoning, same default range.
 let hydrationTrendRange = 'W';
@@ -199,8 +213,12 @@ function renderFigure(todayMl) {
     byId('hydration-water-fill').setAttribute('height', fillHeight.toFixed(2));
     byId('hydration-wave-position').style.transform = `translateY(${(fillY - 8).toFixed(2)}px)`;
     // A brighter, more saturated fill the closer today gets to goal — a
-    // small "glow up" reward, not just a static color the whole way.
-    byId('hydration-figure').dataset.level = fraction >= 1 ? 'full' : fraction >= 0.4 ? 'mid' : 'low';
+    // small "glow up" reward, not just a static color the whole way — and
+    // the mascot's own mouth genuinely changes shape with it too (blush
+    // follows via the [data-level="full"] CSS rule, no JS needed there).
+    const level = fraction >= 1 ? 'full' : fraction >= 0.4 ? 'mid' : 'low';
+    byId('hydration-figure').dataset.level = level;
+    byId('hydration-figure-mouth').setAttribute('d', EXPRESSION_MOUTH_D[level]);
     animateCountUp(byId('hydration-today-ml'), todayMl, { formatter: (n) => Math.round(n).toLocaleString() });
     byId('hydration-goal-label').textContent = `of ${goal.toLocaleString()}ml goal`;
 }

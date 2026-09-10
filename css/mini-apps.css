@@ -824,12 +824,22 @@
   fill:var(--hydration-card-bg); stroke:var(--hydration-card-border); stroke-width:2;
   transition:filter .6s ease;
 }
-.hydration-glass-rim{
-  fill:none; stroke:var(--hydration-card-border); stroke-width:1.5; opacity:.7;
+/* The mascot's face — fixed position, always drawn on top of the fill
+   regardless of level (see index.html's own comment on why: a
+   character's face, not a measurement). White sclera + dark pupil reads
+   against both the pale near-empty outline and the bright cyan fill at
+   goal; the mouth is the one real, data-driven piece (renderFigure()
+   swaps its d), blush only shows at data-level="full". */
+.hydration-figure-eye-white{ fill:#ffffff; }
+.hydration-figure-eye-pupil{ fill:var(--hydration-bg-end); }
+.hydration-figure-mouth{
+  fill:none; stroke:var(--hydration-bg-end); stroke-width:3; stroke-linecap:round;
+  transition:d .5s ease;
 }
-.hydration-condensation{
-  fill:rgba(255,255,255,.5);
+.hydration-figure-blush{
+  fill:var(--hydration-accent-2); opacity:0; transition:opacity .5s ease;
 }
+.hydration-figure[data-level="full"] .hydration-figure-blush{ opacity:.35; }
 .hydration-water-fill{
   transition:y 1.1s cubic-bezier(.16,1,.3,1), height 1.1s cubic-bezier(.16,1,.3,1);
 }
@@ -974,6 +984,25 @@
 .hydration-quick-log-btn .amount{ font-size:14px; font-weight:700; }
 .hydration-quick-log-btn .name{ font-size:11px; color:var(--hydration-ink-muted); }
 .hydration-quick-log-btn:active{ background:var(--hydration-accent-soft); }
+
+/* Reminders as a real banner — a bottle-icon badge beside the status/
+   controls, not one more plain settings card indistinguishable from
+   Quick Log or Daily Goal above it (the reference designs' "reminder
+   banner + bottle graphic" layout). */
+.hydration-reminder-banner{
+  background:var(--hydration-accent-soft); border:1px solid rgba(45,212,191,0.28);
+  border-radius:var(--radius-lg); padding:var(--space-4);
+}
+.hydration-reminder-banner-face{
+  display:flex; align-items:flex-start; gap:12px;
+}
+.hydration-reminder-banner-icon{
+  flex-shrink:0; width:40px; height:40px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--hydration-card-bg); color:var(--hydration-accent);
+}
+.hydration-reminder-banner-body{ flex:1; min-width:0; }
+.hydration-reminder-banner-body h3{ margin:0; }
 
 /* A compact single row — label+stat beside a tight sparkline, not two
    stacked rows with a full-height bar chart underneath. Real analytics

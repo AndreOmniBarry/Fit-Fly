@@ -81,6 +81,7 @@
     <symbol id="icon-gauge" viewBox="0 0 24 24"><path d="M4 16a8 8 0 1 1 16 0"/><path d="M12 16 16 10"/><circle cx="12" cy="16" r="1.3" fill="currentColor" stroke="none"/></symbol>
     <symbol id="icon-footprints" viewBox="0 0 24 24"><ellipse cx="8" cy="7.5" rx="2.6" ry="4" transform="rotate(-12 8 7.5)"/><circle cx="6.2" cy="2.6" r="1" fill="currentColor" stroke="none"/><ellipse cx="16" cy="16.5" rx="2.6" ry="4" transform="rotate(-12 16 16.5)"/><circle cx="14.2" cy="11.6" r="1" fill="currentColor" stroke="none"/></symbol>
     <symbol id="icon-glass-water" viewBox="0 0 24 24"><path d="M6 4h12l-1.5 16h-9L6 4Z"/><path d="M6.6 12c1.5 1 3 1 4.5-.2s3-1.2 4.5-.2"/></symbol>
+    <symbol id="icon-bottle" viewBox="0 0 24 24"><path d="M9 2h6v3.5l2 3V20a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V8.5l2-3V2Z"/><path d="M9 2h6"/><path d="M7.4 12h9.2"/></symbol>
     <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1.1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.6-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.6 1H20a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1Z"/></symbol>
     <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></symbol>
     <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M12 20V9"/><path d="M7 14l5-5 5 5"/><path d="M4 19h16"/></symbol>
@@ -1908,22 +1909,25 @@
       <span id="hydration-record-toast-text">New personal best!</span>
     </div>
 
-    <!-- A glass of water, not a body — the shape people actually
-         associate with "water I'm about to drink." Real bubbles rise
-         and pop right at the true waterline (clipped to the fill rect's
-         own live geometry via hydrationWaterClip, not the whole glass),
-         two independent wave layers never re-sync into one mechanical
-         loop, a ring pulses out from the real surface on every log, and
-         the fill itself brightens toward goal (see .hydration-figure's
-         data-level in mini-apps.css). All real data — the fill rect's
-         y/height and that data-level attribute — comes from
-         hydration-view.ts's renderFigure(); everything else here is
-         pure decoration. -->
+    <!-- A friendly droplet mascot, not a human body — the "well-loved
+         character that fills up as you drink" shape from the reference
+         designs, not a literal figure. Its face is fixed (always drawn on
+         top, never clipped away), but its expression is real, driven by
+         the same fraction-of-goal level as everything else here — see
+         EXPRESSION_MOUTH_D in hydration-view.ts's renderFigure(). Every
+         other trick from the previous glass carries over unchanged: real
+         bubbles clipped to the true waterline (hydrationWaterClip), two
+         independent wave layers that never re-sync, a splash ring pulsing
+         from the real surface on every log, and the fill brightening
+         toward goal (.hydration-figure's data-level in mini-apps.css).
+         All real data — the fill rect's y/height, that data-level
+         attribute, and the mouth's own d — comes from renderFigure();
+         everything else here is pure decoration. -->
     <div class="hydration-figure tilt-enter" id="hydration-figure" style="margin-top:var(--space-4);">
       <svg viewBox="0 0 100 170" width="160" height="272" data-tilt-depth="1">
         <defs>
           <clipPath id="hydrationFigureClip">
-            <path d="M22,16 C22,14 24,13 27,13 L73,13 C76,13 78,14 78,16 L72,150 C71,156 66,160 58,160 L42,160 C34,160 29,156 28,150 Z"/>
+            <path d="M50,14 C74,50 90,74 90,110 C90,138 72,154 50,154 C28,154 10,138 10,110 C10,74 26,50 50,14 Z"/>
           </clipPath>
           <clipPath id="hydrationWaterClip">
             <use href="#hydration-water-fill"/>
@@ -1938,21 +1942,19 @@
           </linearGradient>
         </defs>
         <g class="hydration-figure-outline">
-          <path d="M22,16 C22,14 24,13 27,13 L73,13 C76,13 78,14 78,16 L72,150 C71,156 66,160 58,160 L42,160 C34,160 29,156 28,150 Z"/>
+          <path d="M50,14 C74,50 90,74 90,110 C90,138 72,154 50,154 C28,154 10,138 10,110 C10,74 26,50 50,14 Z"/>
         </g>
-        <ellipse class="hydration-glass-rim" cx="50" cy="15" rx="27" ry="3.4"/>
         <g clip-path="url(#hydrationFigureClip)">
           <!-- hydration-liquid-tilt rotates the fill + wave together around
                the liquid's own current center (transform-box:fill-box —
                see mini-apps.css) using the same --tilt-ry reading the rest
                of this screen's cards already get from attachTilt() below —
                real device tilt reads as the water inside actually leaning
-               with it, the way it would in a real glass, clipped to the
-               glass outline by the parent clip-path so it never spills
-               past the drawn walls. -->
+               with it, clipped to the droplet's own outline by the parent
+               clip-path so it never spills past the drawn walls. -->
           <g class="hydration-liquid-tilt" id="hydration-liquid-tilt">
-            <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="160" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
-            <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(160px);">
+            <rect class="hydration-water-fill" id="hydration-water-fill" x="0" y="154" width="100" height="0" fill="url(#hydrationWaterGrad)"/>
+            <g class="hydration-wave-position" id="hydration-wave-position" style="transform:translateY(154px);">
               <g class="hydration-wave-scroll hydration-wave-scroll--back">
                 <path d="M0 6 Q12.5 -4 25 6 T50 6 T75 6 T100 6 T125 6 T150 6 T175 6 T200 6 V16 H0 Z"/>
               </g>
@@ -1962,23 +1964,35 @@
             </g>
           </g>
           <g clip-path="url(#hydrationWaterClip)">
-            <circle class="hydration-bubble" cx="36" cy="155" r="1.6"/>
-            <circle class="hydration-bubble" cx="47" cy="155" r="1.1"/>
-            <circle class="hydration-bubble" cx="55" cy="155" r="1.8"/>
-            <circle class="hydration-bubble" cx="62" cy="155" r="1.2"/>
-            <circle class="hydration-bubble" cx="41" cy="155" r="1.4"/>
-            <circle class="hydration-bubble" cx="58" cy="155" r="1.5"/>
+            <circle class="hydration-bubble" cx="36" cy="150" r="1.6"/>
+            <circle class="hydration-bubble" cx="47" cy="150" r="1.1"/>
+            <circle class="hydration-bubble" cx="55" cy="150" r="1.8"/>
+            <circle class="hydration-bubble" cx="62" cy="150" r="1.2"/>
+            <circle class="hydration-bubble" cx="41" cy="150" r="1.4"/>
+            <circle class="hydration-bubble" cx="58" cy="150" r="1.5"/>
           </g>
-          <ellipse class="hydration-splash-ring" id="hydration-splash-ring" cx="50" cy="160" rx="0" ry="0"/>
+          <ellipse class="hydration-splash-ring" id="hydration-splash-ring" cx="50" cy="154" rx="0" ry="0"/>
           <!-- A fixed sheen, independent of fill level — the one thing
-               that keeps this reading as a glass of liquid rather than a
-               solid color swatch once it's nearly full. -->
+               that keeps this reading as real liquid rather than a solid
+               color swatch once it's nearly full. -->
           <rect x="0" y="0" width="100" height="170" fill="url(#hydrationGlassSheen)"/>
         </g>
-        <ellipse class="hydration-condensation" cx="77" cy="55" rx="1.1" ry="1.7"/>
-        <ellipse class="hydration-condensation" cx="75" cy="100" rx="1" ry="1.5"/>
-        <ellipse class="hydration-condensation" cx="23" cy="75" rx="1.2" ry="1.9"/>
-        <ellipse class="hydration-condensation" cx="24.5" cy="120" rx="1" ry="1.6"/>
+        <!-- The face — fixed position, always on top of the fill
+             regardless of level (a character's face, not a measurement),
+             except the mouth, whose real shape changes with real
+             progress: renderFigure() swaps its d between a gentle frown,
+             a level line, and a real smile. Simple cartoon eyes (a white
+             sclera + dark pupil) read clearly against both the nearly-
+             empty pale outline and the bright cyan fill at goal. -->
+        <g class="hydration-figure-face">
+          <circle class="hydration-figure-eye-white" cx="38" cy="96" r="6"/>
+          <circle class="hydration-figure-eye-white" cx="62" cy="96" r="6"/>
+          <circle class="hydration-figure-eye-pupil" cx="39.5" cy="97" r="2.6"/>
+          <circle class="hydration-figure-eye-pupil" cx="63.5" cy="97" r="2.6"/>
+          <ellipse class="hydration-figure-blush" id="hydration-figure-blush-left" cx="26" cy="106" rx="5" ry="3.2"/>
+          <ellipse class="hydration-figure-blush" id="hydration-figure-blush-right" cx="74" cy="106" rx="5" ry="3.2"/>
+          <path class="hydration-figure-mouth" id="hydration-figure-mouth" d="M42,122 L58,122"/>
+        </g>
       </svg>
       <div class="hydration-figure-value">
         <span class="amount"><span id="hydration-today-ml">0</span><span class="unit">ml</span></span>
@@ -2070,16 +2084,25 @@
       </span>
     </div>
 
-    <div class="hydration-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
-      <span class="tilt-press stack">
-        <h3>Reminders</h3>
-        <p class="muted" id="hydration-notify-status" style="font-size:var(--fs-sm);">Checking…</p>
-        <button class="btn btn-secondary btn-block" id="btn-hydration-enable-notify">Enable Notifications</button>
-        <div class="row" id="hydration-interval-row" style="align-items:center; gap:8px; margin-top:4px;">
-          <label for="hydration-interval-hours" style="font-size:var(--fs-sm); margin:0;">Remind every</label>
-          <input class="input" type="number" id="hydration-interval-hours" min="1" max="8" style="width:70px;" value="2">
-          <span class="muted" style="font-size:var(--fs-sm);">hours</span>
-        </div>
+    <!-- A banner, not another plain settings card — a bottle icon badge
+         plus the same real notify-permission status/controls
+         hydration-view.ts already drove (every id below is unchanged;
+         only the surrounding layout is new). -->
+    <div class="hydration-reminder-banner tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press hydration-reminder-banner-face">
+        <span class="hydration-reminder-banner-icon" data-tilt-depth="1" aria-hidden="true">
+          <svg class="icon" width="22" height="22" viewBox="0 0 24 24"><use href="#icon-bottle"></use></svg>
+        </span>
+        <span class="hydration-reminder-banner-body">
+          <h3>Reminders</h3>
+          <p class="muted" id="hydration-notify-status" style="font-size:var(--fs-sm); margin:2px 0 0;">Checking…</p>
+          <button class="btn btn-secondary btn-block" id="btn-hydration-enable-notify" style="margin-top:10px;">Enable Notifications</button>
+          <div class="row" id="hydration-interval-row" style="align-items:center; gap:8px; margin-top:8px;">
+            <label for="hydration-interval-hours" style="font-size:var(--fs-sm); margin:0;">Remind every</label>
+            <input class="input" type="number" id="hydration-interval-hours" min="1" max="8" style="width:70px;" value="2">
+            <span class="muted" style="font-size:var(--fs-sm);">hours</span>
+          </div>
+        </span>
       </span>
     </div>
 

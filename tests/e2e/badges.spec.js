@@ -99,4 +99,69 @@ test.describe('badges', () => {
     expect(parseFloat(tilt.rx)).not.toBe(0);
     expect(parseFloat(tilt.ry)).not.toBe(0);
   });
+
+  test('a newly earned badge shows the shared achievement toast, live', async ({ page }) => {
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('12000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click(); // back on the Hub — refreshHubTile evaluates and announces
+
+    const toast = page.locator('#app-achievement-toast');
+    await expect(toast).toBeVisible();
+    await expect(toast).toContainText('New badge earned!');
+    await expect(toast).toContainText('10K Day');
+
+    // Auto-dismisses on its own timer, same as Hydration's own record toast.
+    await expect(toast).toBeHidden({ timeout: 6000 });
+  });
+
+  test('the toast never re-fires for a badge that was already earned on an earlier visit', async ({ page }) => {
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('12000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+    await expect(page.locator('#app-achievement-toast')).toBeVisible();
+    await expect(page.locator('#app-achievement-toast')).toBeHidden({ timeout: 6000 });
+
+    // Returning to the Hub again re-evaluates the same already-earned
+    // badge — isNewlyEarned is false this time, so no second toast.
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#btn-steps-back').click();
+    await page.waitForTimeout(300);
+    await expect(page.locator('#app-achievement-toast')).toBeHidden();
+  });
+});
+
+test.describe('badges: notifications enabled', () => {
+  test.use({ permissions: ['notifications'] });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await page.getByRole('button', { name: 'Skip for now' }).click();
+  });
+
+  test('a newly earned badge also fires a real system Notification', async ({ page }) => {
+    await page.evaluate(() => {
+      window.__notificationTitle = null;
+      window.__notificationBody = null;
+      const OriginalNotification = window.Notification;
+      window.Notification = new Proxy(OriginalNotification, {
+        construct(target, args) {
+          window.__notificationTitle = args[0];
+          window.__notificationBody = args[1]?.body ?? null;
+          return new target(...args);
+        },
+      });
+    });
+
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('12000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+
+    await expect.poll(() => page.evaluate(() => window.__notificationTitle)).toBe('New badge earned!');
+    await expect.poll(() => page.evaluate(() => window.__notificationBody)).toContain('10K Day');
+  });
 });

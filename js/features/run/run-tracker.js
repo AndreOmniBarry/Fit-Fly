@@ -40,6 +40,7 @@ import { estimateRunCalories } from './run-calorie-estimate.js';
 import { listAllRuns, saveCompletedRun } from '../../db/repositories/runs.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { setRunTileSubtitle } from '../hub/hub-view.js';
+import { getNotificationPermission, showNotification } from '../../lib/notifications.js';
 
 const DEFAULT_TILE_SUBTITLE = 'GPS-tracked, live pace & splits';
 
@@ -507,6 +508,17 @@ function renderSummary({ distanceMeters, durationMs, avgPaceSecPerKm, calories, 
   byId('run-summary-prs').innerHTML = badges
     .map((text) => `<div class="card card-accent row tilt-card tilt-enter" style="align-items:center; gap:var(--space-2);">${iconMarkup('trophy', { size: 18 })}<span>${text}</span></div>`)
     .join('');
+
+  // The trophy card above is already this screen's own real "you just
+  // did that" moment — a system Notification alongside it (only if
+  // already granted; this never prompts on its own, same rule every
+  // other notification-worthy moment in this app holds to) is for the
+  // case that actually matters: the summary screen having gone to the
+  // background or gotten swiped away before it's read.
+  if (badges.length > 0 && getNotificationPermission() === 'granted') {
+    const body = `${formatDistanceForUnit(distanceMeters, unit)} · ${badges.join(' · ')}`;
+    showNotification('New personal record!', { body });
+  }
 
   // Splits are the concrete answer to "which part of this run was my
   // fastest" — a real, standard running-app feature this screen didn't

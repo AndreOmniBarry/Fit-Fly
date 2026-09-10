@@ -489,3 +489,23 @@ textarea.input{
 }
 .stopwatch-lap-row--fastest .stopwatch-lap-badge{ background:var(--success); color:#fff; }
 .stopwatch-lap-row--slowest .stopwatch-lap-badge{ background:var(--danger); color:#fff; }
+
+/* ---------- Global achievement toast (js/lib/achievement-toast.ts) ----------
+   The one shared "you just earned this" celebration, floating above
+   whichever screen is open — a newly earned badge, a fresh personal
+   record. Its resting position is centered via the inline
+   `translateX(-50%)` in index.html; the pop animation below repeats
+   that same translateX in every keyframe step so a CSS animation
+   targeting `transform` never knocks it off-center mid-pop, the same
+   way Hydration's own record toast pops without translating. */
+.app-achievement-toast.is-active{
+  animation:achievement-toast-pop 500ms cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes achievement-toast-pop{
+  0%{ transform:translateX(-50%) scale(.92); opacity:0; }
+  60%{ transform:translateX(-50%) scale(1.02); opacity:1; }
+  100%{ transform:translateX(-50%) scale(1); opacity:1; }
+}
+@media (prefers-reduced-motion: reduce){
+  .app-achievement-toast.is-active{ animation:none; }
+}

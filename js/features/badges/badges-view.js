@@ -7,7 +7,10 @@
 import { onScreenShown, showScreen } from '../../lib/router.js';
 import { attachTilt } from '../../lib/tilt.js';
 import { iconMarkup } from '../../lib/icons.js';
+import { getNotificationPermission, showNotification } from '../../lib/notifications.js';
+import { queueAchievementToasts } from '../../lib/achievement-toast.js';
 import { evaluateAllBadges } from './badge-engine.js';
+import { badgeAchievementCopy } from './badge-definitions.js';
 import { setBadgesTileSubtitle } from '../hub/hub-view.js';
 function byId(id) {
     const el = document.getElementById(id);
@@ -30,10 +33,35 @@ export function initBadgesFeature() {
     void refreshHubTile();
     onScreenShown('screen-hub', () => void refreshHubTile());
 }
-async function refreshHubTile() {
-    const badges = await evaluateAllBadges();
-    const earnedCount = badges.filter((b) => b.earned).length;
+// One real, immediate celebration the moment the app actually notices a
+// badge crossed — a toast (screen-agnostic, works from the Hub or
+// anywhere else this fires) plus a system Notification if that's already
+// been granted (see js/lib/notifications.js — never prompts on its own
+// here, same "only if already granted" rule Goals' own reminder check
+// follows). `isNewlyEarned` is set by evaluateAllBadges itself, so this
+// only ever fires on the exact check that first recorded the badge —
+// never again on a later Hub visit for an already-earned tier.
+function announceNewlyEarnedBadges(badges) {
+    const newlyEarned = badges.filter((b) => b.isNewlyEarned);
+    if (newlyEarned.length === 0)
+        return;
+    const copies = newlyEarned.map((b) => badgeAchievementCopy(b));
+    queueAchievementToasts(copies);
+    if (getNotificationPermission() === 'granted') {
+        for (const { title, body } of copies)
+            showNotification(title, { body });
+    }
+}
+/** Refreshes the Hub tile's subtitle and, on a genuinely fresh check
+ *  (badges omitted), announces any tier this exact call newly recorded.
+ *  Accepts an already-evaluated `badges` array (from renderBadges' own
+ *  call below) so opening the Badges screen doesn't evaluate — and
+ *  potentially re-announce — the same check twice. */
+async function refreshHubTile(badges) {
+    const resolved = badges ?? (await evaluateAllBadges());
+    const earnedCount = resolved.filter((b) => b.earned).length;
     setBadgesTileSubtitle(earnedCount > 0 ? `${earnedCount} earned` : 'Real milestones, not stickers');
+    announceNewlyEarnedBadges(resolved);
 }
 function formatDate(iso) {
     return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
@@ -89,6 +117,6 @@ async function renderBadges() {
         </div>
       `)
         .join('');
-    await refreshHubTile();
+    await refreshHubTile(badges);
 }
 //# sourceMappingURL=badges-view.js.map

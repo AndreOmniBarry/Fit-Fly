@@ -69,11 +69,16 @@ export async function evaluateAllBadges(db = getDb()) {
     const [currentValues, earned] = await Promise.all([computeCurrentValues(db), listEarnedBadges(db)]);
     const earnedAtById = new Map(earned.map((b) => [b.id, b.earnedAt]));
     const statuses = BADGE_GROUPS.flatMap((group) => evaluateBadgeGroup(group, currentValues[group.id] ?? 0));
-    await Promise.all(statuses.filter((s) => s.earned && !earnedAtById.has(s.id)).map((s) => recordBadgeEarned(s.id, db)));
+    const newlyEarnedIds = new Set(statuses.filter((s) => s.earned && !earnedAtById.has(s.id)).map((s) => s.id));
+    await Promise.all([...newlyEarnedIds].map((id) => recordBadgeEarned(id, db)));
     // Re-read so a badge earned just now carries its real just-set
     // timestamp rather than null.
     const finalEarned = await listEarnedBadges(db);
     const finalEarnedAtById = new Map(finalEarned.map((b) => [b.id, b.earnedAt]));
-    return statuses.map((s) => ({ ...s, earnedAt: finalEarnedAtById.get(s.id) ?? null }));
+    return statuses.map((s) => ({
+        ...s,
+        earnedAt: finalEarnedAtById.get(s.id) ?? null,
+        isNewlyEarned: newlyEarnedIds.has(s.id),
+    }));
 }
 //# sourceMappingURL=badge-engine.js.map

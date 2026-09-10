@@ -543,3 +543,43 @@ test.describe('run mode', () => {
     await expect(page.locator('#screen-run-history')).toHaveClass(/theme-run/);
   });
 });
+
+test.describe('run mode: notifications enabled', () => {
+  test.use({
+    permissions: ['geolocation', 'notifications'],
+    geolocation: { latitude: 40.7128, longitude: -74.006, accuracy: 10 },
+  });
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+  });
+
+  test('a real PR at run finish fires a system Notification alongside the trophy card', async ({ page, context }) => {
+    await page.evaluate(() => {
+      window.__notificationTitle = null;
+      window.__notificationBody = null;
+      const OriginalNotification = window.Notification;
+      window.Notification = new Proxy(OriginalNotification, {
+        construct(target, args) {
+          window.__notificationTitle = args[0];
+          window.__notificationBody = args[1]?.body ?? null;
+          return new target(...args);
+        },
+      });
+    });
+
+    await page.locator('#btn-home-run').click();
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5);
+    await page.getByRole('button', { name: 'Finish' }).click();
+
+    // A person's very first run ever is always both PRs, same real
+    // signal the trophy-card assertion elsewhere in this file uses.
+    await expect(page.locator('#run-summary-prs')).toContainText('New longest run');
+    await expect.poll(() => page.evaluate(() => window.__notificationTitle)).toContain('personal record');
+    await expect.poll(() => page.evaluate(() => window.__notificationBody)).toContain('New longest run');
+  });
+});

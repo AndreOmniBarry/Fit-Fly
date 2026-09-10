@@ -30,6 +30,12 @@ import type { AppDb } from '../../db/client.js';
 
 export interface EvaluatedBadge extends BadgeStatus {
   earnedAt: string | null;
+  /** True only for a tier this exact evaluateAllBadges call is the one
+   *  that first recorded as earned — never true again on a later call
+   *  against the same already-earned tier. This is the one signal an
+   *  in-session celebration (toast/notification) can key off without
+   *  re-announcing every already-earned badge on every Hub visit. */
+  isNewlyEarned: boolean;
 }
 
 /** Real current values for every badge group, computed from whatever's
@@ -92,14 +98,19 @@ export async function evaluateAllBadges(db: AppDb = getDb()): Promise<EvaluatedB
     evaluateBadgeGroup(group, currentValues[group.id] ?? 0)
   );
 
-  await Promise.all(
-    statuses.filter((s) => s.earned && !earnedAtById.has(s.id)).map((s) => recordBadgeEarned(s.id, db))
+  const newlyEarnedIds = new Set(
+    statuses.filter((s) => s.earned && !earnedAtById.has(s.id)).map((s) => s.id)
   );
+  await Promise.all([...newlyEarnedIds].map((id) => recordBadgeEarned(id, db)));
 
   // Re-read so a badge earned just now carries its real just-set
   // timestamp rather than null.
   const finalEarned = await listEarnedBadges(db);
   const finalEarnedAtById = new Map(finalEarned.map((b) => [b.id, b.earnedAt]));
 
-  return statuses.map((s) => ({ ...s, earnedAt: finalEarnedAtById.get(s.id) ?? null }));
+  return statuses.map((s) => ({
+    ...s,
+    earnedAt: finalEarnedAtById.get(s.id) ?? null,
+    isNewlyEarned: newlyEarnedIds.has(s.id),
+  }));
 }

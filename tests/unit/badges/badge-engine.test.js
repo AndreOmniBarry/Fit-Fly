@@ -88,4 +88,35 @@ describe('evaluateAllBadges', () => {
     expect(secondEarnedAt).toBe(firstEarnedAt);
     expect(await listEarnedBadges(db)).toHaveLength(1);
   });
+
+  describe('isNewlyEarned', () => {
+    it('is true only on the exact call that first records a tier, never again after', async () => {
+      await setStepsForDate(12000, '2026-03-15', db);
+      const first = await evaluateAllBadges(db);
+      expect(first.find((b) => b.id === 'steps-single-day-10k').isNewlyEarned).toBe(true);
+
+      const second = await evaluateAllBadges(db);
+      expect(second.find((b) => b.id === 'steps-single-day-10k').isNewlyEarned).toBe(false);
+    });
+
+    it('is false for every tier that never crosses, and for tiers earned before the real data changed', async () => {
+      const nothingLogged = await evaluateAllBadges(db);
+      expect(nothingLogged.every((b) => !b.isNewlyEarned)).toBe(true);
+    });
+
+    it('a second, later check only flags the tier that newly crossed, not the one already earned', async () => {
+      await saveSleepLog({ date: '2026-03-13', bedTime: null, wakeTime: null, durationMinutes: 420, quality: 3, notes: '' }, db);
+      await saveSleepLog({ date: '2026-03-14', bedTime: null, wakeTime: null, durationMinutes: 430, quality: 3, notes: '' }, db);
+      await saveSleepLog({ date: '2026-03-15', bedTime: null, wakeTime: null, durationMinutes: 410, quality: 3, notes: '' }, db);
+      const first = await evaluateAllBadges(db);
+      expect(first.find((b) => b.id === 'sleep-streak-3').isNewlyEarned).toBe(true);
+
+      for (const date of ['2026-03-16', '2026-03-17', '2026-03-18', '2026-03-19']) {
+        await saveSleepLog({ date, bedTime: null, wakeTime: null, durationMinutes: 420, quality: 3, notes: '' }, db);
+      }
+      const second = await evaluateAllBadges(db);
+      expect(second.find((b) => b.id === 'sleep-streak-3').isNewlyEarned).toBe(false);
+      expect(second.find((b) => b.id === 'sleep-streak-7').isNewlyEarned).toBe(true);
+    });
+  });
 });

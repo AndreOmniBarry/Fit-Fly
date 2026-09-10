@@ -3197,6 +3197,28 @@
     <div class="stack tilt-stagger" id="activity-history-list"></div>
   </section>
 
+  <!-- ACHIEVEMENT TOAST: floats above every screen (js/lib/achievement-
+       toast.ts) — the one shared "you just earned this" celebration for
+       a newly earned badge or a fresh personal record, wherever it's
+       noticed (Hub load, a just-finished run), not confined to one
+       screen's own card the way Hydration's inline record toast is.
+       Top-center so it never collides with the Stopwatch FAB (bottom-
+       left) or the voice mic (bottom-right) below. -->
+  <div
+    class="card card-accent row app-achievement-toast"
+    id="app-achievement-toast"
+    hidden
+    role="status"
+    aria-live="polite"
+    style="position:fixed; top:calc(var(--space-4) + env(safe-area-inset-top)); left:50%; transform:translateX(-50%); max-width:min(360px, calc(100vw - var(--space-6))); align-items:center; gap:var(--space-2); box-shadow:var(--shadow-md); z-index:20;"
+  >
+    <svg class="icon" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-trophy"></use></svg>
+    <span class="stack" style="gap:1px;">
+      <strong id="app-achievement-toast-title" style="font-size:var(--fs-sm);">Achievement</strong>
+      <span id="app-achievement-toast-body" class="muted" style="font-size:var(--fs-xs);"></span>
+    </span>
+  </div>
+
   <!-- STOPWATCH FAB: floats above every screen, same "loitering, always
        reachable" pattern as the voice mic button below — visible only
        while a real session is running/paused and you've navigated away

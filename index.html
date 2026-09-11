@@ -1041,6 +1041,20 @@
       </div>
     </div>
 
+    <!-- SD of sleep midpoint across recent nights — a real, distinct
+         irregularity signal from bedtime-only consistency (see
+         sleep-timing-variability.ts's own doc comment + citation for
+         why this exists and why it's deliberately not called "Sleep
+         Regularity Index"). Hidden until there's enough data to compute
+         it (2+ nights with a logged bedtime). -->
+    <div class="sleep-chart-card" id="sleep-timing-variability-card" style="margin-top:var(--space-4);" hidden>
+      <div class="row-between">
+        <strong style="font-size:14px;">Sleep timing variability</strong>
+      </div>
+      <div class="value" id="sleep-timing-variability-value" style="font-family:var(--miniapp-font-display); font-size:26px; margin-top:8px;">—</div>
+      <p class="muted" id="sleep-timing-variability-copy" style="font-size:var(--fs-xs); margin-top:6px;"></p>
+    </div>
+
     <div class="stack" id="sleep-insight-factors" style="margin-top:var(--space-4);"></div>
 
     <p class="muted center-text" id="sleep-insight-empty" style="font-size:var(--fs-sm); margin-top:var(--space-4);" hidden>

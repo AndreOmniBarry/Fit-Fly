@@ -15,6 +15,7 @@ import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } fro
 import { calculateSleepDebtWithNaps, describeNapDebtCredit } from './nap-debt.js';
 import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
+import { calculateSleepTimingVariability } from './sleep-timing-variability.js';
 import { bucketSleepInsightNights, buildSleepInsightAreaGeometry } from './sleep-insight-chart.js';
 import { computeNapTimes, computeSleepLogTimes } from './sleep-duration.js';
 import { describeNapsForDate } from './nap-summary.js';
@@ -304,8 +305,27 @@ export function initSleepFeature() {
         const napCreditNote = describeNapDebtCredit(debt.napCreditMinutes);
         debtEl.title = napCreditNote ? `${describeSleepDebt(debt)} ${napCreditNote}` : describeSleepDebt(debt);
         renderInsightFactors();
+        renderSleepTimingVariability();
         byId('sleep-insight-empty').hidden = recentLogs.length > 0;
         void loadInsightChart();
+    }
+    /** SD of sleep midpoint across recentLogs — see
+     *  sleep-timing-variability.ts's own doc comment for what this is and
+     *  why it's separate from bedtime-only consistency. Stays hidden until
+     *  there's enough data (2+ nights with a logged bedtime) to say
+     *  anything real. */
+    function renderSleepTimingVariability() {
+        const card = byId('sleep-timing-variability-card');
+        const result = calculateSleepTimingVariability(recentLogs);
+        if (result.stdDevMinutes == null) {
+            card.hidden = true;
+            return;
+        }
+        card.hidden = false;
+        byId('sleep-timing-variability-value').textContent = `±${formatDurationHM(result.stdDevMinutes)}`;
+        byId('sleep-timing-variability-copy').textContent = result.elevated
+            ? `Your sleep midpoint (bedtime plus half the night) has been swinging a lot over ${result.nightsConsidered} nights — research links irregular sleep timing to higher cardiovascular risk, independent of how long you sleep.`
+            : `How much your sleep midpoint moves night to night, over ${result.nightsConsidered} nights — a smaller number means steadier timing.`;
     }
     /** The chart's own data fetch — every logged night ever, not just the
      *  14-night window `recentLogs` caps at, since a 6M/Y view has to reach

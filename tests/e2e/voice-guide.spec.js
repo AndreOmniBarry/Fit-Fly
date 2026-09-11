@@ -74,6 +74,69 @@ test.describe('voice guide: guided sessions', () => {
     expect(thirdPartyRequests).toEqual([]);
   });
 
+  test('keeps a long guided session past the real Chrome ~15s SpeechSynthesis stall bug', async ({ page }) => {
+    // Regression coverage for issues.chromium.org/issues/41294170: a
+    // still-open Chromium bug where speechSynthesis.speak() silently
+    // stalls after ~15s of continuous speech unless something calls
+    // pause()/resume() to keep it alive. Installs a minimal fake
+    // speechSynthesis (this environment's headless Chromium may have no
+    // real voices/timing to trigger the actual bug against) so the
+    // keepalive interval's own pause()/resume() calls are directly
+    // observable, rather than relying on incidentally reproducing a
+    // 15-second stall.
+    await page.addInitScript(() => {
+      window.__speakCalls = 0;
+      window.__pauseResumeCalls = 0;
+      const fakeSynth = {
+        speaking: false,
+        pending: false,
+        paused: false,
+        speak(utterance) {
+          window.__speakCalls++;
+          this.speaking = true;
+          // Never actually resolves on its own — this test only cares
+          // whether the keepalive interval calls pause()/resume() while
+          // "speaking" stays true, the same shape a real Chrome stall has.
+        },
+        cancel() {
+          this.speaking = false;
+        },
+        pause() {
+          this.paused = true;
+          window.__pauseResumeCalls++;
+        },
+        resume() {
+          this.paused = false;
+        },
+        getVoices: () => [],
+        addEventListener() {},
+      };
+      Object.defineProperty(window, 'speechSynthesis', { value: fakeSynth, configurable: true });
+      window.SpeechSynthesisUtterance = function SpeechSynthesisUtterance(text) {
+        this.text = text;
+      };
+    });
+    await page.goto('/'); // addInitScript only takes effect on the next navigation
+    await page.evaluate(() => localStorage.clear());
+    await page.reload();
+    await page.getByRole('button', { name: 'Skip for now' }).click();
+
+    await page.clock.install();
+    await page.getByRole('button', { name: 'Focus' }).click();
+    await page.getByRole('button', { name: 'Breathing Focus' }).click();
+    await expect.poll(() => page.evaluate(() => window.__speakCalls)).toBeGreaterThan(0);
+
+    await page.clock.runFor('00:00:31'); // past three real 10s keepalive intervals
+    await expect.poll(() => page.evaluate(() => window.__pauseResumeCalls)).toBeGreaterThan(0);
+
+    // Ending the session stops the keepalive too — no calls after that
+    // point, not just "eventually stops on its own".
+    const callsAtEnd = await page.evaluate(() => window.__pauseResumeCalls);
+    await page.locator('#btn-guided-session-end').click();
+    await page.clock.runFor('00:00:31');
+    expect(await page.evaluate(() => window.__pauseResumeCalls)).toBe(callsAtEnd);
+  });
+
   test('a full guided session runs every beat through to real completion, with zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('pageerror', (err) => consoleErrors.push(String(err)));

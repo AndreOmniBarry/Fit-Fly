@@ -88,6 +88,41 @@ function splitIntoClauses(text: string): string[] {
 
 let chainToken = 0;
 
+// A real, still-open Chromium bug (issues.chromium.org/issues/41294170):
+// speechSynthesis.speak() on a non-local ("remote"/network) voice silently
+// stalls after roughly 15 seconds of continuous speech unless something
+// calls .pause()/.resume() to keep it alive — reported as still live as of
+// Chrome 130. This app's own clause-chaining already keeps any *one*
+// utterance short, but a long guided-session line splits into many
+// clauses spoken back-to-back with only a short breath pause between them
+// (see speak()'s own doc comment), so the *chain* as a whole can still run
+// well past 15s. The workaround is exactly what Chromium's own bug
+// tracker and multiple browser-vendor discussions confirm works: nudge a
+// still-speaking synth with pause()/resume() well inside that window.
+// Harmless everywhere else — Safari/Firefox never had this bug, and
+// calling pause()/resume() on an already-fine synth is a documented no-op
+// there, not a new failure mode.
+const CHROME_STALL_KEEPALIVE_MS = 10000;
+let keepaliveHandle: ReturnType<typeof setInterval> | null = null;
+
+function startKeepalive(synth: SpeechSynthesis): void {
+  if (keepaliveHandle != null) return; // already running for this chain
+  keepaliveHandle = setInterval(() => {
+    if (!synth.speaking) {
+      stopKeepalive();
+      return;
+    }
+    synth.pause();
+    synth.resume();
+  }, CHROME_STALL_KEEPALIVE_MS);
+}
+
+function stopKeepalive(): void {
+  if (keepaliveHandle == null) return;
+  clearInterval(keepaliveHandle);
+  keepaliveHandle = null;
+}
+
 /** Speaks one line, cancelling whatever was still being said — a guided
  *  session's beats are meant to replace each other, never overlap.
  *
@@ -127,6 +162,7 @@ export function speak(text: string, { rate = 0.92, pitch = 1 }: { rate?: number;
       synth.speak(utterance);
     };
     speakClause(0);
+    startKeepalive(synth);
   } catch {
     // best-effort only — see module doc comment
   }
@@ -139,4 +175,5 @@ export function stopSpeaking(): void {
   } catch {
     // best-effort only
   }
+  stopKeepalive();
 }

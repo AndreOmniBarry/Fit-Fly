@@ -97,11 +97,16 @@ test.describe('meditate', () => {
     await expect(page.locator('#guided-session-caption')).toHaveText(/squeeze/i, { timeout: 27_000 });
   });
 
-  test('never reintroduces crisis-line content — a plain wellness disclaimer only', async ({ page }) => {
+  test('carries a real, static crisis-resource line — never anything interactive', async ({ page }) => {
     const bodyText = await page.locator('#screen-meditate').innerText();
-    expect(bodyText).not.toMatch(/988/);
-    expect(bodyText.toLowerCase()).not.toMatch(/crisis/);
+    expect(bodyText).toMatch(/988/);
+    expect(bodyText.toLowerCase()).toMatch(/crisis/);
     await expect(page.getByText('not a substitute for a therapist or a diagnosis')).toBeVisible();
+    // A real, dialable number and a real link — plain content, not a
+    // feature. No chat input, no "are you in crisis?" prompt anywhere on
+    // this screen.
+    await expect(page.locator('#screen-meditate a[href="tel:988"]')).toBeVisible();
+    await expect(page.locator('#screen-meditate a[href="https://findahelpline.com"]')).toBeVisible();
   });
 
   test('End returns to the Meditate screen, not Focus', async ({ page }) => {

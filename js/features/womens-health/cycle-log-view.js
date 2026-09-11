@@ -453,8 +453,13 @@ export function initWomensHealthFeature() {
           cyclesLogged > 0 ? ` · from ${cyclesLogged} logged cycle${cyclesLogged === 1 ? '' : 's'}` : ' · not enough history yet'
         }`
       : `estimated · ${confidence}`;
+    // Same honesty as the "Next period estimated" line above: the window
+    // itself is already widened by the person's real logged variability
+    // (see predictFertileWindow's own doc comment), and this names that
+    // margin instead of presenting one falsely single-day-precise window
+    // regardless of how irregular the real history actually is.
     byId('whealth-fertile-window').textContent = fertileWindow
-      ? `Estimated fertile window: ${formatDayLabel(fertileWindow.start)} – ${formatDayLabel(fertileWindow.end)} (ovulation ~${formatDayLabel(fertileWindow.ovulationDate)})`
+      ? `Estimated fertile window: ${formatDayLabel(fertileWindow.start)} – ${formatDayLabel(fertileWindow.end)} (ovulation ~${formatDayLabel(fertileWindow.ovulationDate)}, ±${fertileWindow.marginDays} day${fertileWindow.marginDays === 1 ? '' : 's'})`
       : '';
     predictionCard.hidden = false;
 

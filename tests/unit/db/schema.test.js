@@ -38,6 +38,7 @@ describe('schema', () => {
         'spo2Samples',
         'stepEntries',
         'temperatureSamples',
+        'vo2maxTests',
       ].sort()
     );
     db.close();

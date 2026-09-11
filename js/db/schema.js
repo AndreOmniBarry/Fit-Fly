@@ -554,4 +554,45 @@ export function defineSchema(db) {
 
     napLogs: '++id, date, loggedAt',
   });
+
+  // v20 — VO2max: one row per completed field test (Cooper 12-minute run
+  // or Rockport 1-mile walk — see js/features/vitals/vo2max-estimate.ts),
+  // keyed like heartRateSamples/bloodPressureSamples since a person may
+  // reasonably retest more than once. Stores the real inputs alongside
+  // the computed estimate so a past test's own numbers stay inspectable,
+  // not just its output.
+  db.version(20).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+    noiseMonitorSessions: 'id, startedAt',
+    noiseMonitorSamples: '++id, sessionId, recordedAt',
+    hearingScreeningTests: 'id, completedAt',
+    temperatureSamples: '++id, recordedAt, source',
+    napLogs: '++id, date, loggedAt',
+
+    vo2maxTests: '++id, recordedAt, protocol',
+  });
 }

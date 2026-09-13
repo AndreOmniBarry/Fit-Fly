@@ -638,4 +638,49 @@ export function defineSchema(db) {
 
     chronotypeAssessments: '++id, takenAt',
   });
+
+  // v22 — PMDD/PMS symptom log: one row per logged day, same
+  // encrypted-payload/date-key shape as cycleLogs/pregnancyLogs (see
+  // js/db/repositories/pmdd-symptom-logs.js and
+  // js/features/womens-health/pmdd-symptom-log.js) — protected by the
+  // exact same Women's Health PIN, since this is daily mental-health-
+  // adjacent data at least as sensitive as cycle/pregnancy logs already
+  // are. Only `date` and `updatedAt` are plaintext; every real answer
+  // lives inside `cipherBytes`.
+  db.version(22).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+    noiseMonitorSessions: 'id, startedAt',
+    noiseMonitorSamples: '++id, sessionId, recordedAt',
+    hearingScreeningTests: 'id, completedAt',
+    temperatureSamples: '++id, recordedAt, source',
+    napLogs: '++id, date, loggedAt',
+    vo2maxTests: '++id, recordedAt, protocol',
+    chronotypeAssessments: '++id, takenAt',
+
+    pmddSymptomLogs: 'date, updatedAt',
+  });
 }

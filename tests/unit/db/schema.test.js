@@ -27,6 +27,7 @@ describe('schema', () => {
         'noiseMonitorSamples',
         'noiseMonitorSessions',
         'nutritionEntries',
+        'pmddSymptomLogs',
         'pregnancyLogs',
         'pregnancySetup',
         'programs',

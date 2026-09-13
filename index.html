@@ -2715,6 +2715,7 @@
     <div class="chip-group" id="whealth-mode-toggle" role="group" aria-label="Mode" style="margin-top:var(--space-3);">
       <button type="button" class="chip" data-value="cycle" aria-pressed="true">Cycle</button>
       <button type="button" class="chip" data-value="pregnancy" aria-pressed="false">Pregnant</button>
+      <button type="button" class="chip" data-value="pmdd" aria-pressed="false">Symptoms</button>
     </div>
 
     <div id="whealth-cycle-mode">
@@ -2922,6 +2923,77 @@
           <div id="whealth-pregnancy-weight-chart" role="img" aria-label="Logged weight over time"></div>
         </span>
       </div>
+    </div>
+
+    <!-- PMDD/PMS SYMPTOM LOG: same PIN/encryption as Cycle/Pregnancy
+         mode. Original, plain-language item wording mapped to the real
+         DSM-5-TR PMDD symptom-criterion domains (Criterion B1-B4,
+         C1-C7) — see js/features/womens-health/pmdd-symptom-log.js's
+         module doc comment for the full citation trail, why the wording
+         here is original rather than a reproduction of any copyrighted
+         instrument (DRSP/COPE/PRISM/DSM-5-TR's own text), and why this
+         is self-tracking for pattern-recognition and a real clinical
+         conversation — never a diagnosis. -->
+    <div id="whealth-pmdd-mode" hidden>
+      <div class="card stack tilt-card tilt-enter" id="whealth-pmdd-framing">
+        <span class="tilt-press stack">
+          <h3>Daily symptom check-in</h3>
+          <p style="font-size:var(--fs-sm);">
+            11 quick ratings mapped to the real PMDD/PMS symptom domains clinicians use, in plain language — not a copy of any copyrighted screening tool. This never diagnoses anything. It's here to help <em>you</em> notice your own real patterns, so you have something concrete to bring to a real clinical conversation if you want one.
+          </p>
+          <p class="muted" style="font-size:var(--fs-xs);">
+            A real PMDD assessment needs prospective daily ratings across at least 2 full cycles — a single day, or even a single cycle, genuinely isn't enough to say anything meaningful. This screen is honest about that: see "Your pattern" below.
+          </p>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pmdd-log-card">
+        <span class="tilt-press stack">
+          <div class="row-between">
+            <h3 id="whealth-pmdd-log-heading">Log Today</h3>
+            <button class="btn btn-ghost" id="btn-whealth-pmdd-editing-today" hidden style="padding:4px 10px; font-size:var(--fs-xs);">Back to Today</button>
+          </div>
+          <div id="whealth-pmdd-items" class="stack"></div>
+          <button class="btn btn-primary btn-block" id="btn-whealth-pmdd-save">Save Entry</button>
+        </span>
+      </div>
+
+      <div class="card card-accent stack tilt-card tilt-enter" id="whealth-pmdd-result" hidden>
+        <span class="tilt-press stack">
+          <div class="row-between">
+            <strong id="whealth-pmdd-result-heading">Today's check-in</strong>
+          </div>
+          <p id="whealth-pmdd-result-summary">—</p>
+          <p class="muted" style="font-size:var(--fs-xs);">Not a diagnosis — one day on its own doesn't mean much. Patterns across real logged cycles are what's actually worth noticing.</p>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pmdd-patterns">
+        <span class="tilt-press stack">
+          <div class="row" style="gap:10px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></span>
+            <h3>Your pattern</h3>
+          </div>
+          <p class="muted" id="whealth-pmdd-patterns-gate" style="font-size:var(--fs-sm);"></p>
+          <div id="whealth-pmdd-patterns-content" hidden class="stack">
+            <div class="trend-chart" id="whealth-pmdd-severity-chart" role="img" aria-label="Average daily symptom severity, most recent logged days"></div>
+            <p id="whealth-pmdd-cycle-comparison" style="font-size:var(--fs-sm);">—</p>
+            <p style="font-size:var(--fs-sm);">
+              This still isn't a diagnosis, even with real data behind it — self-report alone can't rule out another cause, and only a real clinician can. If you're seeing a real, elevated, and persistent pattern here, it's worth bringing this chart to a doctor or other qualified clinician.
+            </p>
+          </div>
+        </span>
+      </div>
+
+      <!-- Same real, static crisis-resource line Meditate carries (see
+           meditations.ts's own doc comment) — surfaced here only once a
+           real, sustained pattern of severe days shows up in this
+           person's own recent logs (pmdd-symptom-log.js's
+           shouldSurfaceCrisisResource), never as a popup or a risk
+           score. -->
+      <p class="muted" id="whealth-pmdd-crisis-line" hidden style="font-size:var(--fs-xs);">
+        If you're in the US and need to talk to someone right now: call or text <a href="tel:988">988</a> (Suicide &amp; Crisis Lifeline). Outside the US, <a href="https://findahelpline.com" target="_blank" rel="noopener">findahelpline.com</a> lists a real local line by country.
+      </p>
     </div>
   </section>
 

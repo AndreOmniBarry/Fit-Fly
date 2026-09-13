@@ -595,4 +595,47 @@ export function defineSchema(db) {
 
     vo2maxTests: '++id, recordedAt, protocol',
   });
+
+  // v21 — Chronotype: one row per completed self-assessment (see
+  // js/features/chronotype/chronotype.ts). Keyed like vo2maxTests —
+  // auto-incrementing id, `takenAt` indexed — since a person may
+  // reasonably retake it over time as their own schedule or habits
+  // change; this keeps the full history rather than overwriting a single
+  // "latest" row, the same "keep full history" spirit as
+  // categoryAssignments.
+  db.version(21).stores({
+    profile: 'id',
+    categoryAssignments: '++id, assignedAt',
+    injuryScreens: '++id, screenedAt, bodyArea',
+    exercises: 'id, *muscleGroups, equipment, difficulty',
+    programs: 'id, category, createdAt, status',
+    sessions: 'id, startedAt, programId, type',
+    sets: '++id, sessionId, exerciseId, completedAt',
+    runs: 'id, startedAt, distanceMeters',
+    heartRateSamples: '++id, recordedAt, source',
+    settings: 'key',
+    cycleLogs: 'date, updatedAt',
+    nutritionEntries: '++id, date, loggedAt',
+    readinessCheckins: 'date, checkedAt',
+    goals: 'id, status, createdAt',
+    sleepLogs: 'date, loggedAt',
+    favoriteFoods: 'id, createdAt',
+    meditationSessions: '++id, date, completedAt, sessionId',
+    bloodPressureSamples: '++id, recordedAt, source',
+    spo2Samples: '++id, recordedAt, source',
+    stepEntries: 'date, updatedAt',
+    hydrationEntries: '++id, date, loggedAt',
+    earnedBadges: 'id, earnedAt',
+    noiseCheckIns: '++id, recordedAt',
+    pregnancySetup: 'id',
+    pregnancyLogs: 'date, updatedAt',
+    noiseMonitorSessions: 'id, startedAt',
+    noiseMonitorSamples: '++id, sessionId, recordedAt',
+    hearingScreeningTests: 'id, completedAt',
+    temperatureSamples: '++id, recordedAt, source',
+    napLogs: '++id, date, loggedAt',
+    vo2maxTests: '++id, recordedAt, protocol',
+
+    chronotypeAssessments: '++id, takenAt',
+  });
 }

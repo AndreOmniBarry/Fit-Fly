@@ -10,6 +10,7 @@ describe('schema', () => {
       [
         'bloodPressureSamples',
         'categoryAssignments',
+        'chronotypeAssessments',
         'cycleLogs',
         'earnedBadges',
         'exercises',

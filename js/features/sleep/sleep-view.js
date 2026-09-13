@@ -25,7 +25,8 @@ import { formatClockTime, formatDurationHM, formatTimeInputValue } from './forma
 import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
 import { calculateReadiness, readinessActionSuggestion } from '../recovery/readiness.js';
 import { getReadinessCheckinForDate, saveReadinessCheckin, } from '../../db/repositories/readiness.js';
-import { listRecentSessions } from '../../db/repositories/sessions.js';
+import { listRecentSessions, listSessionsWithRpeSince, listSetsForSession } from '../../db/repositories/sessions.js';
+import { calculateAcuteChronicWorkloadRatio, dailyTrainingLoadsFromSessions } from '../programs/training-load.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import { formatBucketAxisLabel, formatBucketDetailLabel, timeRangeBounds, timeRangeDescription, } from '../../lib/time-range.js';
 function byId(id) {
@@ -586,6 +587,26 @@ export function initSleepFeature() {
         const cutoff = Date.now() - withinDays * 24 * 60 * 60 * 1000;
         return sessions.filter((s) => new Date(s.startedAt).getTime() >= cutoff).length;
     }
+    // calculateAcuteChronicWorkloadRatio's own chronic window is 28 real
+    // calendar days — this fetches a couple of days further back than that
+    // purely as a timezone-safety margin (sinceIso is compared against
+    // startedAt, a UTC timestamp, while the window math below reasons in
+    // local calendar days), never to change what the ratio itself covers.
+    const ACWR_HISTORY_LOOKBACK_DAYS = 30;
+    /** Real Acute:Chronic Workload Ratio (see js/features/programs/
+     *  training-load.js) built from this person's actual logged
+     *  session-RPE history — null-ratio'd (see that module's own sparse-
+     *  history handling) until a real week of it exists, in which case
+     *  calculateReadiness below just keeps using the recentSessionCount
+     *  fallback it always has. */
+    async function computeTodayAcwr() {
+        const since = new Date();
+        since.setDate(since.getDate() - ACWR_HISTORY_LOOKBACK_DAYS);
+        const sessions = await listSessionsWithRpeSince(since.toISOString());
+        const sessionsWithSets = await Promise.all(sessions.map(async (session) => ({ session, sets: await listSetsForSession(session.id) })));
+        const dailyLoads = dailyTrainingLoadsFromSessions(sessionsWithSets);
+        return calculateAcuteChronicWorkloadRatio(dailyLoads, todayDateString());
+    }
     function renderReadinessResult(result) {
         const categoryEl = byId('sleep-readiness-category');
         categoryEl.hidden = false;
@@ -644,7 +665,8 @@ export function initSleepFeature() {
             return;
         const recentSessionCount = await countRecentReadinessSessions();
         const sleepDebtMinutes = recentLogs.length > 0 ? calculateSleepDebt(recentLogs).debtMinutes : null;
-        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes });
+        const acwr = await computeTodayAcwr(); // replaces recentSessionCount's load score below once real ACWR history exists — see calculateReadiness's own doc comment
+        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes, acwr });
         if (!result)
             return; // calculateReadiness's own "not enough input" guard — unreachable given the hasInput check above, kept for type safety
         await saveReadinessCheckin({

@@ -3200,6 +3200,33 @@
       <p class="muted" style="margin:0;" id="program-readiness-suggestion"></p>
     </div>
 
+    <!-- Session RPE (Borg CR10) — only shows once today's session has a
+         real set logged (see program-view.js's renderSessionRpeCard).
+         Picking a chip saves immediately, same non-blocking "no separate
+         Save step" pattern as the week/goal chips above; it's what
+         training-load.js's Foster session-RPE load and this app's real
+         ACWR (see readiness.js) are actually built from. -->
+    <div class="card stack" id="program-rpe-card" hidden>
+      <strong>How hard did that whole session feel?</strong>
+      <p class="muted" style="margin:0; font-size:var(--fs-sm);">
+        Session RPE, Borg CR10 scale — 0 is nothing at all, 10 is maximal effort. Feeds this week's training load and your Readiness score.
+      </p>
+      <div class="chip-group" id="program-session-rpe" role="group" aria-label="Session RPE, 0 to 10">
+        <button type="button" class="chip" data-value="0" aria-pressed="false">0</button>
+        <button type="button" class="chip" data-value="1" aria-pressed="false">1</button>
+        <button type="button" class="chip" data-value="2" aria-pressed="false">2</button>
+        <button type="button" class="chip" data-value="3" aria-pressed="false">3</button>
+        <button type="button" class="chip" data-value="4" aria-pressed="false">4</button>
+        <button type="button" class="chip" data-value="5" aria-pressed="false">5</button>
+        <button type="button" class="chip" data-value="6" aria-pressed="false">6</button>
+        <button type="button" class="chip" data-value="7" aria-pressed="false">7</button>
+        <button type="button" class="chip" data-value="8" aria-pressed="false">8</button>
+        <button type="button" class="chip" data-value="9" aria-pressed="false">9</button>
+        <button type="button" class="chip" data-value="10" aria-pressed="false">10</button>
+      </div>
+      <p class="muted" style="margin:0; font-size:var(--fs-xs);" id="program-rpe-saved-note" hidden>Saved.</p>
+    </div>
+
     <div class="why-this">
       <span class="why-icon" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-lightbulb"></use></svg></span>
       <ul id="program-reasoning" class="stack" style="margin:0; padding-left:1em;"></ul>

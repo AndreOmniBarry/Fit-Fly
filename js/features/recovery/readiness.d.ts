@@ -9,6 +9,13 @@ export interface ReadinessInput {
   sorenessLevel?: number | null;
   recentSessionCount?: number;
   sleepDebtMinutes?: number | null;
+  /** A real Acute:Chronic Workload Ratio (see js/features/programs/
+   *  training-load.js's calculateAcuteChronicWorkloadRatio) — when
+   *  `ratio` is non-null this replaces recentSessionCount's crude
+   *  fallback entirely. Omit, or pass its own `{ratio: null, ...}`
+   *  result before a real week of history exists, to keep the
+   *  recentSessionCount fallback. */
+  acwr?: { ratio: number | null; category?: 'building' | 'sweet-spot' | 'high-risk' | null } | null;
 }
 
 export type ReadinessCategory = 'low' | 'moderate' | 'high';

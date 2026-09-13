@@ -16,6 +16,7 @@ import {
   listSessionsForProgram,
   listSetsForExercise,
   listSetsForSession,
+  setSessionRpe,
 } from '../../db/repositories/sessions.js';
 import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
@@ -107,7 +108,21 @@ let calendarMonth = 0; // 0-indexed, same convention as Date/calendar-grid.js
 // count against a row that no longer exists.
 let setCountByRow = new Map();
 
+// Wired once in initProgramFeature, read/set from renderSessionRpeCard —
+// same module-level-chip-controller pattern as goalChips below.
+let rpeChips = null;
+
 export function initProgramFeature() {
+  rpeChips = initChipGroup(byId('program-session-rpe'), {
+    onChange: async (value) => {
+      if (value == null) return;
+      const session = await findTodaySession();
+      if (!session) return; // the card itself is hidden without one — defensive only
+      await setSessionRpe(session.id, Number(value));
+      byId('program-rpe-saved-note').hidden = false;
+    },
+  });
+
   byId('btn-home-program').addEventListener('click', async () => {
     await renderProgramScreen({ resetToCurrentWeek: true });
     showScreen('screen-program');
@@ -231,6 +246,7 @@ export function initProgramFeature() {
       durationInput.value = '';
       startInlineRestTimer(dayIndex, exerciseId, Number(restSec), nextSetNumber(dayIndex, exerciseId));
       await renderWeeklyProgress(); // this week's real count just changed
+      await renderSessionRpeCard(); // today's first-ever set — the RPE picker may just have appeared
       return;
     }
 
@@ -248,6 +264,7 @@ export function initProgramFeature() {
       if (distanceInput) distanceInput.value = '';
       startInlineRestTimer(dayIndex, exerciseId, Number(restSec));
       await renderWeeklyProgress(); // this week's real count just changed
+      await renderSessionRpeCard(); // today's first-ever set — the RPE picker may just have appeared
       return;
     }
 
@@ -267,6 +284,7 @@ export function initProgramFeature() {
     repsInput.value = '';
     startInlineRestTimer(dayIndex, exerciseId, Number(restSec), nextSetNumber(dayIndex, exerciseId));
     await renderWeeklyProgress(); // this week's real count just changed
+    await renderSessionRpeCard(); // today's first-ever set — the RPE picker may just have appeared
   });
 }
 
@@ -358,8 +376,10 @@ async function renderProgramScreen({ resetToCurrentWeek = false } = {}) {
   await renderWeeklyProgress();
   if (isPreview) {
     byId('program-readiness-banner').hidden = true;
+    byId('program-rpe-card').hidden = true;
   } else {
     await renderReadinessBanner();
+    await renderSessionRpeCard();
   }
   byId('program-reasoning').innerHTML = generated.reasoning.map((line) => `<li>${line}</li>`).join('');
   byId('program-days').innerHTML = generated.days.map((day) => renderDay(day, isPreview)).join('');
@@ -585,6 +605,20 @@ async function getOrCreateTodaySession() {
   return createSession({ type: 'strength', programId: activeProgramId });
 }
 
+/** Same lookup as getOrCreateTodaySession, without ever creating a
+ *  session as a side effect — used by renderSessionRpeCard, which runs
+ *  on every render (including a plain visit where nothing was logged
+ *  yet) and must never spuriously create an empty session just by
+ *  checking whether one already exists. */
+async function findTodaySession() {
+  const [latest] = await listRecentSessions(1);
+  const today = todayIsoDate();
+  if (latest && latest.type === 'strength' && latest.startedAt.slice(0, 10) === today) {
+    return latest;
+  }
+  return null;
+}
+
 /** Surfaces today's Readiness check-in (see js/features/recovery/) right
  *  where it can actually change a decision — whether to push today's
  *  session or ease up — instead of leaving it stranded on its own
@@ -601,6 +635,31 @@ async function renderReadinessBanner() {
   byId('program-readiness-category').textContent = `${checkin.score} · ${checkin.category}`;
   byId('program-readiness-suggestion').textContent = readinessActionSuggestion(checkin.category);
   banner.hidden = false;
+}
+
+/** Shows the session-RPE picker (see index.html's own comment on it)
+ *  once — and only once — today's real session has at least one real
+ *  set logged; a workout that hasn't started yet has nothing to rate.
+ *  Non-blocking: skipping it leaves today's session with no RPE, so
+ *  training-load.js's sessionTrainingLoad honestly returns null for it
+ *  rather than fabricating one — the same "measured, not guessed"
+ *  contract this app applies everywhere else. */
+async function renderSessionRpeCard() {
+  const card = byId('program-rpe-card');
+  const session = await findTodaySession();
+  if (!session) {
+    card.hidden = true;
+    return;
+  }
+  const sets = await listSetsForSession(session.id);
+  if (sets.length === 0) {
+    card.hidden = true;
+    return;
+  }
+
+  card.hidden = false;
+  rpeChips.setValue(session.sessionRpe != null ? String(session.sessionRpe) : null);
+  byId('program-rpe-saved-note').hidden = session.sessionRpe == null;
 }
 
 /** Real progress toward a real target — this week's logged strength

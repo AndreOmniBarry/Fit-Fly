@@ -431,6 +431,72 @@ test.describe('my program', () => {
     expect(consoleErrors).toEqual([]);
   });
 
+  test('session RPE: hidden until today\'s first real set, then a picked value saves and survives a revisit', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    // Nothing logged yet today — the picker has nothing real to rate.
+    await expect(page.locator('#program-rpe-card')).toBeHidden();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+
+    // Today's first real set just landed — the picker shows up live,
+    // with nothing picked yet.
+    await expect(page.locator('#program-rpe-card')).toBeVisible();
+    await expect(page.locator('#program-rpe-saved-note')).toBeHidden();
+    for (const value of ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10']) {
+      await expect(page.locator(`#program-session-rpe button[data-value="${value}"]`)).toHaveAttribute('aria-pressed', 'false');
+    }
+
+    await page.locator('#program-session-rpe button[data-value="7"]').click();
+    await expect(page.locator('#program-session-rpe button[data-value="7"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#program-rpe-saved-note')).toBeVisible();
+
+    // A real save, not just local UI state — leaving and reopening My
+    // Program (a fresh render, reading it back from the session record)
+    // still shows 7 picked.
+    await page.locator('#btn-program-back').click();
+    await page.getByRole('button', { name: 'My Program' }).click();
+    await expect(page.locator('#program-rpe-card')).toBeVisible();
+    await expect(page.locator('#program-session-rpe button[data-value="7"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#program-rpe-saved-note')).toBeVisible();
+
+    // Picking a different value re-saves it, live, no separate Save step.
+    await page.locator('#program-session-rpe button[data-value="9"]').click();
+    await expect(page.locator('#program-session-rpe button[data-value="9"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#program-session-rpe button[data-value="7"]')).toHaveAttribute('aria-pressed', 'false');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('previewing another week hides the session RPE picker — it only ever applies to today\'s real session', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+    await expect(page.locator('#program-rpe-card')).toBeVisible();
+
+    await page.locator('#btn-program-week-next').click();
+    await expect(page.locator('#program-rpe-card')).toBeHidden();
+
+    await page.locator('#btn-program-week-current').click();
+    await expect(page.locator('#program-rpe-card')).toBeVisible();
+  });
+
   test('the calendar shows today marked once a session is logged, with a real detail list on tap', async ({
     page,
   }) => {

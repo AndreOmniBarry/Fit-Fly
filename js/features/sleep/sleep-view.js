@@ -27,6 +27,8 @@ import { calculateReadiness, readinessActionSuggestion } from '../recovery/readi
 import { getReadinessCheckinForDate, saveReadinessCheckin, } from '../../db/repositories/readiness.js';
 import { listRecentSessions, listSessionsWithRpeSince, listSetsForSession } from '../../db/repositories/sessions.js';
 import { calculateAcuteChronicWorkloadRatio, dailyTrainingLoadsFromSessions } from '../programs/training-load.js';
+import { HR_SOURCE, listRecentHeartRateSamples } from '../../db/repositories/heart-rate.js';
+import { calculateHrvBaselineDeviation, dailyHrvFromSamples } from '../heart-rate/hrv-baseline.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import { formatBucketAxisLabel, formatBucketDetailLabel, timeRangeBounds, timeRangeDescription, } from '../../lib/time-range.js';
 function byId(id) {
@@ -607,6 +609,22 @@ export function initSleepFeature() {
         const dailyLoads = dailyTrainingLoadsFromSessions(sessionsWithSets);
         return calculateAcuteChronicWorkloadRatio(dailyLoads, todayDateString());
     }
+    // Same wide-fetch shape heart-rate-view.js's own renderHistory already
+    // uses (500 — enough real history to comfortably cover hrv-baseline.js's
+    // 7-day rolling window even alongside frequent camera/manual entries).
+    const HRV_HISTORY_FETCH_LIMIT = 500;
+    /** Real personal-baseline HRV deviation (see js/features/heart-rate/
+     *  hrv-baseline.js) built from this person's actual logged BLE-strap
+     *  RMSSD history — null-deviation'd (see that module's own sparse-
+     *  history handling) until a real personal baseline exists, in which
+     *  case calculateReadiness below simply doesn't add the hrv component
+     *  at all. */
+    async function computeRecentHrvDeviation() {
+        const samples = await listRecentHeartRateSamples(HRV_HISTORY_FETCH_LIMIT);
+        const bleHrvSamples = samples.filter((s) => s.source === HR_SOURCE.BLE && s.rmssdMs != null);
+        const dailyReadings = dailyHrvFromSamples(bleHrvSamples);
+        return calculateHrvBaselineDeviation(dailyReadings, todayDateString());
+    }
     function renderReadinessResult(result) {
         const categoryEl = byId('sleep-readiness-category');
         categoryEl.hidden = false;
@@ -666,7 +684,8 @@ export function initSleepFeature() {
         const recentSessionCount = await countRecentReadinessSessions();
         const sleepDebtMinutes = recentLogs.length > 0 ? calculateSleepDebt(recentLogs).debtMinutes : null;
         const acwr = await computeTodayAcwr(); // replaces recentSessionCount's load score below once real ACWR history exists — see calculateReadiness's own doc comment
-        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes, acwr });
+        const hrvDeviation = await computeRecentHrvDeviation(); // adds a real hrv component below once a real personal BLE-HRV baseline exists — see calculateReadiness's own doc comment
+        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes, acwr, hrvDeviation });
         if (!result)
             return; // calculateReadiness's own "not enough input" guard — unreachable given the hasInput check above, kept for type safety
         await saveReadinessCheckin({

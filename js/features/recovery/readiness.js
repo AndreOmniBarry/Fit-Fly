@@ -1,13 +1,25 @@
 // A transparent, rule-based readiness score — not a medical assessment,
-// not a wearable-derived HRV score (this app has no wearable
-// integration), just a plain-language blend of what a person can
-// self-report each morning plus how much they've trained recently.
-// Every score comes with its component breakdown so "why this" is never
-// a black box.
+// just a plain-language blend of what a person can self-report each
+// morning, plus how much they've trained recently, plus (when a real
+// connected BLE heart-rate strap has actually logged one) their own real
+// RMSSD-based HRV relative to their own recent baseline — see
+// js/features/heart-rate/hrv-baseline.js's doc comment for the real
+// citations behind "compare to your own baseline, not a population
+// norm," and hrv.js for why RMSSD from a short BLE session is real
+// measured data but still not a clinical HRV protocol. Every score comes
+// with its component breakdown so "why this" is never a black box.
 
-const WEIGHTS = Object.freeze({ sleep: 0.3, energy: 0.25, soreness: 0.25, load: 0.2 });
+import { HRV_LARGE_DEVIATION_PERCENT } from '../heart-rate/hrv-baseline.js';
+
+const WEIGHTS = Object.freeze({ sleep: 0.3, energy: 0.25, soreness: 0.25, load: 0.2, hrv: 0.15 });
 
 const TARGET_SLEEP_HOURS = 8;
+
+// Never below this even at the deepest real drop this module's score
+// curve considers (see hrvScore below) — a real HRV drop is one input
+// among several real self-reported ones here, same "never zero out on
+// one signal" rule acwrLoadScore already follows.
+const HRV_SCORE_FLOOR = 25;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -69,6 +81,34 @@ function acwrLoadScore(ratio) {
   return clamp(50 - (ratio - 1.5) * 40, 15, 50);
 }
 
+// This app's own real Acute:Chronic Workload Ratio is the wearable-free
+// signal above; this is the wearable-derived one — a real personal-
+// baseline HRV deviation from js/features/heart-rate/hrv-baseline.js's
+// calculateHrvBaselineDeviation, computed only from actual BLE-strap
+// RMSSD history (never estimated, never available from camera-PPG or
+// manual entries — see that module's own doc comment).
+//
+// Unlike acwrLoadScore above, this is deliberately NOT symmetric-penalty
+// in the naive sense of "any deviation is bad": a real, sustained drop
+// below this person's own baseline is the more consistently-cited
+// fatigue/incomplete-recovery direction in the sports-science literature
+// (see hrv-baseline.js's doc comment), so only that direction pulls the
+// score down, and it does so smoothly, floored rather than zeroed — one
+// real signal among several here, not a verdict on its own. A reading at
+// or above baseline scores the same solid-but-not-perfect number
+// regardless of how far above — this module deliberately does NOT treat
+// "higher than usual" as extra-good, since the same literature notes
+// unusually large swings in either direction can also reflect incomplete
+// recovery rather than straightforward improvement (see readiness'
+// own buildReasoning below, which names that nuance once a rise is large
+// enough to be worth mentioning at all).
+function hrvScore(deviationPercent) {
+  if (deviationPercent == null) return null;
+  if (deviationPercent >= 0) return 90;
+  const dropPercent = Math.min(-deviationPercent, HRV_LARGE_DEVIATION_PERCENT);
+  return clamp(90 - (dropPercent / HRV_LARGE_DEVIATION_PERCENT) * (90 - HRV_SCORE_FLOOR), HRV_SCORE_FLOOR, 90);
+}
+
 /**
  * @param {object} input
  * @param {number|null} [input.sleepHours]
@@ -93,6 +133,18 @@ function acwrLoadScore(ratio) {
  *   itself returns before a real week of history exists) to keep the
  *   existing recentSessionCount fallback — fully backward compatible with
  *   every call site that predates ACWR.
+ * @param {{deviationPercent: number|null, category: 'below-baseline'|'at-baseline'|'above-baseline'|null}|null} [input.hrvDeviation] -
+ *   a real personal-baseline HRV deviation from js/features/heart-rate/
+ *   hrv-baseline.js's calculateHrvBaselineDeviation, computed from actual
+ *   logged BLE-strap RMSSD history. When `hrvDeviation.deviationPercent`
+ *   is a real number, it adds a new `hrv` component to the weighted blend
+ *   (see hrvScore above) and, once notable, its own reasoning line — a
+ *   genuine wearable-derived signal on top of the existing self-reported
+ *   ones. Omit (or pass null/an object with `deviationPercent: null`,
+ *   exactly what calculateHrvBaselineDeviation itself returns before a
+ *   real personal baseline exists) to leave the score exactly as it was
+ *   before this input existed — fully backward compatible with every call
+ *   site that predates it.
  * @returns {{score: number, category: 'low'|'moderate'|'high', reasoning: string[]}|null}
  *   null if there's not enough self-reported input to say anything
  */
@@ -103,17 +155,23 @@ export function calculateReadiness({
   recentSessionCount = 0,
   sleepDebtMinutes = null,
   acwr = null,
+  hrvDeviation = null,
 }) {
   const acwrRatio = acwr?.ratio ?? null;
+  const hrvDeviationPercent = hrvDeviation?.deviationPercent ?? null;
   const components = {
     sleep: sleepScore(sleepHours),
     energy: energyScore(energyLevel),
     soreness: sorenessScore(sorenessLevel),
     load: acwrRatio != null ? acwrLoadScore(acwrRatio) : loadScore(recentSessionCount),
+    hrv: hrvScore(hrvDeviationPercent),
   };
 
   const known = Object.entries(components).filter(([, value]) => value != null);
-  if (known.filter(([key]) => key !== 'load').length === 0) return null; // load alone isn't a real check-in
+  // Neither load nor hrv alone is a real check-in — both are automatic,
+  // derived-from-history signals (session count/ACWR, BLE HRV), not
+  // something the person actually self-reported this morning.
+  if (known.filter(([key]) => key !== 'load' && key !== 'hrv').length === 0) return null;
 
   const totalWeight = known.reduce((sum, [key]) => sum + WEIGHTS[key], 0);
   const weightedSum = known.reduce((sum, [key, value]) => sum + value * WEIGHTS[key], 0);
@@ -121,7 +179,11 @@ export function calculateReadiness({
 
   const category = score < 50 ? 'low' : score < 75 ? 'moderate' : 'high';
 
-  return { score, category, reasoning: buildReasoning(components, category, sleepDebtMinutes, acwrRatio) };
+  return {
+    score,
+    category,
+    reasoning: buildReasoning(components, category, sleepDebtMinutes, acwrRatio, hrvDeviationPercent),
+  };
 }
 
 /** A plain-language nudge for the category alone — used wherever a
@@ -145,7 +207,7 @@ export function readinessActionSuggestion(category) {
 // spread across several nights is normal drift, not a real deficit.
 const NOTABLE_SLEEP_DEBT_MINUTES = 60;
 
-function buildReasoning(components, category, sleepDebtMinutes, acwrRatio) {
+function buildReasoning(components, category, sleepDebtMinutes, acwrRatio, hrvDeviationPercent) {
   const reasoning = [];
 
   if (components.sleep != null && components.sleep < 60) {
@@ -176,6 +238,26 @@ function buildReasoning(components, category, sleepDebtMinutes, acwrRatio) {
     } else {
       reasoning.push('You\'ve trained recently — some of today\'s fatigue is likely just accumulated load.');
     }
+  }
+
+  if (components.hrv != null && components.hrv < 70) {
+    // A real, sustained drop below this person's own recent HRV baseline
+    // — the more consistently-cited fatigue/incomplete-recovery direction
+    // (see hrv-baseline.js's own doc comment and its real citations).
+    // Named as a real signal, not a verdict — same "one imperfect input
+    // among several" framing as the ACWR lines above.
+    const pct = hrvDeviationPercent != null ? ` (about ${Math.abs(Math.round(hrvDeviationPercent))}% below your recent baseline)` : '';
+    reasoning.push(
+      `Your BLE-measured HRV has dropped${pct} — sports-science research on individual HRV baselines (Plews et al.) links a real, sustained drop like this to accumulated fatigue or incomplete recovery, though it's one imperfect signal among several here, not a diagnosis.`
+    );
+  } else if (hrvDeviationPercent != null && hrvDeviationPercent >= HRV_LARGE_DEVIATION_PERCENT) {
+    // Deliberately NOT phrased as unambiguously good — see hrvScore's own
+    // doc comment on why a large rise isn't scored higher than a normal
+    // at-baseline reading, and hrv-baseline.js's doc comment for the real
+    // research this nuance comes from.
+    reasoning.push(
+      'Your HRV is running well above your own recent baseline — often a good sign, though the same research has also linked unusually large swings in either direction to incomplete recovery rather than straightforward improvement, so it\'s worth reading alongside how you actually feel.'
+    );
   }
 
   if (reasoning.length === 0) {

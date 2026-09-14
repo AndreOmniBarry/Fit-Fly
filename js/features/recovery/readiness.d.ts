@@ -16,6 +16,17 @@ export interface ReadinessInput {
    *  result before a real week of history exists, to keep the
    *  recentSessionCount fallback. */
   acwr?: { ratio: number | null; category?: 'building' | 'sweet-spot' | 'high-risk' | null } | null;
+  /** A real personal-baseline HRV deviation from js/features/heart-rate/
+   *  hrv-baseline.js's calculateHrvBaselineDeviation, computed from actual
+   *  logged BLE-strap RMSSD history. When `deviationPercent` is a real
+   *  number it adds a new weighted `hrv` component and, once notable, its
+   *  own reasoning line. Omit, or pass its own `{deviationPercent: null, ...}`
+   *  result before a real personal baseline exists, to leave the score
+   *  exactly as it was before this input existed. */
+  hrvDeviation?: {
+    deviationPercent: number | null;
+    category?: 'below-baseline' | 'at-baseline' | 'above-baseline' | null;
+  } | null;
 }
 
 export type ReadinessCategory = 'low' | 'moderate' | 'high';

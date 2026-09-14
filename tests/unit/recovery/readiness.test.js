@@ -172,6 +172,98 @@ describe('calculateReadiness: ACWR replaces the crude session-count load score o
   });
 });
 
+describe('calculateReadiness: a real HRV baseline deviation adds a new component, never required', () => {
+  it('with no hrvDeviation passed at all, behaves exactly as before', () => {
+    const withoutHrv = calculateReadiness({ sleepHours: 8, energyLevel: 5, sorenessLevel: 1, recentSessionCount: 0 });
+    const explicitNullDeviation = calculateReadiness({
+      sleepHours: 8,
+      energyLevel: 5,
+      sorenessLevel: 1,
+      recentSessionCount: 0,
+      hrvDeviation: { deviationPercent: null, category: null },
+    });
+    // Same real return shape calculateHrvBaselineDeviation itself gives
+    // before a real personal baseline exists — must fall back exactly
+    // like omitting hrvDeviation entirely.
+    expect(explicitNullDeviation.score).toBe(withoutHrv.score);
+    expect(explicitNullDeviation.reasoning).toEqual(withoutHrv.reasoning);
+  });
+
+  it('hrvDeviation alone (with no real self-reported input) still isn\'t a real check-in', () => {
+    expect(calculateReadiness({ hrvDeviation: { deviationPercent: -20, category: 'below-baseline' } })).toBeNull();
+  });
+
+  it('a real drop below baseline scores lower than an identical check-in with no HRV data at all', () => {
+    const withoutHrv = calculateReadiness({ sleepHours: 7, energyLevel: 3, sorenessLevel: 3 });
+    const withDrop = calculateReadiness({
+      sleepHours: 7,
+      energyLevel: 3,
+      sorenessLevel: 3,
+      hrvDeviation: { deviationPercent: -25, category: 'below-baseline' },
+    });
+    expect(withDrop.score).toBeLessThan(withoutHrv.score);
+  });
+
+  it('names the real Plews et al. HRV-baseline research once a drop is notable enough to flag', () => {
+    const result = calculateReadiness({
+      sleepHours: 8,
+      energyLevel: 4,
+      sorenessLevel: 2,
+      hrvDeviation: { deviationPercent: -25, category: 'below-baseline' },
+    });
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('hrv'))).toBe(true);
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('plews'))).toBe(true);
+    expect(result.reasoning.some((r) => r.includes('25%'))).toBe(true);
+  });
+
+  it('a reading at baseline is quiet in the reasoning — nothing notable to flag', () => {
+    const result = calculateReadiness({
+      sleepHours: 8,
+      energyLevel: 5,
+      sorenessLevel: 1,
+      hrvDeviation: { deviationPercent: 2, category: 'at-baseline' },
+    });
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('hrv'))).toBe(false);
+  });
+
+  it('a large rise above baseline is named, but never phrased as unambiguously good', () => {
+    const result = calculateReadiness({
+      sleepHours: 8,
+      energyLevel: 5,
+      sorenessLevel: 1,
+      hrvDeviation: { deviationPercent: 30, category: 'above-baseline' },
+    });
+    const hrvLine = result.reasoning.find((r) => r.toLowerCase().includes('hrv'));
+    expect(hrvLine).toBeTruthy();
+    expect(hrvLine.toLowerCase()).toMatch(/incomplete recovery|not.*unambiguous|not.*straightforward|worth reading/);
+  });
+
+  it('a real HRV deviation never pushes the overall score outside 0-100, even at an extreme drop', () => {
+    const result = calculateReadiness({
+      sleepHours: 4,
+      energyLevel: 1,
+      sorenessLevel: 5,
+      recentSessionCount: 5,
+      hrvDeviation: { deviationPercent: -80, category: 'below-baseline' },
+    });
+    expect(result.score).toBeGreaterThanOrEqual(0);
+    expect(result.score).toBeLessThanOrEqual(100);
+  });
+
+  it('a real HRV deviation and a real ACWR spike can both contribute at once, fully backward compatible with either alone', () => {
+    const result = calculateReadiness({
+      sleepHours: 7,
+      energyLevel: 3,
+      sorenessLevel: 3,
+      acwr: { ratio: 1.8, category: 'high-risk' },
+      hrvDeviation: { deviationPercent: -25, category: 'below-baseline' },
+    });
+    expect(result).not.toBeNull();
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('gabbett'))).toBe(true);
+    expect(result.reasoning.some((r) => r.toLowerCase().includes('plews'))).toBe(true);
+  });
+});
+
 describe('calculateReadiness: monotonic sanity checks', () => {
   it('more sleep never scores lower than less sleep, all else equal', () => {
     const lessSleep = calculateReadiness({ sleepHours: 5, energyLevel: 3, sorenessLevel: 3 });

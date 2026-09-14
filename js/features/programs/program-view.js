@@ -17,6 +17,7 @@ import {
   listSetsForExercise,
   listSetsForSession,
   setSessionRpe,
+  setSetRir,
 } from '../../db/repositories/sessions.js';
 import { getReadinessCheckinForDate } from '../../db/repositories/readiness.js';
 import { getLibraryExercise } from '../exercises/exercise-library.js';
@@ -28,6 +29,7 @@ import { formatCategoryLabel } from '../onboarding/category-label.js';
 import { applyCategoryAccent } from '../../lib/theme.js';
 import { tagBodyArea } from './body-area-tag.js';
 import { generateProgram } from './program-generator.js';
+import { suggestNextLoadAdjustment } from './autoregulation.js';
 import { getCurrentWeekNumber } from './week-number.js';
 import { buildProgramWeekStrip } from './weekly-schedule.js';
 import { bestEstimatedOneRepMax } from './one-rep-max.js';
@@ -107,6 +109,15 @@ let calendarMonth = 0; // 0-indexed, same convention as Date/calendar-grid.js
 // every occurrence back at zero rather than remembering a prior visit's
 // count against a row that no longer exists.
 let setCountByRow = new Map();
+
+// The id of the most recently logged set for each rendered reps-weight
+// exercise occurrence ("${dayIndex}:${exerciseId}" -> setId) — what the
+// optional RIR (reps-in-reserve) picker below an exercise's Log row
+// actually saves onto once someone picks a chip (see showRirPicker/
+// handleRirChipClick). Reset alongside setCountByRow for the same
+// reason: a fresh visit's rows are fresh DOM, with nothing yet logged
+// against them this visit.
+let latestLoggedSetIdByRow = new Map();
 
 // Wired once in initProgramFeature, read/set from renderSessionRpeCard —
 // same module-level-chip-controller pattern as goalChips below.
@@ -233,6 +244,12 @@ export function initProgramFeature() {
       return;
     }
 
+    const rirChip = event.target.closest('[data-rir-chip]');
+    if (rirChip) {
+      await handleRirChipClick(rirChip);
+      return;
+    }
+
     const button = event.target.closest('[data-log-set]');
     if (!button) return;
     const { dayIndex, exerciseId, logMetric, restSec } = button.dataset;
@@ -275,8 +292,10 @@ export function initProgramFeature() {
     if (logMetric === 'reps-weight') {
       const weightInput = byId(weightInputId(dayIndex, exerciseId));
       const weightKg = Number(weightInput.value) || 0;
-      await logSet(exerciseId, { reps, weightKg });
+      const loggedSet = await logSet(exerciseId, { reps, weightKg });
       weightInput.value = '';
+      latestLoggedSetIdByRow.set(rowKey(dayIndex, exerciseId), loggedSet.id);
+      showRirPicker(dayIndex, exerciseId); // optional, unobtrusive — see its own doc comment
       await renderOneRepMax(exerciseId); // updates every day card showing this exercise, not just this one
     } else {
       await logSet(exerciseId, { reps });
@@ -327,6 +346,7 @@ async function getInjuryBodyAreaTags() {
 async function renderProgramScreen({ resetToCurrentWeek = false } = {}) {
   stopInlineRestTimer(); // #program-days is about to be replaced wholesale below
   setCountByRow = new Map();
+  latestLoggedSetIdByRow = new Map();
   const [profile, assignment] = await Promise.all([getProfile(), getLatestCategoryAssignment()]);
   if (!profile || !assignment) return;
 
@@ -393,6 +413,7 @@ async function renderProgramScreen({ resetToCurrentWeek = false } = {}) {
   }
   for (const exerciseId of allExerciseIds) {
     renderOneRepMax(exerciseId);
+    renderAutoregulationSuggestion(exerciseId);
   }
 }
 
@@ -424,6 +445,9 @@ function restDisplayId(dayIndex, exerciseId) {
 }
 function restSetLabelId(dayIndex, exerciseId) {
   return `program-rest-set-${dayIndex}-${exerciseId}`;
+}
+function rirRowId(dayIndex, exerciseId) {
+  return `program-rir-${dayIndex}-${exerciseId}`;
 }
 function rowKey(dayIndex, exerciseId) {
   return `${dayIndex}:${exerciseId}`;
@@ -502,6 +526,16 @@ function renderExercise(dayIndex, exercise, readOnly = false) {
       ? `<span class="muted" style="font-size:var(--fs-xs);" data-onerepmax-for="${exercise.exerciseId}"></span>`
       : '';
 
+  // A real, honest suggestion for *this* exercise (see autoregulation.js)
+  // — only ever filled in once a previous visit actually RIR-tagged a
+  // real set of it (see renderAutoregulationSuggestion); hidden by
+  // default here, same "no elements start with fabricated text" contract
+  // as oneRepMaxSlot above.
+  const rirSuggestionSlot =
+    exercise.logMetric === 'reps-weight'
+      ? `<p class="muted" style="margin:0; font-size:var(--fs-xs);" data-rir-suggestion-for="${exercise.exerciseId}" hidden></p>`
+      : '';
+
   const logInputs =
     exercise.logMetric === 'hold'
       ? `<input class="input" type="number" min="1" id="${durationInputId(dayIndex, exercise.exerciseId)}" placeholder="seconds held">`
@@ -513,6 +547,30 @@ function renderExercise(dayIndex, exercise, readOnly = false) {
              <input class="input" type="number" min="0" step="0.5" id="${weightInputId(dayIndex, exercise.exerciseId)}" placeholder="kg">`
           : `<input class="input" type="number" min="1" id="${repsInputId(dayIndex, exercise.exerciseId)}" placeholder="reps">`;
 
+  // The optional, per-set RIR (reps-in-reserve) picker — only for a real
+  // loaded/reps-based exercise, and only while logging is even possible
+  // (readOnly drops it same as everything else in loggingSection).
+  // Starts hidden; showRirPicker reveals it right after a real set for
+  // this occurrence was just logged (see the click handler in
+  // initProgramFeature) — it never appears with nothing real to attach
+  // an answer to. Skipping it changes nothing about the fast "log a set"
+  // flow: it's purely optional, extra context autoregulation.js can use
+  // next time, not a gate on logging itself.
+  const rirPickerSection =
+    !readOnly && exercise.logMetric === 'reps-weight'
+      ? `
+      <div class="stack program-rir-picker" id="${rirRowId(dayIndex, exercise.exerciseId)}" style="gap:4px;" hidden>
+        <span class="muted" style="font-size:var(--fs-xs);">Reps left in the tank on that set? (optional)</span>
+        <div class="chip-group" role="group" aria-label="Reps in reserve on that set">
+          <button type="button" class="chip" data-rir-chip data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-value="0" aria-pressed="false">0</button>
+          <button type="button" class="chip" data-rir-chip data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-value="1" aria-pressed="false">1</button>
+          <button type="button" class="chip" data-rir-chip data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-value="2" aria-pressed="false">2</button>
+          <button type="button" class="chip" data-rir-chip data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-value="3" aria-pressed="false">3</button>
+          <button type="button" class="chip" data-rir-chip data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-value="4" aria-pressed="false">4+</button>
+        </div>
+      </div>`
+      : '';
+
   const loggingSection = readOnly
     ? ''
     : `
@@ -520,6 +578,7 @@ function renderExercise(dayIndex, exercise, readOnly = false) {
         ${logInputs}
         <button class="btn btn-secondary" data-log-set data-log-metric="${exercise.logMetric}" data-day-index="${dayIndex}" data-exercise-id="${exercise.exerciseId}" data-rest-sec="${exercise.restSec}">Log</button>
       </div>
+      ${rirPickerSection}
       <div class="row-between program-rest-timer" id="${restRowId(dayIndex, exercise.exerciseId)}" data-exercise-name="${exercise.name}" hidden>
         <span class="row" style="gap:6px;">
           <span class="muted" style="font-size:var(--fs-xs);">Resting — ${exercise.name}<span id="${restSetLabelId(dayIndex, exercise.exerciseId)}"></span></span>
@@ -537,6 +596,7 @@ function renderExercise(dayIndex, exercise, readOnly = false) {
           <span class="muted" style="font-size:var(--fs-sm);">${prescriptionText}</span>
           ${cueLine}
           ${oneRepMaxSlot}
+          ${rirSuggestionSlot}
         </div>
       </div>
       ${loggingSection}
@@ -793,7 +853,7 @@ async function showCalendarDayDetail(date, sessions) {
 
 async function logSet(exerciseId, fields) {
   const session = await getOrCreateTodaySession();
-  await addSet(session.id, { exerciseId, ...fields });
+  return addSet(session.id, { exerciseId, ...fields });
 }
 
 function stopInlineRestTimer() {
@@ -893,5 +953,65 @@ async function renderOneRepMax(exerciseId) {
   const text = best == null ? '' : `Estimated 1RM: ${Math.round(best * 2) / 2} kg`;
   elements.forEach((el) => {
     el.textContent = text;
+  });
+}
+
+/** Reveals the optional RIR (reps-in-reserve) picker right under one
+ *  exercise occurrence's Log row, right after a real set was just logged
+ *  for it — see rirPickerSection's own comment in renderExercise for why
+ *  this stays entirely optional and never blocks the fast "log a set"
+ *  flow. Resets any previously picked chip back to unselected every time
+ *  it's shown, since it now targets whichever set was *just* logged (see
+ *  latestLoggedSetIdByRow) — never a stale answer left over from an
+ *  earlier set logged this same visit. */
+function showRirPicker(dayIndex, exerciseId) {
+  const row = byId(rirRowId(dayIndex, exerciseId));
+  if (!row) return;
+  row.hidden = false;
+  for (const chip of row.querySelectorAll('.chip')) {
+    chip.setAttribute('aria-pressed', 'false');
+  }
+}
+
+/** Saves a person's own optional RIR tag (see js/db/repositories/
+ *  sessions.js's setSetRir) for the most recently logged set of one
+ *  exercise occurrence, then refreshes that exercise's own suggestion
+ *  (see renderAutoregulationSuggestion) since this new tag may have just
+ *  changed it. Delegated through #program-days' own click listener (like
+ *  data-skip-rest/data-log-set) rather than wired once per row with
+ *  initChipGroup — the same row's picker can legitimately retarget a
+ *  newer set within one visit (see showRirPicker), and initChipGroup
+ *  would either leak a second click listener on every re-log or need
+ *  explicit teardown to avoid it; delegation sidesteps that entirely. */
+async function handleRirChipClick(chip) {
+  const { dayIndex, exerciseId, value } = chip.dataset;
+  const setId = latestLoggedSetIdByRow.get(rowKey(dayIndex, exerciseId));
+  if (setId == null) return; // defensive — the picker is only ever shown right after a real set exists
+  await setSetRir(setId, Number(value));
+  const group = chip.closest('.chip-group');
+  if (group) {
+    for (const groupChip of group.querySelectorAll('.chip')) {
+      groupChip.setAttribute('aria-pressed', String(groupChip === chip));
+    }
+  }
+  await renderAutoregulationSuggestion(exerciseId);
+}
+
+/** A real, honest next-set/next-session suggestion for one exercise (see
+ *  autoregulation.js's own doc comment for the citation and exactly what
+ *  is/isn't implemented) — built only from that exercise's own actually
+ *  logged, RIR-tagged sets, never fabricated. Same "no elements, no
+ *  query" guard and "updates every occurrence across every day" shape as
+ *  renderOneRepMax above. Hidden entirely (not left showing stale or
+ *  empty text) whenever there's no real suggestion to make yet — see
+ *  suggestNextLoadAdjustment's own null case. */
+async function renderAutoregulationSuggestion(exerciseId) {
+  const elements = document.querySelectorAll(`[data-rir-suggestion-for="${exerciseId}"]`);
+  if (elements.length === 0) return;
+  const sets = await listSetsForExercise(exerciseId);
+  const suggestion = suggestNextLoadAdjustment(sets);
+  elements.forEach((el) => {
+    el.hidden = suggestion == null;
+    el.textContent = suggestion?.message ?? '';
   });
 }

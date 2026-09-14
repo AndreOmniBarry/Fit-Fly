@@ -85,6 +85,21 @@ export async function setSessionRpe(sessionId, sessionRpe, db = getDb()) {
   return db.sessions.get(sessionId);
 }
 
+/** Saves a person's own optional, real Reps-in-Reserve (RIR) rating onto
+ *  one already-logged set — the RIR side of the validated RPE-RIR scale
+ *  (Zourdos et al. 2016; see js/features/programs/autoregulation.js's own
+ *  doc comment for the full citation and exactly what this app does/
+ *  doesn't do with it), the input that module's own
+ *  suggestNextLoadAdjustment is built from. A plain extra field on the
+ *  existing set record, not a new indexed column — same reasoning as
+ *  setSessionRpe just above: nothing ever queries sets *by* rir, every
+ *  read here goes through listSetsForExercise's already-indexed
+ *  exerciseId lookup. */
+export async function setSetRir(setId, rir, db = getDb()) {
+  await db.sets.update(setId, { rir });
+  return db.sets.get(setId);
+}
+
 /** Every session on/after `sinceIso` that actually has a real
  *  session-RPE recorded — the exact real-history input
  *  dailyTrainingLoadsFromSessions/calculateAcuteChronicWorkloadRatio

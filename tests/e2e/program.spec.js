@@ -1000,3 +1000,115 @@ test.describe('my program: real progression across a multi-week/multi-month plan
     expect(week3Reasoning).toMatch(/aim for roughly \d+% of your week-1 working weight/);
   });
 });
+
+test.describe('my program: RIR capture and real autoregulation suggestion', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+  });
+
+  test('logging a loaded set reveals an optional RIR picker that saves, without disrupting the fast log flow', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    const rirRow = page.locator(`#program-rir-${dayIndex}-dumbbell-bench-press`);
+
+    // Not shown at all before there's a real set to attach an answer to.
+    await expect(rirRow).toBeHidden();
+
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+
+    // The real log itself completed in full — reps cleared, rest timer
+    // started — whether or not the RIR picker ever gets used. It's purely
+    // additive, never a gate on the existing fast log flow.
+    await expect(page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`)).toHaveValue('');
+    await expect(page.locator(`#program-rest-row-${dayIndex}-dumbbell-bench-press`)).toBeVisible();
+
+    await expect(rirRow).toBeVisible();
+    for (const value of ['0', '1', '2', '3', '4']) {
+      await expect(rirRow.locator(`button[data-value="${value}"]`)).toHaveAttribute('aria-pressed', 'false');
+    }
+
+    await rirRow.locator('button[data-value="3"]').click();
+    await expect(rirRow.locator('button[data-value="3"]')).toHaveAttribute('aria-pressed', 'true');
+
+    expect(consoleErrors).toEqual([]);
+  });
+
+  test('a bodyweight (reps-only) exercise never gets an RIR picker — there\'s no real load to autoregulate against', async ({ page }) => {
+    await completeOnboarding(page, { goal: 'endurance', redFlag: 'chest-pain-pressure' });
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    const logButton = page.locator('button[data-log-set][data-exercise-id="glute-bridge"]').first();
+    const dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-glute-bridge`).fill('15');
+    await logButton.click();
+
+    await expect(page.locator(`#program-rir-${dayIndex}-glute-bridge`)).toHaveCount(0);
+  });
+
+  test('tagging consistently high-RIR sets across a couple of sessions produces a real "try heavier" suggestion, shown the next time this exercise comes up', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    const day1 = new Date('2026-04-06T09:00:00.000Z');
+    await page.clock.setFixedTime(day1);
+    await completeOnboarding(page, { goal: 'build-muscle' });
+    await page.getByRole('button', { name: 'My Program' }).click(); // creates the program, startedAt = day1
+
+    const suggestionFor = () => page.locator('[data-rir-suggestion-for="dumbbell-bench-press"]').first();
+
+    // No RIR history yet anywhere — honestly no suggestion at all, never a
+    // fabricated default.
+    await expect(suggestionFor()).toBeHidden();
+
+    let logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    let dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('40');
+    await logButton.click();
+    await page.locator(`#program-rir-${dayIndex}-dumbbell-bench-press button[data-value="4"]`).click(); // "4+" — real room left
+
+    // A second real training session, two days later, still the same
+    // program week so the same exercises are prescribed.
+    await page.clock.setFixedTime(new Date(day1.getTime() + 2 * 24 * 60 * 60 * 1000));
+    await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click(); // reload lands back on the Hub
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    logButton = page.locator('button[data-log-set][data-exercise-id="dumbbell-bench-press"]').first();
+    dayIndex = await logButton.getAttribute('data-day-index');
+    await page.locator(`#program-reps-${dayIndex}-dumbbell-bench-press`).fill('8');
+    await page.locator(`#program-weight-${dayIndex}-dumbbell-bench-press`).fill('42');
+    await logButton.click();
+    await page.locator(`#program-rir-${dayIndex}-dumbbell-bench-press button[data-value="3"]`).click();
+
+    // A third real day: comes back to this same exercise, and *before*
+    // logging anything today, its own real suggestion — built entirely
+    // from the two prior RIR-tagged sessions — is already visible.
+    await page.clock.setFixedTime(new Date(day1.getTime() + 4 * 24 * 60 * 60 * 1000));
+    await page.reload();
+    await page.getByRole('button', { name: 'Fitness Toolkit' }).click();
+    await page.getByRole('button', { name: 'My Program' }).click();
+
+    await expect(suggestionFor()).toBeVisible();
+    await expect(suggestionFor()).toContainText('heavier');
+    await expect(suggestionFor()).toContainText('2 RIR-tagged sets');
+
+    expect(consoleErrors).toEqual([]);
+  });
+});

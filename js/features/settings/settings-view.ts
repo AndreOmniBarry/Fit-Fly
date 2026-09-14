@@ -78,6 +78,7 @@ export function initSettingsFeature(): void {
 
   async function loadProfileForm(): Promise<void> {
     const profile = await getProfile();
+    byId<HTMLInputElement>('profile-display-name').value = profile?.displayName ?? '';
     byId<HTMLInputElement>('profile-birthdate').value = profile?.birthdate ?? '';
     byId('profile-age-hint').textContent = profile?.birthdate
       ? `${calculateAge(profile.birthdate)} years old`
@@ -95,6 +96,7 @@ export function initSettingsFeature(): void {
   });
 
   byId('btn-profile-save').addEventListener('click', async () => {
+    const displayName = byId<HTMLInputElement>('profile-display-name').value.trim();
     const birthdate = byId<HTMLInputElement>('profile-birthdate').value;
     const sex = profileSexChips.getValue();
 
@@ -117,11 +119,12 @@ export function initSettingsFeature(): void {
     showError('err-profile-weight', !weightKg || weightKg <= 0);
     if (!birthdate || !sex || !heightCm || !weightKg) return;
 
-    await saveProfile({ birthdate, sex, heightCm, weightKg });
+    await saveProfile({ displayName: displayName || undefined, birthdate, sex, heightCm, weightKg });
     currentHeightCm = heightCm;
     currentWeightKg = weightKg;
     byId('profile-age-hint').textContent = `${calculateAge(birthdate)} years old`;
     byId('profile-save-status').textContent = 'Saved.';
+    document.dispatchEvent(new CustomEvent('profile:changed'));
   });
 
   // ---------- voice guide ----------

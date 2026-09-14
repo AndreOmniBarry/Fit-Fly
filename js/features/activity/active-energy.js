@@ -25,3 +25,20 @@ export function isSameLocalDay(isoTimestamp, today = new Date()) {
     d.getDate() === today.getDate()
   );
 }
+
+/** Turns the same four already-estimated source kcal values behind
+ *  sumActiveEnergy into real proportional ring segments — for the Hub's
+ *  Calories hero card, so its "how full" ring reflects a genuine
+ *  composition (how much of today's total came from Steps vs Run vs
+ *  Activity vs Strength) rather than a fabricated goal fraction this app
+ *  has no real target for. Returns [] when there's nothing real to show
+ *  (sumActiveEnergy's own "every source null" case) — an empty ring, not
+ *  a fake full or empty one.
+ *  @param {{ source: string, kcal: number|null }[]} sources
+ *  @returns {{ source: string, kcal: number, fraction: number }[]} */
+export function buildActiveEnergySegments(sources) {
+  const known = sources.filter((s) => s.kcal != null && s.kcal > 0);
+  const total = known.reduce((sum, s) => sum + s.kcal, 0);
+  if (total <= 0) return [];
+  return known.map((s) => ({ source: s.source, kcal: Math.round(s.kcal), fraction: s.kcal / total }));
+}

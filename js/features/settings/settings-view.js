@@ -64,6 +64,7 @@ export function initSettingsFeature() {
     }
     async function loadProfileForm() {
         const profile = await getProfile();
+        byId('profile-display-name').value = profile?.displayName ?? '';
         byId('profile-birthdate').value = profile?.birthdate ?? '';
         byId('profile-age-hint').textContent = profile?.birthdate
             ? `${calculateAge(profile.birthdate)} years old`
@@ -79,6 +80,7 @@ export function initSettingsFeature() {
         byId('profile-age-hint').textContent = birthdate ? `${calculateAge(birthdate)} years old` : '';
     });
     byId('btn-profile-save').addEventListener('click', async () => {
+        const displayName = byId('profile-display-name').value.trim();
         const birthdate = byId('profile-birthdate').value;
         const sex = profileSexChips.getValue();
         let heightCm = null;
@@ -100,11 +102,12 @@ export function initSettingsFeature() {
         showError('err-profile-weight', !weightKg || weightKg <= 0);
         if (!birthdate || !sex || !heightCm || !weightKg)
             return;
-        await saveProfile({ birthdate, sex, heightCm, weightKg });
+        await saveProfile({ displayName: displayName || undefined, birthdate, sex, heightCm, weightKg });
         currentHeightCm = heightCm;
         currentWeightKg = weightKg;
         byId('profile-age-hint').textContent = `${calculateAge(birthdate)} years old`;
         byId('profile-save-status').textContent = 'Saved.';
+        document.dispatchEvent(new CustomEvent('profile:changed'));
     });
     // ---------- voice guide ----------
     const voiceEngineChips = initChipGroup(byId('settings-voice-engine'), {

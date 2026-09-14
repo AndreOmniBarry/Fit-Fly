@@ -11,6 +11,7 @@
 // in a unit test, same "pure logic lives outside the view" convention as
 // sleep-score.ts/sleep-consistency.ts/sleep-debt.ts/sleep-trends.ts.
 import { bucketDailyPoints } from '../../lib/time-range.js';
+import { buildSmoothAreaGeometry } from '../../lib/smooth-chart.js';
 import { categoryForScore } from './sleep-score.js';
 import type { SleepCategory } from './types.js';
 
@@ -106,52 +107,15 @@ export interface SleepInsightChartGeometry {
   maxValue: number;
 }
 
-function smoothPathThrough(points: ChartPoint[]): string {
-  if (points.length === 0) return '';
-  const first = points[0] as ChartPoint;
-  if (points.length === 1) return `M${first.x},${first.y}`;
-
-  let d = `M${first.x},${first.y}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] ?? points[i];
-    const p1 = points[i] as ChartPoint;
-    const p2 = points[i + 1] as ChartPoint;
-    const p3 = points[i + 2] ?? p2;
-    // Standard Catmull-Rom -> cubic Bezier control points (tension 1/6) —
-    // the curve passes through every real p1/p2, only the tangent between
-    // them is smoothed.
-    const cp1x = p1.x + (p2.x - (p0 as ChartPoint).x) / 6;
-    const cp1y = p1.y + (p2.y - (p0 as ChartPoint).y) / 6;
-    const cp2x = p2.x - ((p3 as ChartPoint).x - p1.x) / 6;
-    const cp2y = p2.y - ((p3 as ChartPoint).y - p1.y) / 6;
-    d += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
-  }
-  return d;
-}
-
 /** Lays out a series of real values (bucketed nightly durations, in order)
  *  into an SVG-ready smooth line/area, scaled to fill `width`x`height`
  *  exactly. Never fabricates a point for a bucket that doesn't exist —
- *  pass exactly the buckets that are real. */
+ *  pass exactly the buckets that are real. A thin wrapper around the
+ *  shared js/lib/smooth-chart.ts geometry (same math, Sleep-specific
+ *  naming/type kept for every existing caller). */
 export function buildSleepInsightAreaGeometry(
   values: number[],
-  { width = 320, height = 140 }: { width?: number; height?: number } = {}
+  options: { width?: number; height?: number } = {}
 ): SleepInsightChartGeometry {
-  if (values.length === 0) {
-    return { width, height, points: [], linePath: '', areaPath: '', maxValue: 0 };
-  }
-
-  const maxValue = Math.max(...values, 1);
-  const stepX = values.length > 1 ? width / (values.length - 1) : 0;
-
-  const points: ChartPoint[] = values.map((value, i) => ({
-    x: values.length > 1 ? i * stepX : width / 2,
-    y: height - (value / maxValue) * height,
-  }));
-
-  const linePath = smoothPathThrough(points);
-  const last = points[points.length - 1] as ChartPoint;
-  const areaPath = points.length > 1 ? `${linePath} L${last.x},${height} L${(points[0] as ChartPoint).x},${height} Z` : '';
-
-  return { width, height, points, linePath, areaPath, maxValue };
+  return buildSmoothAreaGeometry(values, options);
 }

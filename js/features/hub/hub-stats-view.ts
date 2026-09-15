@@ -6,14 +6,14 @@
 // load, every time the Hub becomes visible again, and right after a
 // profile save (so a new display name/height shows up immediately without
 // needing to leave and come back to the Hub).
-import { onScreenShown } from '../../lib/router.js';
+import { onScreenShown, onScreenHidden } from '../../lib/router.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { listAllStepEntries } from '../../db/repositories/steps.js';
 import { listHydrationEntriesInRange } from '../../db/repositories/hydration.js';
 import { estimateDistanceFromSteps } from '../steps/steps-distance-estimate.js';
 import { formatBucketAxisLabel, formatBucketDetailLabel } from '../../lib/time-range.js';
 import { greetingForHour, trailingDailyTotals, formatHeroDistanceKm } from './hub-stats.js';
-import { setHubGreeting, setHeroStepsCard, setHeroWaterCard } from './hub-view.js';
+import { setHubGreeting, setHeroStepsCard, setHeroWaterCard, clearHeroStepsChart } from './hub-view.js';
 import type { StepEntry } from '../../db/repositories/steps.js';
 import type { HydrationEntry } from '../../db/repositories/hydration.js';
 import type { Profile } from '../../db/repositories/profile.js';
@@ -31,6 +31,13 @@ export function initHubStatsFeature(): void {
   // so a newly-set (or cleared) display name updates the greeting right
   // away even while still on the Hub underneath the Settings screen.
   document.addEventListener('profile:changed', () => void refreshHubStats());
+  // Every screen here stays mounted, hidden, in the background — this
+  // chart's real bars would otherwise still exist off-screen while some
+  // other screen (Steps, Hydration, Run, ...) renders its own same-shaped
+  // trend chart, silently doubling up any of those screens' own unscoped
+  // `.trend-chart-bar` queries. refreshHubStats() rebuilds it fresh the
+  // next time the Hub is actually shown again.
+  onScreenHidden('screen-hub', () => clearHeroStepsChart());
 }
 
 async function refreshHubStats(): Promise<void> {

@@ -216,6 +216,17 @@ export function setHeroStepsCard(data: HeroStepsCardData): void {
   });
 }
 
+/** Tears the Steps hero chart's real DOM bars back down — every screen
+ *  here stays mounted in the background (hidden, never removed), and
+ *  js/lib/trend-chart.ts's bars carry the same `.trend-chart-bar` class
+ *  Steps/Hydration/Run's own trend charts use for their own unscoped
+ *  queries; leaving this one own mounted off-screen would silently double
+ *  up any of those. Called from hub-stats-view.ts the moment the Hub
+ *  itself stops being the visible screen (router.js's onScreenHidden). */
+export function clearHeroStepsChart(): void {
+  byId('hub-stat-steps-chart').innerHTML = '';
+}
+
 export interface HeroCaloriesSegment {
   source: string;
   kcal: number;

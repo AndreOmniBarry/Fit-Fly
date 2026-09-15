@@ -96,6 +96,33 @@ function progressLabel(badge: EvaluatedBadge): string {
   return `${value} of ${threshold} ${badge.metricLabel}`;
 }
 
+/** Every earned medal is a real, focusable, tappable control — tapping
+ *  (or Enter/Space) replays its .badge-card-icon--reveal turn on demand,
+ *  the same one-shot animation a freshly-earned badge already plays
+ *  automatically (see .badge-card-icon--reveal in mini-apps.css). A
+ *  genuine user-triggered interaction, not a decorative loop — the medal
+ *  otherwise sits still, same as Apple's own award grid, until either a
+ *  real "just earned" moment or a real tap asks it to turn again. */
+function wireEarnedBadgeIcons(): void {
+  for (const icon of byId('badges-earned-grid').querySelectorAll<HTMLElement>('.badge-card-icon')) {
+    icon.addEventListener('animationend', () => {
+      icon.classList.remove('badge-card-icon--reveal', 'badge-card-icon--spin');
+    });
+
+    const replay = (): void => {
+      if (icon.classList.contains('badge-card-icon--reveal') || icon.classList.contains('badge-card-icon--spin')) return;
+      icon.classList.add('badge-card-icon--spin');
+    };
+    icon.addEventListener('click', replay);
+    icon.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        replay();
+      }
+    });
+  }
+}
+
 async function renderBadges(): Promise<void> {
   const badges = await evaluateAllBadges();
   const earned = badges.filter((b) => b.earned);
@@ -110,7 +137,7 @@ async function renderBadges(): Promise<void> {
         .map(
           (b) => `
         <div class="card badge-card badge-card--earned tilt-card tilt-enter" style="--card-seed:${cardSeed(b.id).toFixed(3)};">
-          <span class="badge-card-icon" data-tilt-depth="1" aria-hidden="true">${iconMarkup(b.icon, { size: 22 })}</span>
+          <span class="badge-card-icon${b.isNewlyEarned ? ' badge-card-icon--reveal' : ''}" data-tilt-depth="1" role="button" tabindex="0" aria-label="Replay the ${b.name} badge shine">${iconMarkup(b.icon, { size: 22 })}</span>
           <strong>${b.name}</strong>
           <p class="muted" style="font-size:var(--fs-sm);">${b.category}</p>
           <p class="muted" style="font-size:var(--fs-xs);">Earned ${formatDate(b.earnedAt as string)}</p>
@@ -119,6 +146,7 @@ async function renderBadges(): Promise<void> {
         )
         .join('')
     : '<p class="muted center-text">No badges yet — every real streak and milestone in this app can earn one.</p>';
+  wireEarnedBadgeIcons();
 
   byId('badges-locked-grid').innerHTML = locked
     .map(

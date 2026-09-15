@@ -115,6 +115,54 @@ test.describe('badges', () => {
     await expect(toast).toBeHidden({ timeout: 6000 });
   });
 
+  test('an earned medal is still, not perpetually spinning — the one-shot reveal plays out and settles', async ({ page }) => {
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('12000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+    await page.getByRole('button', { name: 'Badges' }).click();
+
+    const icon = page.locator('.badge-card--earned .badge-card-icon');
+    // The freshly-earned reveal plays automatically (1.3s) — well past
+    // that, the medal must be back to a plain, motionless resting state,
+    // never a class that keeps an animation running forever.
+    await expect(icon).toHaveClass('badge-card-icon', { timeout: 2500 });
+  });
+
+  test('tapping an earned medal replays its shine, live, and it settles again afterward', async ({ page }) => {
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('12000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+    await page.getByRole('button', { name: 'Badges' }).click();
+
+    const icon = page.locator('.badge-card--earned .badge-card-icon');
+    await expect(icon).toHaveClass('badge-card-icon', { timeout: 2500 }); // let the auto reveal finish first
+
+    // A real, focusable control — not a decorative, unreachable icon.
+    await expect(icon).toHaveAttribute('role', 'button');
+    await expect(icon).toHaveAttribute('tabindex', '0');
+
+    await icon.click();
+    await expect(icon).toHaveClass(/badge-card-icon--spin/);
+    await expect(icon).toHaveClass('badge-card-icon', { timeout: 1500 }); // settles back, no residual animation
+  });
+
+  test('the medal shine replays from the keyboard too (Enter)', async ({ page }) => {
+    await page.getByRole('button', { name: 'Steps' }).click();
+    await page.locator('#steps-manual-count').fill('12000');
+    await page.locator('#btn-steps-manual-save').click();
+    await page.locator('#btn-steps-back').click();
+    await page.getByRole('button', { name: 'Badges' }).click();
+
+    const icon = page.locator('.badge-card--earned .badge-card-icon');
+    await expect(icon).toHaveClass('badge-card-icon', { timeout: 2500 });
+
+    await icon.focus();
+    await icon.press('Enter');
+    await expect(icon).toHaveClass(/badge-card-icon--spin/);
+  });
+
   test('the toast never re-fires for a badge that was already earned on an earlier visit', async ({ page }) => {
     await page.getByRole('button', { name: 'Steps' }).click();
     await page.locator('#steps-manual-count').fill('12000');

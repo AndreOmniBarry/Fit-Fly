@@ -13,8 +13,8 @@ import { listAllSessions, listSetsForSession } from '../../db/repositories/sessi
 import { estimateStepsCalories } from '../steps/steps-calorie-estimate.js';
 import { estimateRunCalories } from '../run/run-calorie-estimate.js';
 import { estimateStrengthSessionCalories } from './session-calorie-estimate.js';
-import { sumActiveEnergy, isSameLocalDay } from './active-energy.js';
-import { setActiveEnergyText } from '../hub/hub-view.js';
+import { sumActiveEnergy, isSameLocalDay, buildActiveEnergySegments } from './active-energy.js';
+import { setActiveEnergyText, setHeroCaloriesCard } from '../hub/hub-view.js';
 
 function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
@@ -64,4 +64,16 @@ async function refreshActiveEnergy() {
 
   const total = sumActiveEnergy([stepsKcal, runKcal, activityKcal, strengthKcal]);
   setActiveEnergyText(total == null ? null : `~${total} kcal active today`);
+
+  // The Hub's own Calories hero card — the exact same four source
+  // estimates already computed above, never recomputed a second time.
+  setHeroCaloriesCard({
+    total,
+    segments: buildActiveEnergySegments([
+      { source: 'steps', kcal: stepsKcal },
+      { source: 'run', kcal: runKcal },
+      { source: 'activity', kcal: activityKcal },
+      { source: 'strength', kcal: strengthKcal },
+    ]),
+  });
 }

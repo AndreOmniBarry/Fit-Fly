@@ -122,6 +122,8 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-insight-streak')).toHaveText('1');
     await expect(page.locator('#sleep-insight-debt')).toHaveText('1h');
     await expect(page.locator('#sleep-insight-chart-empty')).toBeVisible();
+    // One night can't say anything about night-to-night timing swing yet.
+    await expect(page.locator('#sleep-timing-variability-card')).toBeHidden();
 
     await page.locator('#btn-sleep-insights-back').click();
     await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
@@ -162,6 +164,13 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-insight-chart-empty')).toBeHidden();
     const points = page.locator('.sleep-insight-chart-point');
     await expect(points).toHaveCount(2);
+
+    // Sleep Timing Variability (SD of sleep midpoint) appears once 2+
+    // nights with a logged bedtime exist — 23:00/8h and 22:30/7h here
+    // give a real, small (±30m) swing.
+    await expect(page.locator('#sleep-timing-variability-card')).toBeVisible();
+    await expect(page.locator('#sleep-timing-variability-value')).toHaveText('±30m');
+    await expect(page.locator('#sleep-timing-variability-copy')).toContainText('2 nights');
 
     // Tap-to-reveal: the tooltip is hidden until a point is actually
     // tapped, and reveals that exact night's real duration + score.
@@ -400,6 +409,12 @@ test.describe('sleep: modeled sleep-stage hypnogram', () => {
 
     await expect(page.locator('#sleep-hypnogram-start')).toHaveText('11:00p');
     await expect(page.locator('#sleep-hypnogram-end')).toHaveText('7:00a');
+
+    // The real cycle count the model already computes internally, now
+    // actually surfaced — and each stage's real duration alongside its
+    // share, not just a bare percentage.
+    await expect(page.locator('#sleep-hypnogram-cycles')).toContainText('cycle');
+    await expect(page.locator('#sleep-hypnogram-legend')).toContainText('h');
   });
 
   test('viewing a past night from History renders that night\'s own stages, not tonight\'s', async ({ page }) => {

@@ -40,4 +40,16 @@ describe('heart-rate repository', () => {
     expect(await listHeartRateSamplesBySource(HR_SOURCE.CAMERA_PPG, db)).toHaveLength(1);
     expect(await listHeartRateSamplesBySource(HR_SOURCE.MANUAL, db)).toHaveLength(1);
   });
+
+  it('stores a real BLE-derived rmssdMs alongside its bpm', async () => {
+    const entry = await recordHeartRateSample({ bpm: 62, source: HR_SOURCE.BLE, rmssdMs: 48 }, db);
+    expect(entry.rmssdMs).toBe(48);
+    const [stored] = await listRecentHeartRateSamples(1, db);
+    expect(stored.rmssdMs).toBe(48);
+  });
+
+  it('a sample with no rmssdMs passed stores it as null, never fabricated', async () => {
+    const entry = await recordHeartRateSample({ bpm: 70, source: HR_SOURCE.BLE }, db);
+    expect(entry.rmssdMs).toBeNull();
+  });
 });

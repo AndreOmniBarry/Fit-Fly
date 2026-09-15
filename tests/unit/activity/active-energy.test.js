@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sumActiveEnergy, isSameLocalDay } from '../../../js/features/activity/active-energy.js';
+import { sumActiveEnergy, isSameLocalDay, buildActiveEnergySegments } from '../../../js/features/activity/active-energy.js';
 
 describe('sumActiveEnergy', () => {
   it('is null when every source is null — never a fabricated 0', () => {
@@ -36,5 +36,32 @@ describe('isSameLocalDay', () => {
 
   it('is false for tomorrow', () => {
     expect(isSameLocalDay(new Date(2026, 2, 16, 0, 1, 0).toISOString(), today)).toBe(false);
+  });
+});
+
+describe('buildActiveEnergySegments', () => {
+  it('is empty with nothing real to show — never a fake full or empty ring', () => {
+    expect(buildActiveEnergySegments([{ source: 'steps', kcal: null }, { source: 'run', kcal: null }])).toEqual([]);
+  });
+
+  it('drops sources that are null or zero, keeps only the real contributors', () => {
+    const segments = buildActiveEnergySegments([
+      { source: 'steps', kcal: 100 },
+      { source: 'run', kcal: null },
+      { source: 'activity', kcal: 0 },
+    ]);
+    expect(segments).toEqual([{ source: 'steps', kcal: 100, fraction: 1 }]);
+  });
+
+  it('splits fractions proportionally across real contributors, summing to 1', () => {
+    const segments = buildActiveEnergySegments([
+      { source: 'steps', kcal: 150 },
+      { source: 'run', kcal: 50 },
+    ]);
+    expect(segments).toEqual([
+      { source: 'steps', kcal: 150, fraction: 0.75 },
+      { source: 'run', kcal: 50, fraction: 0.25 },
+    ]);
+    expect(segments.reduce((sum, s) => sum + s.fraction, 0)).toBeCloseTo(1);
   });
 });

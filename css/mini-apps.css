@@ -135,6 +135,17 @@
      glow/ring color follow whichever theme it's actually drawn on
      instead of Sleep's amber leaking into Focus. Default: Sleep's amber. */
   --pacer-accent-rgb:245,198,109;
+
+  /* ---------- Hub hero cards: the "Your Recent Stats" row + the "Stay
+     Active" banner summarize across every mini-app, so they get their own
+     small palette rather than borrowing one app's identity. Calories gets
+     one warm hue family (varying only in opacity per real source, see
+     hub-view.ts's ring segments) instead of mixing every contributing
+     app's own accent into one clashing ring. ---------- */
+  --hub-hero-gradient-start:#34d399;
+  --hub-hero-gradient-end:#0ea5a0;
+  --calories-accent:#fb923c;
+  --calories-accent-soft:rgba(251,146,60,0.14);
 }
 
 /* ---------- shared night-surface mechanics (Sleep + Focus) ---------- */
@@ -416,6 +427,117 @@
    perspective; .hub-tile is a .tilt-card, .hub-tile-face a .tilt-press;
    .hub-tile-icon and .hub-tile-kinetic carry data-tilt-depth.
    ========================================================================== */
+
+/* ---------- greeting header ---------- */
+.hub-header{ margin-bottom:var(--space-4); }
+.hub-greeting-eyebrow{
+  margin-top:var(--space-4); font-size:var(--fs-sm); font-weight:700;
+  color:var(--ink-2); text-transform:uppercase; letter-spacing:0.06em;
+}
+.hub-greeting-name{
+  font-family:var(--miniapp-font-display); font-weight:400;
+  font-size:var(--fs-2xl); color:var(--ink-0); margin-top:2px;
+}
+
+/* ---------- "Stay Active" hero CTA ---------- */
+.hub-cta-banner{
+  display:block; width:100%; text-align:left; border:none; border-radius:var(--radius-lg);
+  margin:var(--space-4) 0; overflow:hidden; isolation:isolate;
+  background:linear-gradient(120deg, var(--hub-hero-gradient-start) 0%, var(--hub-hero-gradient-end) 100%);
+  box-shadow:0 16px 32px -18px rgba(14,165,160,0.55);
+}
+.hub-cta-face{
+  display:flex; align-items:center; gap:var(--space-3);
+  padding:var(--space-4);
+}
+.hub-cta-icon{
+  flex-shrink:0; width:42px; height:42px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,0.22); color:#fff;
+}
+.hub-cta-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.hub-cta-title{ font-size:var(--fs-lg); color:#fff; }
+.hub-cta-sub{ font-size:var(--fs-sm); color:rgba(255,255,255,0.85); font-weight:600; }
+.hub-cta-arrow{
+  flex-shrink:0; color:rgba(255,255,255,0.9);
+  width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,0.16);
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ---------- "Your Recent Stats" hero cards ---------- */
+.hub-stats-heading{
+  font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;
+  color:var(--ink-2); margin-bottom:var(--space-2);
+}
+.hub-stats-grid{
+  display:grid; grid-template-columns:1.15fr 1fr; gap:var(--space-3);
+  margin-bottom:var(--space-5); perspective:1000px;
+}
+.hub-stat-card{
+  position:relative; border-radius:var(--radius-lg); padding:var(--space-3) var(--space-3) var(--space-4);
+  color:#fff; overflow:hidden; isolation:isolate;
+}
+.hub-stat-card .stack{ display:flex; flex-direction:column; gap:var(--space-1); height:100%; }
+.hub-stat-card-col{ display:flex; flex-direction:column; gap:var(--space-3); }
+.hub-stat-card-top{ display:flex; align-items:center; gap:6px; }
+.hub-stat-icon{
+  width:22px; height:22px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,0.16);
+}
+.hub-stat-label{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; opacity:0.75; }
+.hub-stat-value{
+  font-family:var(--miniapp-font-display); font-weight:400;
+  font-size:var(--fs-3xl); line-height:1.05; margin-top:var(--space-2);
+}
+.hub-stat-value--sm{ font-size:var(--fs-xl); margin-top:var(--space-1); }
+.hub-stat-sub{ font-size:12px; font-weight:600; opacity:0.8; }
+.hub-stat-empty{ font-size:12px; font-weight:600; opacity:0.65; margin-top:var(--space-1); }
+
+.hub-stat-card--steps{
+  background:linear-gradient(150deg, var(--steps-bg-mid) 0%, var(--steps-bg-start) 55%, #1f3d1a 100%);
+  box-shadow:0 14px 30px -16px rgba(21,43,18,0.5);
+  display:flex; flex-direction:column;
+}
+.hub-stat-card--steps .hub-stat-icon{ background:var(--steps-accent-soft); color:var(--steps-accent); }
+.hub-stat-card--steps .hub-stat-sub{ color:var(--steps-accent); opacity:1; }
+.hub-stat-steps-chart{ margin-top:auto; padding-top:var(--space-3); }
+/* A compact real 7-bar trend (js/lib/trend-chart.ts, reused as-is) —
+   the labels stay off here, the card's already tiny; each bar's real
+   value/day is still in its aria-label and tap/hover tooltip. */
+.hub-stat-steps-chart .trend-chart-bars{ height:52px; gap:5px; }
+.hub-stat-steps-chart .trend-chart-bar{ background:none; }
+.hub-stat-steps-chart .trend-chart-bar-fill{ background:rgba(255,255,255,0.25); }
+.hub-stat-steps-chart .trend-chart-bar-fill--highlighted{ background:var(--steps-accent); }
+.hub-stat-steps-chart .trend-chart-bar-label{ display:none; }
+
+.hub-stat-card--calories{
+  background:linear-gradient(150deg, #3d2410 0%, #2a1808 55%, #1c1105 100%);
+  box-shadow:0 14px 30px -16px rgba(42,24,8,0.5);
+}
+.hub-stat-card--calories .hub-stat-icon{ background:var(--calories-accent-soft); color:var(--calories-accent); }
+.hub-stat-ring-wrap{ position:relative; width:60px; height:60px; margin:var(--space-2) auto 0; }
+.hub-stat-ring{ width:100%; height:100%; transform:rotate(-90deg); }
+.hub-stat-ring-track{ fill:none; stroke:rgba(255,255,255,0.14); stroke-width:6; }
+.hub-stat-ring-segment{ fill:none; stroke-width:6; stroke-linecap:round; transition:stroke-dasharray 1s cubic-bezier(.16,1,.3,1); }
+.hub-stat-ring-value{
+  position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:0; text-align:center; line-height:1.1;
+}
+.hub-stat-ring-value strong{
+  font-family:var(--miniapp-font-display); font-weight:400; font-size:15px;
+}
+.hub-stat-ring-value small{
+  font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; opacity:0.7;
+}
+
+.hub-stat-card--water{
+  background:linear-gradient(150deg, var(--hydration-bg-mid) 0%, var(--hydration-bg-start) 55%, #0f3d42 100%);
+  box-shadow:0 14px 30px -16px rgba(10,43,48,0.5);
+}
+.hub-stat-card--water .hub-stat-icon{ background:var(--hydration-accent-soft); color:var(--hydration-accent); }
+.hub-stat-water-chart{ width:100%; height:36px; margin-top:var(--space-1); overflow:visible; }
+
 .hub-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));

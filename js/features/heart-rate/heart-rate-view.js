@@ -145,14 +145,25 @@ export function initHeartRateFeature() {
   // beats, not just whatever one notification happened to carry. Reset
   // on every new connect, same lifecycle as bleConnection itself.
   let sessionRrIntervalsMs = [];
+  // The most recent real rmssd/bpm this live session actually computed —
+  // what gets persisted once, on disconnect (see onDisconnect below), so
+  // the one number that WAS live-displayed doesn't just vanish when the
+  // screen/connection closes. Never persisted per-tick: that would write
+  // one row per RR-interval notification instead of one real reading per
+  // session.
+  let lastSessionRmssdMs = null;
+  let lastSessionBpm = null;
 
   byId('btn-hr-ble-connect').addEventListener('click', async () => {
     byId('hr-ble-status').textContent = 'Connecting…';
     byId('hr-ble-hrv').hidden = true;
     sessionRrIntervalsMs = [];
+    lastSessionRmssdMs = null;
+    lastSessionBpm = null;
     bleConnection = await connectHeartRateMonitor({
       onReading: async (bpm, rrIntervalsMs) => {
         byId('hr-ble-status').textContent = `Connected — last reading ${bpm} bpm`;
+        lastSessionBpm = bpm;
         await recordHeartRateSample({ bpm, source: HR_SOURCE.BLE });
 
         // Only some straps report RR-intervals at all (see
@@ -163,6 +174,7 @@ export function initHeartRateFeature() {
           sessionRrIntervalsMs.push(...rrIntervalsMs);
           const rmssd = calculateRmssd(sessionRrIntervalsMs);
           if (rmssd != null) {
+            lastSessionRmssdMs = rmssd;
             byId('hr-ble-hrv-value').textContent = `${rmssd} ms`;
             byId('hr-ble-hrv').hidden = false;
           }
@@ -170,10 +182,20 @@ export function initHeartRateFeature() {
 
         await renderHistory();
       },
-      onDisconnect: () => {
+      onDisconnect: async () => {
         byId('hr-ble-status').textContent = 'Disconnected.';
         bleConnection = null;
         byId('hr-ble-hrv').hidden = true;
+
+        // Persist the real HRV this session actually computed — once,
+        // here, rather than on every RR-interval tick above. A session
+        // that never accumulated enough RR-intervals for a real RMSSD
+        // (see hrv.js's MIN_INTERVALS_FOR_RMSSD) writes nothing extra;
+        // the plain bpm readings already recorded per-tick stand as-is.
+        if (lastSessionRmssdMs != null) {
+          await recordHeartRateSample({ bpm: lastSessionBpm, source: HR_SOURCE.BLE, rmssdMs: lastSessionRmssdMs });
+          await renderHistory();
+        }
       },
       onError: (error) => {
         byId('hr-ble-status').textContent = error.message;

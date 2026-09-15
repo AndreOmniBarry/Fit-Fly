@@ -25,7 +25,7 @@ function boundaryAwakeFraction(quality) {
 export function buildHypnogramModel(durationMinutes, quality = null) {
     const emptyStageMinutes = { awake: 0, rem: 0, light: 0, deep: 0 };
     if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
-        return { segments: [], totalMinutes: 0, stageMinutes: emptyStageMinutes, stagePercent: { ...emptyStageMinutes } };
+        return { segments: [], totalMinutes: 0, stageMinutes: emptyStageMinutes, stagePercent: { ...emptyStageMinutes }, cycleCount: 0 };
     }
     // Sleep-onset latency: a real, near-universal opening stretch of light
     // wakefulness before sleep proper starts — modeled as a small, capped
@@ -85,7 +85,7 @@ export function buildHypnogramModel(durationMinutes, quality = null) {
         light: Math.round((stageMinutes.light / durationMinutes) * 100),
         deep: Math.round((stageMinutes.deep / durationMinutes) * 100),
     };
-    return { segments, totalMinutes: durationMinutes, stageMinutes, stagePercent };
+    return { segments, totalMinutes: durationMinutes, stageMinutes, stagePercent, cycleCount: effectiveCycles };
 }
 export const STAGE_LABEL = {
     awake: 'Awake',
@@ -100,6 +100,7 @@ export function hypnogramSummaryLine(model, category) {
     if (model.totalMinutes === 0)
         return '';
     const parts = [
+        `${model.cycleCount} sleep cycle${model.cycleCount === 1 ? '' : 's'}`,
         `${model.stagePercent.deep}% deep`,
         `${model.stagePercent.rem}% REM`,
         `${model.stagePercent.light}% light`,

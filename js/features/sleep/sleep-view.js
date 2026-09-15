@@ -15,6 +15,7 @@ import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } fro
 import { calculateSleepDebtWithNaps, describeNapDebtCredit } from './nap-debt.js';
 import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
+import { calculateSleepTimingVariability } from './sleep-timing-variability.js';
 import { bucketSleepInsightNights, buildSleepInsightAreaGeometry } from './sleep-insight-chart.js';
 import { computeNapTimes, computeSleepLogTimes } from './sleep-duration.js';
 import { describeNapsForDate } from './nap-summary.js';
@@ -24,7 +25,10 @@ import { formatClockTime, formatDurationHM, formatTimeInputValue } from './forma
 import { setSleepTileScore, setSleepTileSubtitle } from '../hub/hub-view.js';
 import { calculateReadiness, readinessActionSuggestion } from '../recovery/readiness.js';
 import { getReadinessCheckinForDate, saveReadinessCheckin, } from '../../db/repositories/readiness.js';
-import { listRecentSessions } from '../../db/repositories/sessions.js';
+import { listRecentSessions, listSessionsWithRpeSince, listSetsForSession } from '../../db/repositories/sessions.js';
+import { calculateAcuteChronicWorkloadRatio, dailyTrainingLoadsFromSessions } from '../programs/training-load.js';
+import { HR_SOURCE, listRecentHeartRateSamples } from '../../db/repositories/heart-rate.js';
+import { calculateHrvBaselineDeviation, dailyHrvFromSamples } from '../heart-rate/hrv-baseline.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import { formatBucketAxisLabel, formatBucketDetailLabel, timeRangeBounds, timeRangeDescription, } from '../../lib/time-range.js';
 function byId(id) {
@@ -215,8 +219,14 @@ export function initSleepFeature() {
         }
         byId('sleep-hypnogram-start').textContent = log.bedTime ? formatClockTime(log.bedTime) : '—';
         byId('sleep-hypnogram-end').textContent = log.wakeTime ? formatClockTime(log.wakeTime) : '—';
+        byId('sleep-hypnogram-cycles').textContent =
+            model.cycleCount > 0 ? `· ${model.cycleCount} cycle${model.cycleCount === 1 ? '' : 's'}` : '';
+        // Duration alongside share — "18% · 1h 26m" reads as a real quantity,
+        // not just a proportion of the night, the same "give the actual
+        // number, not only its share" rule Steps'/Hydration's own trend
+        // tooltips already follow.
         const legend = byId('sleep-hypnogram-legend');
-        legend.innerHTML = STAGE_ORDER.map((stage) => `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}%</span>`).join('');
+        legend.innerHTML = STAGE_ORDER.map((stage) => `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}% · ${formatDurationHM(model.stageMinutes[stage])}</span>`).join('');
     }
     function renderResult(log) {
         byId('sleep-log-form').hidden = true;
@@ -304,8 +314,27 @@ export function initSleepFeature() {
         const napCreditNote = describeNapDebtCredit(debt.napCreditMinutes);
         debtEl.title = napCreditNote ? `${describeSleepDebt(debt)} ${napCreditNote}` : describeSleepDebt(debt);
         renderInsightFactors();
+        renderSleepTimingVariability();
         byId('sleep-insight-empty').hidden = recentLogs.length > 0;
         void loadInsightChart();
+    }
+    /** SD of sleep midpoint across recentLogs — see
+     *  sleep-timing-variability.ts's own doc comment for what this is and
+     *  why it's separate from bedtime-only consistency. Stays hidden until
+     *  there's enough data (2+ nights with a logged bedtime) to say
+     *  anything real. */
+    function renderSleepTimingVariability() {
+        const card = byId('sleep-timing-variability-card');
+        const result = calculateSleepTimingVariability(recentLogs);
+        if (result.stdDevMinutes == null) {
+            card.hidden = true;
+            return;
+        }
+        card.hidden = false;
+        byId('sleep-timing-variability-value').textContent = `±${formatDurationHM(result.stdDevMinutes)}`;
+        byId('sleep-timing-variability-copy').textContent = result.elevated
+            ? `Your sleep midpoint (bedtime plus half the night) has been swinging a lot over ${result.nightsConsidered} nights — research links irregular sleep timing to higher cardiovascular risk, independent of how long you sleep.`
+            : `How much your sleep midpoint moves night to night, over ${result.nightsConsidered} nights — a smaller number means steadier timing.`;
     }
     /** The chart's own data fetch — every logged night ever, not just the
      *  14-night window `recentLogs` caps at, since a 6M/Y view has to reach
@@ -370,21 +399,43 @@ export function initSleepFeature() {
         const width = 320;
         const height = 140;
         const geometry = buildSleepInsightAreaGeometry(buckets.map((bucket) => bucket.durationMinutes), { width, height });
+        // Deeper, glowing "premium slope" treatment — same real geometry as
+        // before, purely richer rendering: a taller 3-stop gradient fill, a
+        // soft blurred glow riding under the crisp line, and dots with a
+        // faint halo + bright core instead of a single flat fill. Nothing
+        // here changes what a point *is*, only how it looks.
         const ns = 'http://www.w3.org/2000/svg';
         const defs = document.createElementNS(ns, 'defs');
         defs.innerHTML =
-            '<linearGradient id="sleepInsightAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.4"/><stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/></linearGradient>';
+            '<linearGradient id="sleepInsightAreaGrad" x1="0" y1="0" x2="0" y2="1">' +
+                '<stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.5"/>' +
+                '<stop offset="55%" stop-color="var(--sleep-accent)" stop-opacity="0.16"/>' +
+                '<stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/>' +
+                '</linearGradient>' +
+                '<filter id="sleepInsightGlow" x="-20%" y="-60%" width="140%" height="220%">' +
+                '<feGaussianBlur stdDeviation="5" result="blur"/>' +
+                '</filter>';
         svg.append(defs);
         const area = document.createElementNS(ns, 'path');
         area.setAttribute('d', geometry.areaPath);
         area.setAttribute('fill', 'url(#sleepInsightAreaGrad)');
         area.setAttribute('stroke', 'none');
         svg.append(area);
+        const glow = document.createElementNS(ns, 'path');
+        glow.setAttribute('d', geometry.linePath);
+        glow.setAttribute('fill', 'none');
+        glow.setAttribute('stroke', 'var(--sleep-accent)');
+        glow.setAttribute('stroke-width', '6');
+        glow.setAttribute('stroke-linecap', 'round');
+        glow.setAttribute('stroke-linejoin', 'round');
+        glow.setAttribute('opacity', '0.35');
+        glow.setAttribute('filter', 'url(#sleepInsightGlow)');
+        svg.append(glow);
         const line = document.createElementNS(ns, 'path');
         line.setAttribute('d', geometry.linePath);
         line.setAttribute('fill', 'none');
         line.setAttribute('stroke', 'var(--sleep-accent)');
-        line.setAttribute('stroke-width', '2.5');
+        line.setAttribute('stroke-width', '3');
         line.setAttribute('stroke-linecap', 'round');
         line.setAttribute('stroke-linejoin', 'round');
         svg.append(line);
@@ -393,14 +444,27 @@ export function initSleepFeature() {
             if (!point)
                 return;
             const dotColor = CATEGORY_DOT_COLOR[bucket.category];
+            const halo = document.createElementNS(ns, 'circle');
+            halo.setAttribute('cx', String(point.x));
+            halo.setAttribute('cy', String(point.y));
+            halo.setAttribute('r', '9');
+            halo.setAttribute('fill', dotColor);
+            halo.setAttribute('opacity', '0.18');
+            svg.append(halo);
             const dot = document.createElementNS(ns, 'circle');
             dot.setAttribute('cx', String(point.x));
             dot.setAttribute('cy', String(point.y));
             dot.setAttribute('r', '4.5');
             dot.setAttribute('fill', dotColor);
-            dot.setAttribute('stroke', 'rgba(6,10,8,0.55)');
+            dot.setAttribute('stroke', 'rgba(8,14,12,0.5)');
             dot.setAttribute('stroke-width', '1.5');
             svg.append(dot);
+            const core = document.createElementNS(ns, 'circle');
+            core.setAttribute('cx', String(point.x));
+            core.setAttribute('cy', String(point.y));
+            core.setAttribute('r', '1.6');
+            core.setAttribute('fill', 'rgba(255,255,255,0.85)');
+            svg.append(core);
             // A real, natively-focusable/tappable <button> laid over each SVG
             // point — same tap/hover/focus-reveals, blur/leave-hides tooltip
             // contract as js/lib/trend-chart.ts's own bars, just positioned over
@@ -566,6 +630,42 @@ export function initSleepFeature() {
         const cutoff = Date.now() - withinDays * 24 * 60 * 60 * 1000;
         return sessions.filter((s) => new Date(s.startedAt).getTime() >= cutoff).length;
     }
+    // calculateAcuteChronicWorkloadRatio's own chronic window is 28 real
+    // calendar days — this fetches a couple of days further back than that
+    // purely as a timezone-safety margin (sinceIso is compared against
+    // startedAt, a UTC timestamp, while the window math below reasons in
+    // local calendar days), never to change what the ratio itself covers.
+    const ACWR_HISTORY_LOOKBACK_DAYS = 30;
+    /** Real Acute:Chronic Workload Ratio (see js/features/programs/
+     *  training-load.js) built from this person's actual logged
+     *  session-RPE history — null-ratio'd (see that module's own sparse-
+     *  history handling) until a real week of it exists, in which case
+     *  calculateReadiness below just keeps using the recentSessionCount
+     *  fallback it always has. */
+    async function computeTodayAcwr() {
+        const since = new Date();
+        since.setDate(since.getDate() - ACWR_HISTORY_LOOKBACK_DAYS);
+        const sessions = await listSessionsWithRpeSince(since.toISOString());
+        const sessionsWithSets = await Promise.all(sessions.map(async (session) => ({ session, sets: await listSetsForSession(session.id) })));
+        const dailyLoads = dailyTrainingLoadsFromSessions(sessionsWithSets);
+        return calculateAcuteChronicWorkloadRatio(dailyLoads, todayDateString());
+    }
+    // Same wide-fetch shape heart-rate-view.js's own renderHistory already
+    // uses (500 — enough real history to comfortably cover hrv-baseline.js's
+    // 7-day rolling window even alongside frequent camera/manual entries).
+    const HRV_HISTORY_FETCH_LIMIT = 500;
+    /** Real personal-baseline HRV deviation (see js/features/heart-rate/
+     *  hrv-baseline.js) built from this person's actual logged BLE-strap
+     *  RMSSD history — null-deviation'd (see that module's own sparse-
+     *  history handling) until a real personal baseline exists, in which
+     *  case calculateReadiness below simply doesn't add the hrv component
+     *  at all. */
+    async function computeRecentHrvDeviation() {
+        const samples = await listRecentHeartRateSamples(HRV_HISTORY_FETCH_LIMIT);
+        const bleHrvSamples = samples.filter((s) => s.source === HR_SOURCE.BLE && s.rmssdMs != null);
+        const dailyReadings = dailyHrvFromSamples(bleHrvSamples);
+        return calculateHrvBaselineDeviation(dailyReadings, todayDateString());
+    }
     function renderReadinessResult(result) {
         const categoryEl = byId('sleep-readiness-category');
         categoryEl.hidden = false;
@@ -624,7 +724,9 @@ export function initSleepFeature() {
             return;
         const recentSessionCount = await countRecentReadinessSessions();
         const sleepDebtMinutes = recentLogs.length > 0 ? calculateSleepDebt(recentLogs).debtMinutes : null;
-        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes });
+        const acwr = await computeTodayAcwr(); // replaces recentSessionCount's load score below once real ACWR history exists — see calculateReadiness's own doc comment
+        const hrvDeviation = await computeRecentHrvDeviation(); // adds a real hrv component below once a real personal BLE-HRV baseline exists — see calculateReadiness's own doc comment
+        const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes, acwr, hrvDeviation });
         if (!result)
             return; // calculateReadiness's own "not enough input" guard — unreachable given the hasInput check above, kept for type safety
         await saveReadinessCheckin({

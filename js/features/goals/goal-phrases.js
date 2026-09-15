@@ -11,51 +11,62 @@
 
 import { MILESTONE_MESSAGES } from './milestones.js';
 
+// Gain-framed, deliberately: real meta-analytic evidence finds gain-framed
+// messages ("do this and gain X") outperform loss-framed ones ("do this or
+// lose X") specifically for low-risk, maintenance-type behaviors — sleep,
+// hydration, steps, exercise habits, all of what Goals actually covers
+// (loss-framing's own edge shows up for high-risk detection behaviors like
+// a cancer screening, not this). These phrases used to lean on "breaking,"
+// "resetting to zero," "running dry," "slipping," "flatline" — real loss
+// language for exactly the behaviors the evidence says respond better to
+// the opposite framing. Rewritten around what logging today actually adds,
+// not what skipping it would cost — see reminders.js's own body line for
+// the same fix applied to the real streak number underneath the title.
 export const STREAK_RISK_PHRASES = Object.freeze({
   walk: [
-    "Don't let your walk streak nap today — a short stroll keeps it alive.",
-    'Your walking streak is one skipped day from resetting to zero.',
-    "Time to smash your walk streak — lace up before the day gets away.",
+    'A short stroll today grows your walk streak by one more day.',
+    'Log a walk today and keep building toward your longest streak yet.',
+    "Lace up — today's walk adds another day to a real streak.",
   ],
   run: [
-    "Your run streak is on the line — even a short shakeout run keeps it going.",
-    'One more run today and your streak lives to fight another day.',
-    "Time to smash your run streak before it slips.",
+    'Even a short shakeout run extends your streak by one more day.',
+    'One more run today and your streak grows again.',
+    'A quick run today keeps your real momentum building.',
   ],
   hydration: [
-    "Your hydration streak's about to run dry — a few glasses keeps it flowing.",
-    "Don't let today be the day your water streak dries up.",
-    'A quick glass of water now saves the whole streak.',
+    'A few glasses today extends your hydration streak by one more day.',
+    'Log some water today and keep your streak growing.',
+    'One more day logged, one more day added to your hydration streak.',
   ],
   sleep: [
-    'Your sleep streak needs tonight logged to stay alive.',
-    "One more good night keeps your sleep streak going strong.",
-    "Don't let a great sleep streak slip — log tonight's.",
+    "Log tonight and your sleep streak grows to another good night.",
+    'One more night logged extends your real sleep streak.',
+    "Tonight's log adds another night to a streak that's already working.",
   ],
   strength: [
-    'Your lifting streak is one session from breaking.',
-    'Get under the bar today — your strength streak is counting on it.',
-    "Time to smash your streak — one more session keeps it standing.",
+    'One more session today grows your lifting streak by a day.',
+    'Get under the bar today and extend your real streak.',
+    'A session today adds another day to your strength streak.',
   ],
   weight: [
-    'Your check-in streak needs today logged to keep its momentum.',
-    "Don't let today be the gap in an otherwise solid streak.",
-    'A quick check-in today keeps your streak intact.',
+    'A quick check-in today extends your streak by one more day.',
+    "Log today and keep your check-in streak growing.",
+    "Today's check-in adds another day to your real streak.",
   ],
   cardio: [
-    'Your endurance streak needs a session today to stay alive.',
-    "One more cardio session keeps that streak breathing.",
-    "Don't let your endurance streak flatline — get the heart rate up today.",
+    'A session today extends your endurance streak by one more day.',
+    'Get the heart rate up today and keep your streak building.',
+    "One more session today, one more day added to a real streak.",
   ],
   skill: [
-    'Your practice streak is one skipped rep session from resetting.',
-    "A quick technique session today keeps your skill streak sharp.",
-    "Don't let today be the day the reps stop.",
+    'A quick technique session today extends your practice streak.',
+    'One more rep session today adds a day to your skill streak.',
+    "Today's practice grows a streak that's already paying off.",
   ],
   generic: [
-    "Your streak is one day from breaking — a quick update saves it.",
-    "Time to smash your streak before it resets to zero.",
-    "Don't let today be the day the streak ends.",
+    'A quick update today extends your streak by one more day.',
+    'Log today and keep your real streak growing.',
+    "Today's log adds another day to a streak that's already working.",
   ],
 });
 

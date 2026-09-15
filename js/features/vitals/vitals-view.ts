@@ -48,6 +48,13 @@ import { celsiusToFahrenheit, fahrenheitToCelsius } from '../../lib/units.js';
 import type { BloodPressureSampleEntry } from '../../db/repositories/blood-pressure.js';
 import type { Spo2SampleEntry } from '../../db/repositories/spo2.js';
 import type { BodyTemperatureSampleEntry } from '../../db/repositories/body-temperature.js';
+import { estimateVo2maxCooper, estimateVo2maxRockport } from './vo2max-estimate.js';
+import type { Vo2maxProtocol } from './vo2max-estimate.js';
+import { summarizeVo2maxTrend } from './vo2max-trend.js';
+import { listRecentVo2maxTests, recordVo2maxTest } from '../../db/repositories/vo2max-tests.js';
+import type { Vo2maxTestEntry } from '../../db/repositories/vo2max-tests.js';
+import { getProfile } from '../../db/repositories/profile.js';
+import { calculateAge } from '../onboarding/age.js';
 
 // Manual entry is in °F (the everyday unit for a home/oral thermometer in
 // the US) but every reading is stored in Celsius — the same unit the BLE
@@ -76,6 +83,7 @@ let bpRange: TimeRangeKey = 'W';
 let spo2Range: TimeRangeKey = 'W';
 let cachedBpSamples: BloodPressureSampleEntry[] = [];
 let cachedSpo2Samples: Spo2SampleEntry[] = [];
+let vo2maxProtocol: Vo2maxProtocol = 'cooper';
 
 const SOURCE_LABEL: Record<'manual' | 'ble', string> = { manual: 'Manual', ble: 'BLE Device' };
 
@@ -245,6 +253,55 @@ export function initVitalsFeature(): void {
     });
   });
 
+  // ---------- VO2max: Cooper / Rockport field tests ----------
+  initChipGroup<Vo2maxProtocol>(byId('vitals-vo2max-protocol'), {
+    initial: vo2maxProtocol,
+    onChange: (value) => {
+      vo2maxProtocol = value;
+      byId('vitals-vo2max-cooper-form').hidden = value !== 'cooper';
+      byId('vitals-vo2max-rockport-form').hidden = value !== 'rockport';
+    },
+  });
+
+  void refreshVo2maxProfileNote();
+
+  byId('btn-vitals-vo2max-cooper-save').addEventListener('click', async () => {
+    const distanceMeters = Number(byId<HTMLInputElement>('vitals-vo2max-distance-m').value);
+    const result = distanceMeters > 0 ? estimateVo2maxCooper(distanceMeters) : null;
+    byId('err-vitals-vo2max-cooper').hidden = result != null;
+    if (!result) return;
+
+    await recordVo2maxTest({ vo2max: result.vo2max, protocol: 'cooper', inputs: { distanceMeters } });
+    byId<HTMLInputElement>('vitals-vo2max-distance-m').value = '';
+    await refreshAll();
+  });
+
+  byId('btn-vitals-vo2max-rockport-save').addEventListener('click', async () => {
+    const timeMinutes = Number(byId<HTMLInputElement>('vitals-vo2max-time-min').value);
+    const heartRateBpm = Number(byId<HTMLInputElement>('vitals-vo2max-hr').value);
+    const profile = await getProfile();
+    const weightKg = profile?.weightKg ?? null;
+    const ageYears = profile?.birthdate ? calculateAge(profile.birthdate) : null;
+    const sex = profile?.sex === 'male' || profile?.sex === 'female' ? profile.sex : null;
+
+    if (weightKg == null || ageYears == null || sex == null) {
+      byId('err-vitals-vo2max-rockport').hidden = false;
+      return;
+    }
+    const result = estimateVo2maxRockport({ weightKg, ageYears, sex, timeMinutes, heartRateBpm });
+    byId('err-vitals-vo2max-rockport').hidden = result != null;
+    if (!result) return;
+
+    await recordVo2maxTest({
+      vo2max: result.vo2max,
+      protocol: 'rockport',
+      inputs: { weightKg, ageYears, sex, timeMinutes, heartRateBpm },
+    });
+    byId<HTMLInputElement>('vitals-vo2max-time-min').value = '';
+    byId<HTMLInputElement>('vitals-vo2max-hr').value = '';
+    await refreshAll();
+  });
+
   byId('btn-home-vitals').addEventListener('click', () => {
     void refreshAll();
   });
@@ -273,10 +330,11 @@ async function refreshAll(): Promise<void> {
   // Steps'/Hydration's own listAll*Entries() take — so the range charts
   // below can genuinely cover a full year, not just whatever a small
   // fixed limit happened to include.
-  const [bpSamples, spo2Samples, tempSamples] = await Promise.all([
+  const [bpSamples, spo2Samples, tempSamples, vo2maxTests] = await Promise.all([
     listRecentBloodPressureSamples(500),
     listRecentSpo2Samples(500),
     listRecentBodyTemperatureSamples(500),
+    listRecentVo2maxTests(500),
   ]);
 
   cachedBpSamples = bpSamples;
@@ -290,7 +348,27 @@ async function refreshAll(): Promise<void> {
   renderSpo2History(spo2Samples.slice(0, 20));
   renderTempTrend(tempSamples);
   renderTempHistory(tempSamples.slice(0, 20));
+  renderVo2maxTrend(vo2maxTests);
+  renderVo2maxHistory(vo2maxTests.slice(0, 20));
   renderStats(bpSamples, spo2Samples, tempSamples);
+}
+
+/** Shows what the Rockport formula will actually use (real profile
+ *  weight/age/sex) right above its own form, or an honest heads-up when
+ *  one's missing — never a silent, invisible failure once Save is
+ *  pressed instead. */
+async function refreshVo2maxProfileNote(): Promise<void> {
+  const profile = await getProfile();
+  const note = byId('vitals-vo2max-rockport-profile-note');
+  const weightKg = profile?.weightKg ?? null;
+  const ageYears = profile?.birthdate ? calculateAge(profile.birthdate) : null;
+  const sex = profile?.sex === 'male' || profile?.sex === 'female' ? profile.sex : null;
+
+  if (weightKg == null || ageYears == null || sex == null) {
+    note.textContent = 'Add your weight, birthdate, and sex in Profile first — this formula needs all three.';
+    return;
+  }
+  note.textContent = `Uses your profile: ${Math.round(weightKg)}kg, ${ageYears}y, ${sex}. Walk exactly 1 mile as fast as you can sustain, then enter your time and your heart rate measured right at the finish.`;
 }
 
 function renderStats(
@@ -549,5 +627,66 @@ function renderTempHistory(samples: BodyTemperatureSampleEntry[]): void {
         </div>
       `;
     })
+    .join('');
+}
+
+const PROTOCOL_LABEL: Record<Vo2maxProtocol, string> = { cooper: '12-min run', rockport: '1-mile walk' };
+
+function formatVo2max(value: number): string {
+  return `${value.toFixed(1)} ml/kg/min`;
+}
+
+function renderVo2maxTrend(testsNewestFirst: Vo2maxTestEntry[]): void {
+  const trend = summarizeVo2maxTrend(testsNewestFirst);
+  const card = byId('vitals-vo2max-trend-card');
+  card.hidden = !trend;
+  if (!trend) return;
+
+  animateCountUp(byId('vitals-vo2max-trend-latest'), trend.latest, { formatter: formatVo2max });
+  const latestTest = testsNewestFirst[0];
+  byId('vitals-vo2max-trend-protocol').textContent = latestTest ? PROTOCOL_LABEL[latestTest.protocol] : '';
+
+  byId('vitals-vo2max-trend-count').textContent = String(trend.sampleCount);
+  byId('vitals-vo2max-trend-avg').textContent = formatVo2max(trend.average);
+  byId('vitals-vo2max-trend-range').textContent =
+    trend.min === trend.max ? formatVo2max(trend.min) : `${trend.min.toFixed(1)}–${formatVo2max(trend.max)}`;
+
+  const deltaEl = byId('vitals-vo2max-trend-delta');
+  if (trend.deltaFromPrevious == null) {
+    deltaEl.textContent = '';
+  } else if (trend.deltaFromPrevious === 0) {
+    deltaEl.textContent = 'same as last';
+  } else {
+    const sign = trend.deltaFromPrevious > 0 ? '+' : '';
+    deltaEl.textContent = `${sign}${trend.deltaFromPrevious.toFixed(1)} since last`;
+  }
+
+  const maxValue = Math.max(...trend.sparklineOldestFirst);
+  byId('vitals-vo2max-trend-bars').innerHTML = trend.sparklineOldestFirst
+    .map((value, i) => {
+      const isLatest = i === trend.sparklineOldestFirst.length - 1;
+      const heightPct = Math.max(8, Math.round((value / maxValue) * 100));
+      return `<div class="vitals-trend-bar-col"><div class="vitals-trend-bar${isLatest ? ' is-latest' : ''}" style="height:${heightPct}%" title="${formatVo2max(value)}"></div></div>`;
+    })
+    .join('');
+}
+
+function renderVo2maxHistory(tests: Vo2maxTestEntry[]): void {
+  const list = byId('vitals-vo2max-history-list');
+  if (tests.length === 0) {
+    list.innerHTML = '<p class="muted center-text">No fitness tests yet.</p>';
+    return;
+  }
+  list.innerHTML = tests
+    .map(
+      (test) => `
+        <div class="vitals-card row-between tilt-card tilt-enter">
+          <span>
+            <strong>${formatVo2max(test.vo2max)}</strong>
+            <p class="muted" style="font-size:var(--fs-sm); margin-top:2px;">${PROTOCOL_LABEL[test.protocol]} · ${formatDateLabel(test.recordedAt)}</p>
+          </span>
+        </div>
+      `
+    )
     .join('');
 }

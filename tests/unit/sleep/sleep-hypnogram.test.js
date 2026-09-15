@@ -52,6 +52,19 @@ describe('buildHypnogramModel: honesty/integrity of the model', () => {
     const model = buildHypnogramModel(50, null);
     expect(model.segments.length).toBeGreaterThan(0);
     expect(model.totalMinutes).toBe(50);
+    expect(model.cycleCount).toBeGreaterThanOrEqual(1);
+  });
+
+  it('zero or invalid duration reports zero cycles, not a fabricated count', () => {
+    for (const bad of [0, -30, NaN]) {
+      expect(buildHypnogramModel(bad, 4).cycleCount).toBe(0);
+    }
+  });
+
+  it('cycleCount scales with a real, longer night — more sleep, more ~90-minute cycles', () => {
+    const short = buildHypnogramModel(270, null); // ~3 cycles
+    const long = buildHypnogramModel(540, null); // ~6 cycles
+    expect(long.cycleCount).toBeGreaterThan(short.cycleCount);
   });
 });
 
@@ -101,6 +114,12 @@ describe('hypnogramSummaryLine', () => {
     expect(line).toContain('% deep');
     expect(line).toContain('% REM');
     expect(line).toContain('great');
+  });
+
+  it('names the real cycle count', () => {
+    const model = buildHypnogramModel(480, 4);
+    const line = hypnogramSummaryLine(model, 'great');
+    expect(line).toContain(`${model.cycleCount} sleep cycle`);
   });
 
   it('is honest and blank for an empty model', () => {

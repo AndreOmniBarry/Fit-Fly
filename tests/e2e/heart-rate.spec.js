@@ -250,3 +250,169 @@ test.describe('heart rate', () => {
     expect(consoleErrors).toEqual([]);
   });
 });
+
+// A fake Web Bluetooth adapter — real Chromium here has no actual
+// Bluetooth hardware/peer to connect to, and this repo's own Playwright
+// config carries no fake-Bluetooth-adapter flags (only the fake
+// getUserMedia device flags the camera-PPG tests above rely on) — so the
+// full connect -> GATT service -> characteristic -> notification chain
+// ble-heart-rate.js's connectHeartRateMonitor drives is otherwise
+// untestable end-to-end. This mocks just enough of the real Web
+// Bluetooth surface (device/gatt/service/characteristic, each a real
+// EventTarget-shaped object) to drive that exact chain for real, and
+// encodes/dispatches real Bluetooth SIG Heart Rate Measurement bytes
+// (see ble-heart-rate.js's own parseHeartRateMeasurement) rather than
+// calling any app internals directly.
+async function installFakeBluetoothHrStrap(page) {
+  await page.addInitScript(() => {
+    class FakeEventTarget {
+      constructor() {
+        this._listeners = new Map();
+      }
+      addEventListener(type, fn) {
+        if (!this._listeners.has(type)) this._listeners.set(type, []);
+        this._listeners.get(type).push(fn);
+      }
+      dispatch(type, event) {
+        for (const fn of this._listeners.get(type) ?? []) fn(event);
+      }
+    }
+
+    // Real Bluetooth SIG Heart Rate Measurement characteristic encoding
+    // — flag bit 4 (RR-interval present), each RR-interval in real
+    // 1/1024-second units, exactly what parseHeartRateMeasurement decodes.
+    function buildHrmDataView(bpm, rrIntervalsMs) {
+      const flags = rrIntervalsMs.length > 0 ? 0x10 : 0x00;
+      const bytes = [flags, bpm];
+      for (const rr of rrIntervalsMs) {
+        const raw = Math.round((rr / 1000) * 1024);
+        bytes.push(raw & 0xff, (raw >> 8) & 0xff);
+      }
+      return new DataView(new Uint8Array(bytes).buffer);
+    }
+
+    class FakeCharacteristic extends FakeEventTarget {
+      async startNotifications() {
+        return this;
+      }
+      notify(bpm, rrIntervalsMs = []) {
+        this.dispatch('characteristicvaluechanged', { target: { value: buildHrmDataView(bpm, rrIntervalsMs) } });
+      }
+    }
+
+    class FakeDevice extends FakeEventTarget {
+      constructor() {
+        super();
+        const characteristic = new FakeCharacteristic();
+        const service = { getCharacteristic: async () => characteristic };
+        const server = { getPrimaryService: async () => service };
+        this.characteristic = characteristic;
+        this.gatt = {
+          connect: async () => server,
+          disconnect: () => this.dispatch('gattserverdisconnected', {}),
+        };
+      }
+    }
+
+    const fakeDevice = new FakeDevice();
+    window.__fakeHrDevice = fakeDevice;
+    // Real navigator.bluetooth shape is just requestDevice() resolving to
+    // a real BluetoothDevice — isBluetoothAvailable() only checks
+    // `'bluetooth' in navigator`, so this alone is enough for the app's
+    // own feature-detect to treat BLE as available.
+    navigator.bluetooth = { requestDevice: async () => fakeDevice };
+  });
+}
+
+test.describe('heart rate: BLE HRV persistence', () => {
+  test.beforeEach(async ({ page }) => {
+    await installFakeBluetoothHrStrap(page);
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+    await page.locator('#btn-home-heart-rate').click();
+  });
+
+  test('a live BLE HRV reading is computed on-screen and persisted once the session disconnects', async ({ page }) => {
+    await expect(page.locator('#btn-hr-ble-connect')).toBeEnabled();
+    await page.locator('#btn-hr-ble-connect').click();
+    await expect(page.locator('#hr-ble-status')).toContainText('Connecting');
+
+    // Wait for connectHeartRateMonitor's own real async GATT chain (fake,
+    // but still a real await chain) to finish registering its
+    // notification listener before sending any — same real ordering a
+    // genuine strap connection would have.
+    await page.waitForFunction(
+      () => (window.__fakeHrDevice.characteristic._listeners.get('characteristicvaluechanged') ?? []).length > 0
+    );
+
+    // 12 successive real RR-intervals, alternating 800/850ms — the exact
+    // known case hrv.test.js's own unit test already hand-verifies
+    // RMSSD=50 for (encoding/decoding through the real 1/1024s BLE
+    // format rounds to the same 50ms here too).
+    await page.evaluate(async () => {
+      for (let i = 0; i < 12; i++) {
+        window.__fakeHrDevice.characteristic.notify(70, [i % 2 === 0 ? 800 : 850]);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+      }
+    });
+
+    await expect(page.locator('#hr-ble-hrv')).toBeVisible();
+    await expect(page.locator('#hr-ble-hrv-value')).toHaveText('50 ms');
+
+    // Every per-tick bpm reading was already persisted with no rmssdMs —
+    // confirms the live number isn't written per-tick, only the one real
+    // summary reading below, on disconnect.
+    const beforeDisconnect = await page.evaluate(async () => {
+      const { getDb } = await import('/js/db/client.js');
+      const samples = await getDb().heartRateSamples.toArray();
+      return { total: samples.length, withRmssd: samples.filter((s) => s.rmssdMs != null).length };
+    });
+    expect(beforeDisconnect.total).toBe(12);
+    expect(beforeDisconnect.withRmssd).toBe(0);
+
+    await page.evaluate(() => window.__fakeHrDevice.gatt.disconnect());
+    await expect(page.locator('#hr-ble-status')).toHaveText('Disconnected.');
+    await expect(page.locator('#hr-ble-hrv')).toBeHidden();
+
+    const afterDisconnect = await page.evaluate(async () => {
+      const { getDb } = await import('/js/db/client.js');
+      const samples = await getDb().heartRateSamples.toArray();
+      return samples.filter((s) => s.rmssdMs != null);
+    });
+    expect(afterDisconnect).toHaveLength(1); // exactly one real summary reading for the whole session, not one per tick
+    expect(afterDisconnect[0].rmssdMs).toBe(50);
+    expect(afterDisconnect[0].source).toBe('ble');
+    expect(afterDisconnect[0].bpm).toBe(70);
+  });
+
+  test('a session that never accumulates enough real RR-intervals persists no rmssdMs at all — never fabricated', async ({
+    page,
+  }) => {
+    await page.locator('#btn-hr-ble-connect').click();
+    await page.waitForFunction(
+      () => (window.__fakeHrDevice.characteristic._listeners.get('characteristicvaluechanged') ?? []).length > 0
+    );
+
+    // Plain bpm-only notifications — no RR-intervals at all, same as most
+    // real optical wrist straps (see ble-heart-rate.js's own doc comment).
+    await page.evaluate(async () => {
+      window.__fakeHrDevice.characteristic.notify(65, []);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      window.__fakeHrDevice.characteristic.notify(66, []);
+    });
+    await expect(page.locator('#hr-ble-status')).toContainText('66 bpm');
+    await expect(page.locator('#hr-ble-hrv')).toBeHidden();
+
+    await page.evaluate(() => window.__fakeHrDevice.gatt.disconnect());
+    await expect(page.locator('#hr-ble-status')).toHaveText('Disconnected.');
+
+    const withRmssd = await page.evaluate(async () => {
+      const { getDb } = await import('/js/db/client.js');
+      const samples = await getDb().heartRateSamples.toArray();
+      return samples.filter((s) => s.rmssdMs != null);
+    });
+    expect(withRmssd).toHaveLength(0);
+  });
+});

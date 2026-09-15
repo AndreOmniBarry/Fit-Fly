@@ -15,6 +15,7 @@ import { initGoalsFeature } from './features/goals/goals-view.js';
 import { initVoiceFeature } from './features/voice/voice-control.js';
 import { initHubFeature } from './features/hub/hub-view.js';
 import { initSleepFeature } from './features/sleep/sleep-view.js';
+import { initChronotypeFeature } from './features/chronotype/chronotype-view.js';
 import { initFocusFeature } from './features/focus/focus-view.js';
 import { initGuidedSessionFeature } from './features/focus/guided-session-view.js';
 import { initMeditateFeature } from './features/meditate/meditate-view.js';
@@ -86,6 +87,7 @@ async function init() {
   initVoiceFeature();
   initHubFeature();
   initSleepFeature();
+  initChronotypeFeature();
   initFocusFeature();
   const guidedSessionPlayer = initGuidedSessionFeature();
   initMeditateFeature(guidedSessionPlayer);

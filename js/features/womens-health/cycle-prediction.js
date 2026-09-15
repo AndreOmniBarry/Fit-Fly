@@ -145,17 +145,30 @@ export function predictNextPeriodRange(periodStartDates, options) {
 }
 
 /**
- * @returns {{start: string, end: string, ovulationDate: string}|null}
+ * The window widens by the exact same personal margin predictNextPeriodRange
+ * already computes from real logged cycle-length variability — never a
+ * single falsely-precise "peak day," and never a fixed window width
+ * regardless of how irregular the real history is. This is a direct,
+ * cited fix (Fit Fly's Phase-1 research pass): commercial cycle-app
+ * fertile-window predictions were found accurate only ~73% of the time
+ * for irregular cyclers vs. ~87% for regular ones in the reviewed
+ * wearable/ML literature, and ACOG's own guidance treats cycle tracking
+ * as a pattern-charting tool for a real clinical conversation, not a
+ * day-precise predictive instrument. Widening honestly by the same real
+ * variability predictNextPeriodRange already surfaces for the period
+ * date itself is the fix, not a second, disconnected uncertainty model.
+ * @returns {{start: string, end: string, ovulationDate: string, marginDays: number}|null}
  */
 export function predictFertileWindow(periodStartDates, options) {
-  const nextStart = predictNextPeriodStart(periodStartDates, options);
-  if (!nextStart) return null;
+  const nextRange = predictNextPeriodRange(periodStartDates, options);
+  if (!nextRange) return null;
 
-  const ovulationDate = addDays(nextStart, -LUTEAL_PHASE_DAYS);
+  const ovulationDate = addDays(nextRange.likely, -LUTEAL_PHASE_DAYS);
   return {
-    start: addDays(ovulationDate, -FERTILE_WINDOW_DAYS_BEFORE_OVULATION),
-    end: addDays(ovulationDate, FERTILE_WINDOW_DAYS_AFTER_OVULATION),
+    start: addDays(ovulationDate, -FERTILE_WINDOW_DAYS_BEFORE_OVULATION - nextRange.marginDays),
+    end: addDays(ovulationDate, FERTILE_WINDOW_DAYS_AFTER_OVULATION + nextRange.marginDays),
     ovulationDate,
+    marginDays: nextRange.marginDays,
   };
 }
 

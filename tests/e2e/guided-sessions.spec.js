@@ -12,31 +12,8 @@ async function clearAppDb(page) {
   );
 }
 
-// The built-in voice is voice guidance's default engine (see
-// js/features/focus/voice-guide.ts's own doc comment for why); Kokoro,
-// its real tens-of-megabytes on-device model, is opt-in from Settings
-// and never fetched here since nothing below opts into it. Blocking the
-// CDN/HF traffic anyway is defensive/no-op insurance against that
-// changing — see tests/e2e/voice-guide.spec.js for the tests that
-// actually exercise Kokoro's own opt-in/download/fallback behavior.
-async function blockKokoroNetwork(page) {
-  await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
-  await page.route('https://huggingface.co/**', (route) => route.abort());
-}
-
-// route.abort() on those requests still makes Chromium itself log a real
-// "Failed to load resource" console entry — a genuine browser artifact of
-// deliberately blocking that traffic, not an app bug, so it's filtered
-// out of every "zero console errors" assertion below rather than either
-// masking real errors by skipping the check, or fighting an unwinnable
-// battle to stop the browser logging a failed network request.
-function isExpectedKokoroNetworkNoise(text) {
-  return text.includes('Failed to load resource');
-}
-
 test.describe('guided sessions', () => {
   test.beforeEach(async ({ page }) => {
-    await blockKokoroNetwork(page);
     await page.goto('/');
     await clearAppDb(page);
     await page.evaluate(() => localStorage.clear());
@@ -48,7 +25,7 @@ test.describe('guided sessions', () => {
   test('shows every guided session, including the sport-specific ones, with zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
@@ -176,7 +153,7 @@ test.describe('guided sessions', () => {
   test('a full session runs through every beat to completion and returns to Focus, with zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
@@ -201,7 +178,7 @@ test.describe('guided sessions', () => {
   }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 

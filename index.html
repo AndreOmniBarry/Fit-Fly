@@ -564,56 +564,28 @@
       </span>
     </div>
 
-    <!-- VOICE GUIDE: Kokoro-82M, a real on-device neural TTS model
-         (js/features/focus/kokoro-voice.ts has the full honest story —
-         why it needs a one-time download, and why that engine loads
-         from a CDN instead of being vendored like everything else in
-         this app), is the default here — nothing to install, nothing
-         to toggle on. Its one real cost, the download, only ever
-         triggers automatically the first time a guided session or
-         meditation actually plays (js/features/focus/voice-guide.ts's
-         speak()); this screen only ever reflects that, or lets someone
-         opt back out to the always-available built-in voice. -->
+    <!-- VOICE GUIDE: the browser's own built-in Web Speech Synthesis —
+         no download, no CDN fetch, no model, no account. This app used
+         to also offer Kokoro-82M, a neural TTS model fetched on first
+         use; it was removed outright (not just demoted to opt-in) after
+         staying unreliable on real devices for too long, including after
+         a real, identified bug fix that couldn't be confirmed against
+         the actual reports. One engine, always on-device, always
+         audible (feature-detection aside), nothing left that can go
+         silent mid-session in a new way. -->
     <div class="card stack tilt-card tilt-enter">
       <span class="tilt-press stack">
         <h3>Voice guide</h3>
         <p class="muted">
-          Guided sessions and breathing pacers read their cues aloud on
-          "Natural voice" by default — a real 82-million-parameter neural
-          voice model, run entirely on this device (no server ever hears
-          your sessions), with genuinely better prosody and warmth than a
-          browser's own built-in voice. The first time you actually play
-          a guided session or meditation, it downloads automatically
-          (tens of megabytes, over a network this app otherwise never
-          uses) while that first session narrates on your device's
-          built-in voice instead — every session after it uses the real
-          thing. After that one download it's cached here and works
-          offline like everything else. Prefer to skip the download
-          entirely? Switch to the built-in voice below.
+          Guided sessions and breathing pacers read their cues aloud using
+          your device's own built-in voice — nothing to download, nothing
+          ever sent to a server. Fit Fly automatically favors your
+          platform's higher-quality voice where one is available (look
+          for "Natural"/"Enhanced"/"Neural" in your device's own voice
+          settings).
         </p>
-        <div class="field">
-          <label id="lbl-settings-voice-engine">Voice engine</label>
-          <div class="chip-group" id="settings-voice-engine" role="group" aria-labelledby="lbl-settings-voice-engine">
-            <button type="button" class="chip" data-value="kokoro" aria-pressed="true">Natural voice (Kokoro AI)</button>
-            <button type="button" class="chip" data-value="system" aria-pressed="false">Built-in (device)</button>
-          </div>
-        </div>
-        <div class="field" id="settings-voice-kokoro-voice-field" hidden>
-          <label id="lbl-settings-voice-kokoro-voice">Natural voice</label>
-          <div class="chip-group" id="settings-voice-kokoro-voice" role="group" aria-labelledby="lbl-settings-voice-kokoro-voice">
-            <button type="button" class="chip" data-value="af_heart" aria-pressed="true">Heart</button>
-            <button type="button" class="chip" data-value="af_bella" aria-pressed="false">Bella</button>
-            <button type="button" class="chip" data-value="am_fenrir" aria-pressed="false">Fenrir</button>
-            <button type="button" class="chip" data-value="bf_emma" aria-pressed="false">Emma</button>
-          </div>
-        </div>
-        <div id="settings-voice-progress" hidden>
-          <div class="goal-progress-track"><div class="goal-progress-fill" id="settings-voice-progress-fill" style="width:0%;"></div></div>
-        </div>
-        <p class="muted" id="settings-voice-status" style="font-size:var(--fs-sm);"></p>
         <div class="row" style="gap:8px;">
           <button class="btn btn-secondary" id="btn-settings-voice-preview">Preview this voice</button>
-          <button class="btn btn-ghost" id="btn-settings-voice-remove" hidden>Remove downloaded voice</button>
         </div>
         <p class="muted" style="font-size:11.5px; margin-top:6px;">Plays through your media volume — check your device isn't muted or on silent if you don't hear anything.</p>
       </span>
@@ -1072,10 +1044,88 @@
       </div>
     </div>
 
+    <!-- SD of sleep midpoint across recent nights — a real, distinct
+         irregularity signal from bedtime-only consistency (see
+         sleep-timing-variability.ts's own doc comment + citation for
+         why this exists and why it's deliberately not called "Sleep
+         Regularity Index"). Hidden until there's enough data to compute
+         it (2+ nights with a logged bedtime). -->
+    <div class="sleep-chart-card" id="sleep-timing-variability-card" style="margin-top:var(--space-4);" hidden>
+      <div class="row-between">
+        <strong style="font-size:14px;">Sleep timing variability</strong>
+      </div>
+      <div class="value" id="sleep-timing-variability-value" style="font-family:var(--miniapp-font-display); font-size:26px; margin-top:8px;">—</div>
+      <p class="muted" id="sleep-timing-variability-copy" style="font-size:var(--fs-xs); margin-top:6px;"></p>
+    </div>
+
+    <!-- Chronotype: an original, self-contained 6-question self-assessment
+         (see js/features/chronotype/chronotype.ts's own doc comment for
+         why it's original rather than a reproduction of MEQ/rMEQ/MCTQ,
+         and for the honesty note on its provisional category cutoffs).
+         Entirely wired from chronotype-view.ts, not sleep-view.ts. -->
+    <div class="sleep-chart-card" id="chronotype-entry-card" style="margin-top:var(--space-4);">
+      <div class="row-between">
+        <strong style="font-size:14px;">Chronotype</strong>
+        <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-moon-stars"></use></svg></span>
+      </div>
+      <p class="muted" id="chronotype-entry-empty" style="font-size:var(--fs-sm); margin:8px 0 0;">
+        A short, 6-question self-check on whether your body naturally runs more morning- or evening-leaning.
+      </p>
+      <p class="muted" id="chronotype-entry-result" style="font-size:var(--fs-sm); margin:8px 0 0;" hidden>
+        Latest: <strong id="chronotype-entry-category">—</strong>
+        <span id="chronotype-entry-date"></span>
+      </p>
+      <button type="button" class="btn btn-secondary btn-block" id="btn-chronotype-open" style="margin-top:var(--space-3);">Take the quiz</button>
+    </div>
+
     <div class="stack" id="sleep-insight-factors" style="margin-top:var(--space-4);"></div>
 
     <p class="muted center-text" id="sleep-insight-empty" style="font-size:var(--fs-sm); margin-top:var(--space-4);" hidden>
       Log a few more nights and real patterns will start showing up here.
+    </p>
+  </section>
+
+  <!-- CHRONOTYPE — an original, self-contained 6-question self-assessment
+       reached from Sleep Insights' own "Chronotype" card above. A single-
+       scroll form (six .chip-groups, one per question) rather than a
+       multi-step wizard — see js/features/chronotype/chronotype.ts and
+       chronotype-view.ts for the scoring logic and the honesty note on
+       why the category bounds below are labeled provisional, not a
+       validated clinical scale. -->
+  <section class="screen miniapp-night theme-sleep" id="screen-chronotype" hidden>
+    <div class="row">
+      <button class="miniapp-icon-btn" id="btn-chronotype-back" aria-label="Back">←</button>
+      <h2 class="display" style="margin-left:var(--space-3);">Chronotype</h2>
+    </div>
+
+    <p class="muted" style="font-size:var(--fs-sm); margin-top:var(--space-3);">
+      Six quick questions about your body's own natural timing — not what your schedule forces on you. Answer for how you actually feel, not how you think you "should."
+    </p>
+
+    <div class="sleep-chart-card" id="chronotype-result-card" style="margin-top:var(--space-4);" hidden>
+      <div class="row-between">
+        <strong style="font-size:14px;">Your latest result</strong>
+        <span class="muted" id="chronotype-result-date" style="font-size:var(--fs-xs);"></span>
+      </div>
+      <div class="value" id="chronotype-result-category" style="font-family:var(--miniapp-font-display); font-size:24px; margin-top:8px;">—</div>
+      <p class="muted" id="chronotype-result-score" style="font-size:var(--fs-sm); margin-top:4px;"></p>
+      <p class="muted" id="chronotype-result-description" style="font-size:var(--fs-sm); margin-top:8px;"></p>
+      <button type="button" class="btn btn-ghost btn-block" id="btn-chronotype-retake" style="margin-top:var(--space-3);">Retake the quiz</button>
+    </div>
+
+    <form class="stack" id="chronotype-form" style="margin-top:var(--space-4); gap:var(--space-4);">
+      <div id="chronotype-questions"></div>
+
+      <span class="field-error" id="err-chronotype" hidden>Answer every question before submitting.</span>
+      <button type="submit" class="miniapp-cta" id="btn-chronotype-submit">See my result</button>
+    </form>
+
+    <!-- CRITICAL honesty note — see chronotype.ts's own doc comment for
+         the full citation trail. This is not decorative copy: the bounds
+         above have never been checked against a real Fit Fly response
+         distribution, only a provisional statistical guess. -->
+    <p class="muted" style="font-size:11.5px; margin-top:var(--space-4);">
+      This is an original Fit Fly questionnaire, not a reproduction of any published instrument (the established ones are all copyrighted or require author permission). Its category cutoffs are a provisional statistical starting point, not a validated clinical scale — they'll be re-derived from Fit Fly's own real response data once there's a meaningful sample.
     </p>
   </section>
 
@@ -1248,7 +1298,6 @@
         <div class="breathe-ring breathe-ring--core" id="guided-session-pacer-core"></div>
       </div>
       <p class="display" id="guided-session-caption" style="font-size:22px; margin:0; max-width:300px;" role="status" aria-live="polite">—</p>
-      <p class="muted" id="guided-session-voice-status" hidden style="font-size:var(--fs-xs); margin:4px 0 0;"></p>
     </div>
 
     <div class="focus-progress-track">
@@ -1298,6 +1347,15 @@
     <p class="safety-flag" style="margin-top:var(--space-4);">
       <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
       These are real techniques, not a substitute for a therapist or a diagnosis.
+    </p>
+    <!-- A plain, static pointer, not a feature: no chat, no risk screening,
+         no triage logic — just the same kind of real named resource most
+         reputable wellness apps carry somewhere findable (see
+         meditations.ts's own doc comment for the fuller reasoning and the
+         research this reverses). A real phone number stays a real phone
+         number whether or not anyone ever needs it. -->
+    <p class="muted" style="font-size:var(--fs-xs); margin-top:6px;">
+      If you're in the US and need to talk to someone right now: call or text <a href="tel:988">988</a> (Suicide &amp; Crisis Lifeline). Outside the US, <a href="https://findahelpline.com" target="_blank" rel="noopener">findahelpline.com</a> lists a real local line by country.
     </p>
   </section>
 
@@ -1501,9 +1559,68 @@
       <div class="stack tilt-stagger" id="vitals-temp-history-list"></div>
     </div>
 
+    <span style="display:block; font-size:12.5px; font-weight:600; color:var(--vitals-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">CARDIO FITNESS (VO2MAX)</span>
+
+    <!-- Two real, published field-test formulas (see
+         js/features/vitals/vo2max-estimate.ts's own doc comment for the
+         exact citations) — never a wearable-derived number, since this
+         app has no gas-analysis hardware. Deliberately no "Good/
+         Excellent/…" population classification: compare against your
+         own past tests instead (see vo2max-trend.ts). -->
+    <div class="vitals-card tilt-card tilt-enter" id="vitals-vo2max-trend-card" style="margin-top:var(--space-3);" hidden>
+      <span class="tilt-press stack">
+        <div class="row-between">
+          <strong>Latest estimate</strong>
+          <span class="muted" style="font-size:var(--fs-sm);" id="vitals-vo2max-trend-delta"></span>
+        </div>
+        <div class="row" style="align-items:baseline; gap:10px;">
+          <strong style="font-size:var(--fs-xl);" id="vitals-vo2max-trend-latest">— ml/kg/min</strong>
+          <span class="muted" style="font-size:var(--fs-sm);" id="vitals-vo2max-trend-protocol"></span>
+        </div>
+        <div class="row" style="justify-content:space-between; font-size:var(--fs-sm);">
+          <span>Avg (last <span id="vitals-vo2max-trend-count">—</span>): <strong id="vitals-vo2max-trend-avg">—</strong></span>
+          <span>Range: <strong id="vitals-vo2max-trend-range">—</strong></span>
+        </div>
+        <div class="vitals-trend-bars" id="vitals-vo2max-trend-bars" data-tilt-depth="1" role="img" aria-label="Recent VO2max estimates trend"></div>
+      </span>
+    </div>
+
+    <div class="vitals-card stack tilt-card tilt-enter" style="margin-top:var(--space-3);">
+      <span class="tilt-press stack">
+        <h3>New Fitness Test</h3>
+        <div class="chip-group" id="vitals-vo2max-protocol" role="group" aria-label="Test type">
+          <button type="button" class="chip" data-value="cooper" aria-pressed="true">12-min run</button>
+          <button type="button" class="chip" data-value="rockport" aria-pressed="false">1-mile walk</button>
+        </div>
+
+        <div id="vitals-vo2max-cooper-form" class="stack">
+          <p class="muted" style="font-size:var(--fs-sm);">Run as far as you can sustain for exactly 12 minutes, then enter the real distance covered.</p>
+          <div class="row">
+            <input class="input" type="number" step="1" min="1" id="vitals-vo2max-distance-m" placeholder="Distance in meters">
+            <button class="btn btn-secondary" id="btn-vitals-vo2max-cooper-save">Save</button>
+          </div>
+          <span class="field-error" id="err-vitals-vo2max-cooper" hidden>Enter the real distance you covered, in meters.</span>
+        </div>
+
+        <div id="vitals-vo2max-rockport-form" class="stack" hidden>
+          <p class="muted" style="font-size:var(--fs-sm);" id="vitals-vo2max-rockport-profile-note">Walk exactly 1 mile as fast as you can sustain, then enter your time and your heart rate measured right at the finish.</p>
+          <div class="row">
+            <input class="input" type="number" step="0.1" min="1" id="vitals-vo2max-time-min" placeholder="Time (minutes)">
+            <input class="input" type="number" step="1" min="1" id="vitals-vo2max-hr" placeholder="Heart rate at finish (bpm)">
+          </div>
+          <button class="btn btn-secondary btn-block" id="btn-vitals-vo2max-rockport-save">Save</button>
+          <span class="field-error" id="err-vitals-vo2max-rockport" hidden>Enter a real walk time and finishing heart rate — and add your weight/age/sex in Profile first, this formula needs them.</span>
+        </div>
+      </span>
+    </div>
+
+    <div class="stack" style="margin-top:var(--space-3);">
+      <div class="stack tilt-stagger" id="vitals-vo2max-history-list"></div>
+    </div>
+
     <p class="safety-flag" style="margin-top:var(--space-4);">
       <span aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-warning"></use></svg></span>
-      Every reading here is measured — a real cuff/oximeter/thermometer or a number you typed in — never estimated from a camera: a phone can't measure blood pressure at all, honest SpO2 needs calibrated red+infrared light a phone camera doesn't have, and a phone has no calibrated way to sense body temperature either. Categories shown are real published reference ranges, not a diagnosis — always follow up with a real device and a clinician for anything concerning.
+      Every reading here is measured — a real cuff/oximeter/thermometer or a number you typed in — never estimated from a camera: a phone can't measure blood pressure at all, honest SpO2 needs calibrated red+infrared light a phone camera doesn't have, and a phone has no calibrated way to sense body temperature either. Categories shown are real published reference ranges, not a diagnosis — always follow up with a real device and a clinician for anything concerning. VO2max above is likewise a real, published field-test estimate (see the Cardio Fitness section) — not a lab measurement, and carries real margin of error.
     </p>
   </section>
 
@@ -2601,6 +2718,7 @@
     <div class="chip-group" id="whealth-mode-toggle" role="group" aria-label="Mode" style="margin-top:var(--space-3);">
       <button type="button" class="chip" data-value="cycle" aria-pressed="true">Cycle</button>
       <button type="button" class="chip" data-value="pregnancy" aria-pressed="false">Pregnant</button>
+      <button type="button" class="chip" data-value="pmdd" aria-pressed="false">Symptoms</button>
     </div>
 
     <div id="whealth-cycle-mode">
@@ -2808,6 +2926,77 @@
           <div id="whealth-pregnancy-weight-chart" role="img" aria-label="Logged weight over time"></div>
         </span>
       </div>
+    </div>
+
+    <!-- PMDD/PMS SYMPTOM LOG: same PIN/encryption as Cycle/Pregnancy
+         mode. Original, plain-language item wording mapped to the real
+         DSM-5-TR PMDD symptom-criterion domains (Criterion B1-B4,
+         C1-C7) — see js/features/womens-health/pmdd-symptom-log.js's
+         module doc comment for the full citation trail, why the wording
+         here is original rather than a reproduction of any copyrighted
+         instrument (DRSP/COPE/PRISM/DSM-5-TR's own text), and why this
+         is self-tracking for pattern-recognition and a real clinical
+         conversation — never a diagnosis. -->
+    <div id="whealth-pmdd-mode" hidden>
+      <div class="card stack tilt-card tilt-enter" id="whealth-pmdd-framing">
+        <span class="tilt-press stack">
+          <h3>Daily symptom check-in</h3>
+          <p style="font-size:var(--fs-sm);">
+            11 quick ratings mapped to the real PMDD/PMS symptom domains clinicians use, in plain language — not a copy of any copyrighted screening tool. This never diagnoses anything. It's here to help <em>you</em> notice your own real patterns, so you have something concrete to bring to a real clinical conversation if you want one.
+          </p>
+          <p class="muted" style="font-size:var(--fs-xs);">
+            A real PMDD assessment needs prospective daily ratings across at least 2 full cycles — a single day, or even a single cycle, genuinely isn't enough to say anything meaningful. This screen is honest about that: see "Your pattern" below.
+          </p>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pmdd-log-card">
+        <span class="tilt-press stack">
+          <div class="row-between">
+            <h3 id="whealth-pmdd-log-heading">Log Today</h3>
+            <button class="btn btn-ghost" id="btn-whealth-pmdd-editing-today" hidden style="padding:4px 10px; font-size:var(--fs-xs);">Back to Today</button>
+          </div>
+          <div id="whealth-pmdd-items" class="stack"></div>
+          <button class="btn btn-primary btn-block" id="btn-whealth-pmdd-save">Save Entry</button>
+        </span>
+      </div>
+
+      <div class="card card-accent stack tilt-card tilt-enter" id="whealth-pmdd-result" hidden>
+        <span class="tilt-press stack">
+          <div class="row-between">
+            <strong id="whealth-pmdd-result-heading">Today's check-in</strong>
+          </div>
+          <p id="whealth-pmdd-result-summary">—</p>
+          <p class="muted" style="font-size:var(--fs-xs);">Not a diagnosis — one day on its own doesn't mean much. Patterns across real logged cycles are what's actually worth noticing.</p>
+        </span>
+      </div>
+
+      <div class="card stack tilt-card tilt-enter" id="whealth-pmdd-patterns">
+        <span class="tilt-press stack">
+          <div class="row" style="gap:10px;">
+            <span class="fitness-row-icon" data-tilt-depth="1" aria-hidden="true"><svg class="icon" width="18" height="18" viewBox="0 0 24 24"><use href="#icon-chart-line"></use></svg></span>
+            <h3>Your pattern</h3>
+          </div>
+          <p class="muted" id="whealth-pmdd-patterns-gate" style="font-size:var(--fs-sm);"></p>
+          <div id="whealth-pmdd-patterns-content" hidden class="stack">
+            <div class="trend-chart" id="whealth-pmdd-severity-chart" role="img" aria-label="Average daily symptom severity, most recent logged days"></div>
+            <p id="whealth-pmdd-cycle-comparison" style="font-size:var(--fs-sm);">—</p>
+            <p style="font-size:var(--fs-sm);">
+              This still isn't a diagnosis, even with real data behind it — self-report alone can't rule out another cause, and only a real clinician can. If you're seeing a real, elevated, and persistent pattern here, it's worth bringing this chart to a doctor or other qualified clinician.
+            </p>
+          </div>
+        </span>
+      </div>
+
+      <!-- Same real, static crisis-resource line Meditate carries (see
+           meditations.ts's own doc comment) — surfaced here only once a
+           real, sustained pattern of severe days shows up in this
+           person's own recent logs (pmdd-symptom-log.js's
+           shouldSurfaceCrisisResource), never as a popup or a risk
+           score. -->
+      <p class="muted" id="whealth-pmdd-crisis-line" hidden style="font-size:var(--fs-xs);">
+        If you're in the US and need to talk to someone right now: call or text <a href="tel:988">988</a> (Suicide &amp; Crisis Lifeline). Outside the US, <a href="https://findahelpline.com" target="_blank" rel="noopener">findahelpline.com</a> lists a real local line by country.
+      </p>
     </div>
   </section>
 
@@ -3148,6 +3337,33 @@
         <span class="data-badge estimated" id="program-readiness-category">—</span>
       </div>
       <p class="muted" style="margin:0;" id="program-readiness-suggestion"></p>
+    </div>
+
+    <!-- Session RPE (Borg CR10) — only shows once today's session has a
+         real set logged (see program-view.js's renderSessionRpeCard).
+         Picking a chip saves immediately, same non-blocking "no separate
+         Save step" pattern as the week/goal chips above; it's what
+         training-load.js's Foster session-RPE load and this app's real
+         ACWR (see readiness.js) are actually built from. -->
+    <div class="card stack" id="program-rpe-card" hidden>
+      <strong>How hard did that whole session feel?</strong>
+      <p class="muted" style="margin:0; font-size:var(--fs-sm);">
+        Session RPE, Borg CR10 scale — 0 is nothing at all, 10 is maximal effort. Feeds this week's training load and your Readiness score.
+      </p>
+      <div class="chip-group" id="program-session-rpe" role="group" aria-label="Session RPE, 0 to 10">
+        <button type="button" class="chip" data-value="0" aria-pressed="false">0</button>
+        <button type="button" class="chip" data-value="1" aria-pressed="false">1</button>
+        <button type="button" class="chip" data-value="2" aria-pressed="false">2</button>
+        <button type="button" class="chip" data-value="3" aria-pressed="false">3</button>
+        <button type="button" class="chip" data-value="4" aria-pressed="false">4</button>
+        <button type="button" class="chip" data-value="5" aria-pressed="false">5</button>
+        <button type="button" class="chip" data-value="6" aria-pressed="false">6</button>
+        <button type="button" class="chip" data-value="7" aria-pressed="false">7</button>
+        <button type="button" class="chip" data-value="8" aria-pressed="false">8</button>
+        <button type="button" class="chip" data-value="9" aria-pressed="false">9</button>
+        <button type="button" class="chip" data-value="10" aria-pressed="false">10</button>
+      </div>
+      <p class="muted" style="margin:0; font-size:var(--fs-xs);" id="program-rpe-saved-note" hidden>Saved.</p>
     </div>
 
     <div class="why-this">

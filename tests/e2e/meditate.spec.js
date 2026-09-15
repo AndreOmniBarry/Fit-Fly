@@ -12,31 +12,8 @@ async function clearAppDb(page) {
   );
 }
 
-// The built-in voice is voice guidance's default engine (see
-// js/features/focus/voice-guide.ts's own doc comment for why); Kokoro,
-// its real tens-of-megabytes on-device model, is opt-in from Settings
-// and never fetched here since nothing below opts into it. Blocking the
-// CDN/HF traffic anyway is defensive/no-op insurance against that
-// changing — see tests/e2e/voice-guide.spec.js for the tests that
-// actually exercise Kokoro's own opt-in/download/fallback behavior.
-async function blockKokoroNetwork(page) {
-  await page.route('https://cdn.jsdelivr.net/**', (route) => route.abort());
-  await page.route('https://huggingface.co/**', (route) => route.abort());
-}
-
-// route.abort() on those requests still makes Chromium itself log a real
-// "Failed to load resource" console entry — a genuine browser artifact of
-// deliberately blocking that traffic, not an app bug, so it's filtered
-// out of every "zero console errors" assertion below rather than either
-// masking real errors by skipping the check, or fighting an unwinnable
-// battle to stop the browser logging a failed network request.
-function isExpectedKokoroNetworkNoise(text) {
-  return text.includes('Failed to load resource');
-}
-
 test.describe('meditate', () => {
   test.beforeEach(async ({ page }) => {
-    await blockKokoroNetwork(page);
     await page.goto('/');
     await clearAppDb(page);
     await page.evaluate(() => localStorage.clear());
@@ -48,7 +25,7 @@ test.describe('meditate', () => {
   test('shows all meditations and breathwork techniques, real icons, zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
@@ -120,11 +97,16 @@ test.describe('meditate', () => {
     await expect(page.locator('#guided-session-caption')).toHaveText(/squeeze/i, { timeout: 27_000 });
   });
 
-  test('never reintroduces crisis-line content — a plain wellness disclaimer only', async ({ page }) => {
+  test('carries a real, static crisis-resource line — never anything interactive', async ({ page }) => {
     const bodyText = await page.locator('#screen-meditate').innerText();
-    expect(bodyText).not.toMatch(/988/);
-    expect(bodyText.toLowerCase()).not.toMatch(/crisis/);
+    expect(bodyText).toMatch(/988/);
+    expect(bodyText.toLowerCase()).toMatch(/crisis/);
     await expect(page.getByText('not a substitute for a therapist or a diagnosis')).toBeVisible();
+    // A real, dialable number and a real link — plain content, not a
+    // feature. No chat input, no "are you in crisis?" prompt anywhere on
+    // this screen.
+    await expect(page.locator('#screen-meditate a[href="tel:988"]')).toBeVisible();
+    await expect(page.locator('#screen-meditate a[href="https://findahelpline.com"]')).toBeVisible();
   });
 
   test('End returns to the Meditate screen, not Focus', async ({ page }) => {
@@ -151,7 +133,7 @@ test.describe('meditate', () => {
   test('completing a session end-to-end logs it and updates the real streak, with zero console errors', async ({ page }) => {
     const consoleErrors = [];
     page.on('console', (msg) => {
-      if (msg.type() === 'error' && !isExpectedKokoroNetworkNoise(msg.text())) consoleErrors.push(msg.text());
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
     });
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 

@@ -10,6 +10,7 @@ describe('schema', () => {
       [
         'bloodPressureSamples',
         'categoryAssignments',
+        'chronotypeAssessments',
         'cycleLogs',
         'earnedBadges',
         'exercises',
@@ -26,6 +27,7 @@ describe('schema', () => {
         'noiseMonitorSamples',
         'noiseMonitorSessions',
         'nutritionEntries',
+        'pmddSymptomLogs',
         'pregnancyLogs',
         'pregnancySetup',
         'programs',
@@ -38,6 +40,7 @@ describe('schema', () => {
         'spo2Samples',
         'stepEntries',
         'temperatureSamples',
+        'vo2maxTests',
       ].sort()
     );
     db.close();

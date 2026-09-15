@@ -209,6 +209,53 @@ test.describe('vitals', () => {
     await expect(page.locator('#vitals-temp-history-list')).toContainText('No readings yet');
   });
 
+  test('a Cooper 12-minute-run VO2max test saves, needs no profile, and surfaces a real trend', async ({ page }) => {
+    await expect(page.locator('#vitals-vo2max-history-list')).toContainText('No fitness tests yet');
+    await expect(page.locator('#vitals-vo2max-trend-card')).toBeHidden();
+
+    await page.locator('#vitals-vo2max-distance-m').fill('2400');
+    await page.locator('#btn-vitals-vo2max-cooper-save').click();
+
+    const entry = page.locator('#vitals-vo2max-history-list .vitals-card').first();
+    await expect(entry).toContainText('42.4 ml/kg/min');
+    await expect(entry).toContainText('12-min run');
+
+    await expect(page.locator('#vitals-vo2max-trend-card')).toBeVisible();
+    await expect(page.locator('#vitals-vo2max-trend-latest')).toHaveText('42.4 ml/kg/min');
+    await expect(page.locator('#vitals-vo2max-trend-protocol')).toHaveText('12-min run');
+    await expect(page.locator('#vitals-vo2max-trend-delta')).toHaveText(''); // nothing prior to compare against
+
+    // A second, real test — a real delta and range now show.
+    await page.locator('#vitals-vo2max-distance-m').fill('2500');
+    await page.locator('#btn-vitals-vo2max-cooper-save').click();
+    await expect(page.locator('#vitals-vo2max-trend-latest')).toHaveText('44.6 ml/kg/min');
+    await expect(page.locator('#vitals-vo2max-trend-delta')).toHaveText('+2.2 since last');
+    await expect(page.locator('#vitals-vo2max-trend-range')).toHaveText('42.4–44.6 ml/kg/min');
+  });
+
+  test('Cooper test rejects a zero/empty distance', async ({ page }) => {
+    await page.locator('#btn-vitals-vo2max-cooper-save').click();
+    await expect(page.locator('#err-vitals-vo2max-cooper')).toBeVisible();
+    await expect(page.locator('#vitals-vo2max-history-list')).toContainText('No fitness tests yet');
+  });
+
+  test('the Rockport 1-mile-walk test switches in via the protocol toggle, and is honestly blocked without a real profile', async ({ page }) => {
+    await page.locator('#vitals-vo2max-protocol button[data-value="rockport"]').click();
+    await expect(page.locator('#vitals-vo2max-cooper-form')).toBeHidden();
+    await expect(page.locator('#vitals-vo2max-rockport-form')).toBeVisible();
+
+    // This suite's own beforeEach skips onboarding, so there's no real
+    // weight/age/sex to feed the formula — the note says so, and saving
+    // is honestly blocked rather than silently guessing/defaulting them.
+    await expect(page.locator('#vitals-vo2max-rockport-profile-note')).toContainText('Add your weight, birthdate, and sex in Profile first');
+
+    await page.locator('#vitals-vo2max-time-min').fill('13');
+    await page.locator('#vitals-vo2max-hr').fill('140');
+    await page.locator('#btn-vitals-vo2max-rockport-save').click();
+    await expect(page.locator('#err-vitals-vo2max-rockport')).toBeVisible();
+    await expect(page.locator('#vitals-vo2max-history-list')).toContainText('No fitness tests yet');
+  });
+
   test('logging a BP, an SpO2, and a body-temperature reading updates the combined streak and week count', async ({ page }) => {
     await expect(page.locator('#vitals-stat-streak')).toHaveText('0');
     await expect(page.locator('#vitals-stat-week-count')).toHaveText('0');

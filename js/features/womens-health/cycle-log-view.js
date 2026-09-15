@@ -30,6 +30,14 @@ import { milestoneForWeek, PREGNANCY_SYMPTOMS } from './pregnancy-content.js';
 import { summarizeKickSession } from './kick-counter.js';
 import { formatDayLabel } from './day-label.js';
 import {
+  ALL_PMDD_LOG_ITEMS,
+  hasProspectiveDataForTwoCycles,
+  RATING_SCALE,
+  scoreDay,
+  shouldSurfaceCrisisResource,
+  twoMostRecentCompletedCycles,
+} from './pmdd-symptom-log.js';
+import {
   getEncryptedCycleLog,
   listAllEncryptedCycleLogs,
   saveEncryptedCycleLog,
@@ -40,6 +48,10 @@ import {
   saveEncryptedPregnancyLog,
   saveEncryptedPregnancySetup,
 } from '../../db/repositories/pregnancy.js';
+import {
+  listAllEncryptedPmddSymptomLogs,
+  saveEncryptedPmddSymptomLog,
+} from '../../db/repositories/pmdd-symptom-logs.js';
 
 function byId(id) {
   return document.getElementById(id);
@@ -122,13 +134,25 @@ export function initWomensHealthFeature() {
   let kickTaps = [];
   let kickIntervalHandle = null;
 
+  // The PMDD/PMS symptom log's own state — a third independent set of
+  // real encrypted data under the same PIN, same reasoning as
+  // pregnancy's own separate state above (a person could plausibly have
+  // historical cycle logs, a current pregnancy, and their own symptom
+  // history all at once).
+  let pmddEditingDate = todayIsoDate();
+  let pmddLogs = [];
+  const pmddItemChips = new Map(); // itemId -> chip-group API, built once below
+
   const modeToggle = initChipGroup(byId('whealth-mode-toggle'), {
     initial: 'cycle',
     onChange: (mode) => {
       byId('whealth-cycle-mode').hidden = mode !== 'cycle';
       byId('whealth-pregnancy-mode').hidden = mode !== 'pregnancy';
+      byId('whealth-pmdd-mode').hidden = mode !== 'pmdd';
     },
   });
+
+  buildPmddItemFields();
 
   byId('btn-home-womens-health').addEventListener('click', async () => {
     if (isUnlocked()) {
@@ -160,12 +184,14 @@ export function initWomensHealthFeature() {
     calendarMonth = today.getMonth();
     editingDate = todayIsoDate();
     pregnancyEditingDate = todayIsoDate();
+    pmddEditingDate = todayIsoDate();
 
     // Always reopen on Cycle — same "reset to a known default every
     // (re-)entry" rule editingDate itself already follows.
     modeToggle.setValue('cycle');
     byId('whealth-cycle-mode').hidden = false;
     byId('whealth-pregnancy-mode').hidden = true;
+    byId('whealth-pmdd-mode').hidden = true;
 
     await refreshAll();
     showScreen('screen-whealth-main');
@@ -189,6 +215,9 @@ export function initWomensHealthFeature() {
     pregnancyDueDate = setup?.dueDate ?? null;
     pregnancyLogs = await decryptAllPregnancyLogs();
     renderPregnancy();
+
+    pmddLogs = await decryptAllPmddLogs();
+    renderPmdd();
   }
 
   function loadFormForDate(date) {
@@ -365,6 +394,24 @@ export function initWomensHealthFeature() {
     await refreshAll();
   });
 
+  // ---------- PMDD/PMS symptom log ----------
+  byId('btn-whealth-pmdd-editing-today').addEventListener('click', () => {
+    loadPmddFormForDate(todayIsoDate());
+  });
+
+  byId('btn-whealth-pmdd-save').addEventListener('click', async () => {
+    const answers = {};
+    for (const item of ALL_PMDD_LOG_ITEMS) {
+      const value = pmddItemChips.get(item.id).getValue();
+      if (value != null) answers[item.id] = Number(value);
+    }
+    const iv = generateIv();
+    const cipherBytes = await encryptJson(getSessionKey(), iv, answers);
+    await saveEncryptedPmddSymptomLog({ date: pmddEditingDate, iv, cipherBytes });
+
+    await refreshAll();
+  });
+
   // ---------- calendar month navigation ----------
   byId('btn-whealth-prev-month').addEventListener('click', () => shiftCalendarMonth(-1));
   byId('btn-whealth-next-month').addEventListener('click', () => shiftCalendarMonth(1));
@@ -453,8 +500,13 @@ export function initWomensHealthFeature() {
           cyclesLogged > 0 ? ` · from ${cyclesLogged} logged cycle${cyclesLogged === 1 ? '' : 's'}` : ' · not enough history yet'
         }`
       : `estimated · ${confidence}`;
+    // Same honesty as the "Next period estimated" line above: the window
+    // itself is already widened by the person's real logged variability
+    // (see predictFertileWindow's own doc comment), and this names that
+    // margin instead of presenting one falsely single-day-precise window
+    // regardless of how irregular the real history actually is.
     byId('whealth-fertile-window').textContent = fertileWindow
-      ? `Estimated fertile window: ${formatDayLabel(fertileWindow.start)} – ${formatDayLabel(fertileWindow.end)} (ovulation ~${formatDayLabel(fertileWindow.ovulationDate)})`
+      ? `Estimated fertile window: ${formatDayLabel(fertileWindow.start)} – ${formatDayLabel(fertileWindow.end)} (ovulation ~${formatDayLabel(fertileWindow.ovulationDate)}, ±${fertileWindow.marginDays} day${fertileWindow.marginDays === 1 ? '' : 's'})`
       : '';
     predictionCard.hidden = false;
 
@@ -772,6 +824,127 @@ export function initWomensHealthFeature() {
         emptyMessage: 'Log a weight to start a trend.',
       });
     }
+  }
+
+  /** Builds the 12 rating fields (the 11 real symptom items, then the
+   *  optional impairment item — ALL_PMDD_LOG_ITEMS' own order) once, at
+   *  screen init — the same "chip--rating" markup Sleep's own quality
+   *  chips use for the Consensus Sleep Diary's anchors, generated here
+   *  from RATING_SCALE instead of hand-typed 12 times over. Each item's
+   *  own plain-language `prompt` (never the raw DSM criterion label)
+   *  renders as the real question text. */
+  function buildPmddItemFields() {
+    const wrap = byId('whealth-pmdd-items');
+    wrap.innerHTML = ALL_PMDD_LOG_ITEMS.map((item) => {
+      const chips = RATING_SCALE.map(
+        (rating) =>
+          `<button type="button" class="chip chip--rating" data-value="${rating.value}" aria-pressed="false"><span class="chip-rating-num">${rating.value}</span><span class="chip-rating-label">${rating.label}</span></button>`
+      ).join('');
+      return `
+        <div class="field">
+          <label id="lbl-pmdd-item-${item.id}">${item.label}</label>
+          <p class="muted" style="font-size:var(--fs-xs); margin:-2px 0 4px;">${item.prompt}</p>
+          <div class="chip-group" id="pmdd-item-${item.id}" role="group" aria-labelledby="lbl-pmdd-item-${item.id}">${chips}</div>
+        </div>`;
+    }).join('');
+
+    for (const item of ALL_PMDD_LOG_ITEMS) {
+      pmddItemChips.set(item.id, initChipGroup(byId(`pmdd-item-${item.id}`), { initial: null }));
+    }
+  }
+
+  function loadPmddFormForDate(date) {
+    pmddEditingDate = date;
+    const isToday = date === todayIsoDate();
+    byId('whealth-pmdd-log-heading').textContent = isToday ? 'Log Today' : `Log ${formatDayLabel(date)}`;
+    byId('btn-whealth-pmdd-editing-today').hidden = isToday;
+
+    const existing = pmddLogs.find((l) => l.date === date);
+    for (const item of ALL_PMDD_LOG_ITEMS) {
+      const value = existing?.[item.id];
+      pmddItemChips.get(item.id).setValue(value != null ? String(value) : null);
+    }
+  }
+
+  async function decryptAllPmddLogs() {
+    const encrypted = await listAllEncryptedPmddSymptomLogs();
+    const key = getSessionKey();
+    const decrypted = [];
+    for (const log of encrypted) {
+      const payload = await decryptJson(key, log.iv, log.cipherBytes);
+      decrypted.push({ date: log.date, ...payload });
+    }
+    return decrypted;
+  }
+
+  /** Today's (or whatever date is being edited) real result, this
+   *  person's real crisis-resource-line trigger (see
+   *  shouldSurfaceCrisisResource's own doc comment — never a risk score,
+   *  never a popup), and the honestly-gated pattern view (Criterion F —
+   *  at least 2 full cycles of real prospective data, see
+   *  hasProspectiveDataForTwoCycles's own doc comment). Nothing here is
+   *  ever presented as a diagnosis — see this file's own "Not a
+   *  diagnosis" copy right in the markup, not just this comment. */
+  function renderPmdd() {
+    loadPmddFormForDate(pmddEditingDate);
+
+    const editedLog = pmddLogs.find((l) => l.date === pmddEditingDate);
+    const score = editedLog ? scoreDay(editedLog) : null;
+    const resultCard = byId('whealth-pmdd-result');
+    resultCard.hidden = score == null;
+    if (score) {
+      const isToday = pmddEditingDate === todayIsoDate();
+      byId('whealth-pmdd-result-heading').textContent = isToday ? "Today's check-in" : `${formatDayLabel(pmddEditingDate)}'s check-in`;
+      const nearestRatingLabel = RATING_SCALE.find((r) => r.value === Math.round(score.average))?.label ?? '';
+      byId('whealth-pmdd-result-summary').textContent =
+        `Average ${score.average.toFixed(1)}/5 (${nearestRatingLabel}) across ${score.answeredCount} of ${score.totalItems} symptoms logged.`;
+    }
+
+    byId('whealth-pmdd-crisis-line').hidden = !shouldSurfaceCrisisResource(pmddLogs);
+
+    const periodStartDates = getPeriodStartDates();
+    const gate = hasProspectiveDataForTwoCycles(periodStartDates, pmddLogs.map((l) => l.date));
+    const gateNote = byId('whealth-pmdd-patterns-gate');
+    const content = byId('whealth-pmdd-patterns-content');
+    if (!gate.enough) {
+      content.hidden = true;
+      gateNote.hidden = false;
+      gateNote.textContent =
+        gate.completedCycles < 2
+          ? `Not enough data yet — a real pattern needs at least 2 full logged menstrual cycles (${gate.completedCycles} of 2 so far). Log your period in Cycle mode and check in here daily.`
+          : `You have ${gate.completedCycles} full logged cycle${gate.completedCycles === 1 ? '' : 's'}, but not enough daily check-ins within the two most recent ones yet — check in most days to build a real pattern.`;
+      return;
+    }
+    gateNote.hidden = true;
+    content.hidden = false;
+
+    const scoredPoints = pmddLogs
+      .map((log) => ({ date: log.date, score: scoreDay(log) }))
+      .filter((p) => p.score != null)
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map((p) => ({
+        key: p.date,
+        value: p.score.average,
+        axisLabel: p.date.slice(5),
+        tooltipValue: `${p.score.average.toFixed(1)}/5`,
+        tooltipDetail: formatDayLabel(p.date),
+      }));
+    renderTrendChart(byId('whealth-pmdd-severity-chart'), {
+      points: scoredPoints,
+      accentVar: '--accent',
+      emptyMessage: 'Log a few more check-ins to see a trend.',
+    });
+
+    const cycles = twoMostRecentCompletedCycles(periodStartDates);
+    const cycleAverages = cycles.map((range, i) => {
+      const inRange = pmddLogs.filter((l) => l.date >= range.start && l.date < range.end);
+      const scores = inRange.map(scoreDay).filter(Boolean);
+      const avg = scores.length ? scores.reduce((a, s) => a + s.average, 0) / scores.length : null;
+      return { label: `Cycle ${i + 1}`, avg, days: scores.length };
+    });
+    byId('whealth-pmdd-cycle-comparison').textContent = cycleAverages
+      .map((c) => (c.avg != null ? `${c.label}: avg ${c.avg.toFixed(1)}/5 (${c.days} day${c.days === 1 ? '' : 's'} logged)` : `${c.label}: not enough logged`))
+      .join(' · ');
   }
 }
 

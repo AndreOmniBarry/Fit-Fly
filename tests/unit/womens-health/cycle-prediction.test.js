@@ -120,12 +120,23 @@ describe('predictFertileWindow', () => {
     expect(predictFertileWindow([])).toBeNull();
   });
 
-  it('places ovulation 14 days before the predicted next period, with a 5-before/1-after window', () => {
+  it('places ovulation 14 days before the predicted next period, widened by the real personal margin', () => {
     const window = predictFertileWindow(REGULAR_28_DAY_HISTORY);
-    // next period predicted 2026-09-18 -> ovulation 2026-09-04
+    // next period predicted 2026-09-18 -> ovulation 2026-09-04. Even a
+    // perfectly regular history still gets the real floor margin (2 days
+    // — see predictNextPeriodRange), so the base 5-before/1-after window
+    // widens to 7-before/3-after, never a falsely single-day-precise one.
     expect(window.ovulationDate).toBe('2026-09-04');
-    expect(window.start).toBe('2026-08-30');
-    expect(window.end).toBe('2026-09-05');
+    expect(window.marginDays).toBe(2);
+    expect(window.start).toBe('2026-08-28');
+    expect(window.end).toBe('2026-09-07');
+  });
+
+  it('widens further for a genuinely irregular history, using the same real standard deviation', () => {
+    const irregular = ['2026-01-01', '2026-01-25', '2026-03-10', '2026-03-20', '2026-05-15'];
+    const regular = predictFertileWindow(REGULAR_28_DAY_HISTORY);
+    const window = predictFertileWindow(irregular);
+    expect(window.marginDays).toBeGreaterThan(regular.marginDays);
   });
 });
 

@@ -25,6 +25,7 @@ import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } fro
 import { calculateSleepDebtWithNaps, describeNapDebtCredit } from './nap-debt.js';
 import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
+import { calculateSleepTimingVariability } from './sleep-timing-variability.js';
 import { bucketSleepInsightNights, buildSleepInsightAreaGeometry } from './sleep-insight-chart.js';
 import type { SleepInsightNight } from './sleep-insight-chart.js';
 import { computeNapTimes, computeSleepLogTimes } from './sleep-duration.js';
@@ -40,7 +41,10 @@ import {
   getReadinessCheckinForDate,
   saveReadinessCheckin,
 } from '../../db/repositories/readiness.js';
-import { listRecentSessions } from '../../db/repositories/sessions.js';
+import { listRecentSessions, listSessionsWithRpeSince, listSetsForSession } from '../../db/repositories/sessions.js';
+import { calculateAcuteChronicWorkloadRatio, dailyTrainingLoadsFromSessions } from '../programs/training-load.js';
+import { HR_SOURCE, listRecentHeartRateSamples } from '../../db/repositories/heart-rate.js';
+import { calculateHrvBaselineDeviation, dailyHrvFromSamples } from '../heart-rate/hrv-baseline.js';
 import { getFocusAudioEngine } from '../focus/audio-engine.js';
 import type { FocusAudioState } from '../focus/audio-engine.js';
 import {
@@ -268,10 +272,17 @@ export function initSleepFeature(): void {
     byId('sleep-hypnogram-start').textContent = log.bedTime ? formatClockTime(log.bedTime) : '—';
     byId('sleep-hypnogram-end').textContent = log.wakeTime ? formatClockTime(log.wakeTime) : '—';
 
+    byId('sleep-hypnogram-cycles').textContent =
+      model.cycleCount > 0 ? `· ${model.cycleCount} cycle${model.cycleCount === 1 ? '' : 's'}` : '';
+
+    // Duration alongside share — "18% · 1h 26m" reads as a real quantity,
+    // not just a proportion of the night, the same "give the actual
+    // number, not only its share" rule Steps'/Hydration's own trend
+    // tooltips already follow.
     const legend = byId('sleep-hypnogram-legend');
     legend.innerHTML = STAGE_ORDER.map(
       (stage) =>
-        `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}%</span>`
+        `<span><i class="sleep-hypnogram-dot sleep-hypnogram-dot--${stage}"></i> ${STAGE_LABEL[stage]} ${model.stagePercent[stage]}% · ${formatDurationHM(model.stageMinutes[stage])}</span>`
     ).join('');
   }
 
@@ -373,10 +384,32 @@ export function initSleepFeature(): void {
     debtEl.title = napCreditNote ? `${describeSleepDebt(debt)} ${napCreditNote}` : describeSleepDebt(debt);
 
     renderInsightFactors();
+    renderSleepTimingVariability();
 
     byId('sleep-insight-empty').hidden = recentLogs.length > 0;
 
     void loadInsightChart();
+  }
+
+  /** SD of sleep midpoint across recentLogs — see
+   *  sleep-timing-variability.ts's own doc comment for what this is and
+   *  why it's separate from bedtime-only consistency. Stays hidden until
+   *  there's enough data (2+ nights with a logged bedtime) to say
+   *  anything real. */
+  function renderSleepTimingVariability(): void {
+    const card = byId('sleep-timing-variability-card');
+    const result = calculateSleepTimingVariability(recentLogs);
+
+    if (result.stdDevMinutes == null) {
+      card.hidden = true;
+      return;
+    }
+
+    card.hidden = false;
+    byId('sleep-timing-variability-value').textContent = `±${formatDurationHM(result.stdDevMinutes)}`;
+    byId('sleep-timing-variability-copy').textContent = result.elevated
+      ? `Your sleep midpoint (bedtime plus half the night) has been swinging a lot over ${result.nightsConsidered} nights — research links irregular sleep timing to higher cardiovascular risk, independent of how long you sleep.`
+      : `How much your sleep midpoint moves night to night, over ${result.nightsConsidered} nights — a smaller number means steadier timing.`;
   }
 
   /** The chart's own data fetch — every logged night ever, not just the
@@ -707,6 +740,48 @@ export function initSleepFeature(): void {
     return sessions.filter((s) => new Date(s.startedAt).getTime() >= cutoff).length;
   }
 
+  // calculateAcuteChronicWorkloadRatio's own chronic window is 28 real
+  // calendar days — this fetches a couple of days further back than that
+  // purely as a timezone-safety margin (sinceIso is compared against
+  // startedAt, a UTC timestamp, while the window math below reasons in
+  // local calendar days), never to change what the ratio itself covers.
+  const ACWR_HISTORY_LOOKBACK_DAYS = 30;
+
+  /** Real Acute:Chronic Workload Ratio (see js/features/programs/
+   *  training-load.js) built from this person's actual logged
+   *  session-RPE history — null-ratio'd (see that module's own sparse-
+   *  history handling) until a real week of it exists, in which case
+   *  calculateReadiness below just keeps using the recentSessionCount
+   *  fallback it always has. */
+  async function computeTodayAcwr(): Promise<ReturnType<typeof calculateAcuteChronicWorkloadRatio>> {
+    const since = new Date();
+    since.setDate(since.getDate() - ACWR_HISTORY_LOOKBACK_DAYS);
+    const sessions = await listSessionsWithRpeSince(since.toISOString());
+    const sessionsWithSets = await Promise.all(
+      sessions.map(async (session) => ({ session, sets: await listSetsForSession(session.id) }))
+    );
+    const dailyLoads = dailyTrainingLoadsFromSessions(sessionsWithSets);
+    return calculateAcuteChronicWorkloadRatio(dailyLoads, todayDateString());
+  }
+
+  // Same wide-fetch shape heart-rate-view.js's own renderHistory already
+  // uses (500 — enough real history to comfortably cover hrv-baseline.js's
+  // 7-day rolling window even alongside frequent camera/manual entries).
+  const HRV_HISTORY_FETCH_LIMIT = 500;
+
+  /** Real personal-baseline HRV deviation (see js/features/heart-rate/
+   *  hrv-baseline.js) built from this person's actual logged BLE-strap
+   *  RMSSD history — null-deviation'd (see that module's own sparse-
+   *  history handling) until a real personal baseline exists, in which
+   *  case calculateReadiness below simply doesn't add the hrv component
+   *  at all. */
+  async function computeRecentHrvDeviation(): Promise<ReturnType<typeof calculateHrvBaselineDeviation>> {
+    const samples = await listRecentHeartRateSamples(HRV_HISTORY_FETCH_LIMIT);
+    const bleHrvSamples = samples.filter((s) => s.source === HR_SOURCE.BLE && s.rmssdMs != null);
+    const dailyReadings = dailyHrvFromSamples(bleHrvSamples);
+    return calculateHrvBaselineDeviation(dailyReadings, todayDateString());
+  }
+
   function renderReadinessResult(result: { score: number; category: ReadinessCategory; reasoning: string[] }): void {
     const categoryEl = byId('sleep-readiness-category');
     categoryEl.hidden = false;
@@ -769,7 +844,9 @@ export function initSleepFeature(): void {
 
     const recentSessionCount = await countRecentReadinessSessions();
     const sleepDebtMinutes = recentLogs.length > 0 ? calculateSleepDebt(recentLogs).debtMinutes : null;
-    const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes });
+    const acwr = await computeTodayAcwr(); // replaces recentSessionCount's load score below once real ACWR history exists — see calculateReadiness's own doc comment
+    const hrvDeviation = await computeRecentHrvDeviation(); // adds a real hrv component below once a real personal BLE-HRV baseline exists — see calculateReadiness's own doc comment
+    const result = calculateReadiness({ sleepHours, energyLevel, sorenessLevel, recentSessionCount, sleepDebtMinutes, acwr, hrvDeviation });
     if (!result) return; // calculateReadiness's own "not enough input" guard — unreachable given the hasInput check above, kept for type safety
 
     await saveReadinessCheckin({

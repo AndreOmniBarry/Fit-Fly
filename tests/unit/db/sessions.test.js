@@ -7,8 +7,10 @@ import {
   getSession,
   listRecentSessions,
   listSessionsByType,
+  listSessionsWithRpeSince,
   listSetsForExercise,
   listSetsForSession,
+  setSessionRpe,
 } from '../../../js/db/repositories/sessions.js';
 
 describe('sessions + sets repository', () => {
@@ -85,5 +87,33 @@ describe('sessions + sets repository', () => {
       '2026-08-03T09:00:00.000Z',
       '2026-08-02T09:00:00.000Z',
     ]);
+  });
+
+  it('setSessionRpe saves a real session-RPE onto an already-logged session without touching its other fields', async () => {
+    const session = await createSession({ type: 'strength', programId: 'prog-1' }, db);
+    expect(session.sessionRpe).toBeUndefined();
+
+    const updated = await setSessionRpe(session.id, 7, db);
+    expect(updated.sessionRpe).toBe(7);
+    expect(updated.programId).toBe('prog-1'); // untouched
+
+    expect((await getSession(session.id, db)).sessionRpe).toBe(7);
+  });
+
+  it('listSessionsWithRpeSince returns only real RPE\'d sessions on/after the cutoff, ordered by startedAt', async () => {
+    const before = await createSession({ type: 'strength', startedAt: '2026-07-25T09:00:00.000Z' }, db);
+    await setSessionRpe(before.id, 6, db); // rated, but before the cutoff
+
+    const unrated = await createSession({ type: 'strength', startedAt: '2026-08-02T09:00:00.000Z' }, db); // in range, never rated
+    void unrated;
+
+    const first = await createSession({ type: 'strength', startedAt: '2026-08-03T09:00:00.000Z' }, db);
+    await setSessionRpe(first.id, 5, db);
+    const second = await createSession({ type: 'strength', startedAt: '2026-08-05T09:00:00.000Z' }, db);
+    await setSessionRpe(second.id, 8, db);
+
+    const result = await listSessionsWithRpeSince('2026-08-01T00:00:00.000Z', db);
+    expect(result.map((s) => s.id)).toEqual([first.id, second.id]);
+    expect(result.every((s) => s.sessionRpe != null)).toBe(true);
   });
 });

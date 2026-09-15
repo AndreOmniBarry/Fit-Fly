@@ -23,10 +23,20 @@
 // This is real support, not a substitute for a therapist, and it never
 // claims otherwise — see the "not a substitute for a therapist or a
 // diagnosis" note on the Meditate screen and the same "Not medical
-// advice" framing the whole app carries. This screen deliberately does
-// not carry crisis-line content (a 988-style mention was removed from
-// here in an earlier pass) — it stays a wellness practice, not a stand-in
-// for a crisis resource or clinical care.
+// advice" framing the whole app carries.
+//
+// A static 988/findahelpline.com line sits just below that note in
+// index.html — reintroduced deliberately, reversing an earlier removal.
+// That removal (see the "remove the 988 line" commit) kept a defensible
+// principle (this screen shouldn't overstate its own clinical capability)
+// but drew the line in the wrong place: a real crisis-audit study found
+// 10 of 14 reputable mental-health-adjacent apps carry at least a static
+// crisis-resource pointer, and the actual regulatory/ethical line (FDA
+// "general wellness" vs. regulated digital therapeutics) is crossed by
+// interactive risk screening or triage logic, not by a plain phone
+// number sitting next to a disclaimer. So the line stays static — no
+// chat, no "are you in crisis?" prompt, no branching logic reading
+// anything about the person — while the resource itself comes back.
 import { breathBeat, proseBeat } from '../../lib/guided-session.js';
 import type { GuidedSession, SessionBeat } from '../../lib/guided-session.js';
 
@@ -392,11 +402,19 @@ function buildSleepWindDown(): GuidedSession {
   };
 }
 
-/** 4-7-8 breathing — inhale 4, hold 7, exhale 8. Often called the
- *  "relaxing breath": the extended exhale activates the vagus nerve and
- *  the parasympathetic ("rest and digest") nervous system, with measured
- *  improvements to heart-rate variability and blood pressure in
- *  controlled studies. */
+/** 4-7-8 breathing — inhale 4, hold 7, exhale 8. Andrew Weil's adaptation
+ *  of pranayama, popularly called the "relaxing breath." Its evidence base
+ *  is real but genuinely small: no large randomized controlled trials exist
+ *  in a general population — the trials that do exist are mostly small and
+ *  in specific clinical populations (surgical/tinnitus/bariatric patients),
+ *  finding reduced situational anxiety, not the broad HRV/blood-pressure
+ *  claim this file's own `basis` string used to make. The better-evidenced
+ *  extended-exhale mechanisms sit with box breathing (buildBoxBreathing
+ *  below — a real 2026 RCT, though even that found no significant HRV or
+ *  cortisol change) and the physiological sigh (buildPhysiologicalSigh —
+ *  Balban et al. 2023, Cell Reports Medicine). This doc comment and the
+ *  `basis` string below were both overstating 4-7-8's real evidence until
+ *  corrected — see the Fit Fly research dossier's Meditate section. */
 function buildFourSevenEight(): GuidedSession {
   const cycle = [breathBeat('Breathe in', 'in', 4), breathBeat('Hold', 'hold', 7), breathBeat('Breathe out', 'out', 8)];
   const beats: SessionBeat[] = [
@@ -410,7 +428,8 @@ function buildFourSevenEight(): GuidedSession {
     category: 'breathwork',
     name: '4-7-8 Breathing',
     description: 'Inhale 4, hold 7, exhale 8 — often called the "relaxing breath."',
-    basis: '4-7-8 breathing, shown in controlled studies to improve heart-rate variability and lower blood pressure via extended-exhale vagal activation.',
+    basis:
+      "Adapted from pranayama (popularized by Andrew Weil). Small trials, mostly in specific clinical populations, suggest reduced situational anxiety — it hasn't been tested in large general-population trials. If it's the extended exhale you're after, box breathing and the physiological sigh below have the stronger evidence base.",
     beats,
   };
 }

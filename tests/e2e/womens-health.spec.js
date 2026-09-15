@@ -265,6 +265,143 @@ test.describe('women\'s health / cycle tracker', () => {
   });
 });
 
+test.describe('PMDD/PMS symptom log', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await clearAppDb(page);
+    await page.reload();
+    await completeOnboarding(page);
+    await page.locator('#btn-home-womens-health').click();
+    await page.locator('#whealth-pin-new').fill('4242');
+    await page.locator('#whealth-pin-confirm').fill('4242');
+    await page.locator('#btn-whealth-pin-set').click();
+    await page.locator('#whealth-mode-toggle button[data-value="pmdd"]').click();
+  });
+
+  test('the non-diagnostic framing is shown up front, not buried', async ({ page }) => {
+    await expect(page.locator('#whealth-pmdd-framing')).toBeVisible();
+    await expect(page.locator('#whealth-pmdd-framing')).toContainText('never diagnoses anything');
+    await expect(page.locator('#whealth-pmdd-framing')).toContainText('at least 2 full cycles');
+  });
+
+  test('logging today\'s check-in saves and shows a real, non-diagnostic result', async ({ page }) => {
+    const consoleErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => consoleErrors.push(String(err)));
+
+    await expect(page.locator('#whealth-pmdd-result')).toBeHidden();
+
+    await page.locator('#pmdd-item-mood-swings button[data-value="3"]').click();
+    await page.locator('#pmdd-item-irritability button[data-value="4"]').click();
+    await page.locator('#btn-whealth-pmdd-save').click();
+
+    await expect(page.locator('#whealth-pmdd-result')).toBeVisible();
+    // (3 + 4) / 2 = 3.5, rounded to the nearest whole rating (4 = Severe)
+    // for the label — a real, computed result, not a placeholder.
+    await expect(page.locator('#whealth-pmdd-result-summary')).toContainText('3.5/5');
+    await expect(page.locator('#whealth-pmdd-result-summary')).toContainText('2 of 11 symptoms logged');
+    await expect(page.locator('#whealth-pmdd-result')).toContainText('Not a diagnosis');
+    // A single moderate day never surfaces the crisis line on its own.
+    await expect(page.locator('#whealth-pmdd-crisis-line')).toBeHidden();
+
+    expect(consoleErrors).toEqual([]);
+
+    // Round-trips through lock/unlock as real ciphertext, same as the
+    // cycle log's own entries.
+    await page.locator('#btn-whealth-lock').click();
+    await page.locator('#btn-home-womens-health').click();
+    await page.locator('#whealth-pin-unlock').fill('4242');
+    await page.locator('#btn-whealth-pin-unlock').click();
+    await page.locator('#whealth-mode-toggle button[data-value="pmdd"]').click();
+    await expect(page.locator('#pmdd-item-mood-swings button[data-value="3"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#pmdd-item-irritability button[data-value="4"]')).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  test('the pattern view honestly stays gated with no real cycle history yet', async ({ page }) => {
+    await expect(page.locator('#whealth-pmdd-patterns-content')).toBeHidden();
+    await expect(page.locator('#whealth-pmdd-patterns-gate')).toContainText('Not enough data yet');
+    await expect(page.locator('#whealth-pmdd-patterns-gate')).toContainText('0 of 2');
+
+    // Logging just today's check-in — with no period ever logged — still
+    // isn't a real cycle history. The gate must not loosen just because
+    // *some* data now exists.
+    await page.locator('#pmdd-item-mood-swings button[data-value="2"]').click();
+    await page.locator('#btn-whealth-pmdd-save').click();
+    await expect(page.locator('#whealth-pmdd-patterns-content')).toBeHidden();
+    await expect(page.locator('#whealth-pmdd-patterns-gate')).toContainText('Not enough data yet');
+  });
+
+  test('the pattern view opens honestly once 2 real, well-covered cycles exist — not before', async ({ page }) => {
+    function isoDaysAgo(n) {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - n);
+      return d.toISOString().slice(0, 10);
+    }
+    // Two real completed cycles (61->33 days ago, 33->5 days ago), each
+    // exactly 28 days, plus a currently-open third cycle starting 5 days
+    // ago. Daily PMDD check-ins cover most (not literally every) day of
+    // both completed cycles — real prospective coverage, not a single
+    // retrospective guess.
+    const periodStarts = [isoDaysAgo(61), isoDaysAgo(33), isoDaysAgo(5)];
+    const pmddDays = [];
+    for (let n = 61; n > 5; n--) {
+      if (n % 4 !== 0) pmddDays.push(isoDaysAgo(n));
+    }
+
+    await page.evaluate(
+      async ({ periodStarts, pmddDays }) => {
+        const { getSessionKey } = await import('/js/features/womens-health/pin.js');
+        const { generateIv, encryptJson } = await import('/js/lib/crypto.js');
+        const { saveEncryptedCycleLog } = await import('/js/db/repositories/cycle-logs.js');
+        const { saveEncryptedPmddSymptomLog } = await import('/js/db/repositories/pmdd-symptom-logs.js');
+        const key = getSessionKey();
+
+        for (const date of periodStarts) {
+          const iv = generateIv();
+          const cipherBytes = await encryptJson(key, iv, { flowIntensity: 'medium', symptoms: [], mood: null, notes: '' });
+          await saveEncryptedCycleLog({ date, iv, cipherBytes });
+        }
+        for (const date of pmddDays) {
+          const iv = generateIv();
+          const answers = {
+            'mood-swings': 3,
+            irritability: 3,
+            'depressed-mood': 2,
+            'anxiety-tension': 2,
+            'decreased-interest': 2,
+            concentration: 2,
+            fatigue: 3,
+            'appetite-change': 2,
+            'sleep-change': 2,
+            overwhelmed: 2,
+            'physical-symptoms': 3,
+          };
+          const cipherBytes = await encryptJson(key, iv, answers);
+          await saveEncryptedPmddSymptomLog({ date, iv, cipherBytes });
+        }
+      },
+      { periodStarts, pmddDays }
+    );
+
+    // Lock/unlock forces a real re-decrypt + re-render from what's
+    // actually on disk now, same as the cycle tracker's own "reloading
+    // re-locks" test relies on.
+    await page.locator('#btn-whealth-lock').click();
+    await page.locator('#btn-home-womens-health').click();
+    await page.locator('#whealth-pin-unlock').fill('4242');
+    await page.locator('#btn-whealth-pin-unlock').click();
+    await page.locator('#whealth-mode-toggle button[data-value="pmdd"]').click();
+
+    await expect(page.locator('#whealth-pmdd-patterns-gate')).toBeHidden();
+    await expect(page.locator('#whealth-pmdd-patterns-content')).toBeVisible();
+    await expect(page.locator('#whealth-pmdd-cycle-comparison')).toContainText('Cycle 1');
+    await expect(page.locator('#whealth-pmdd-cycle-comparison')).toContainText('Cycle 2');
+    await expect(page.locator('#whealth-pmdd-patterns-content')).toContainText("isn't a diagnosis");
+  });
+});
+
 test.describe('pregnancy mode', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');

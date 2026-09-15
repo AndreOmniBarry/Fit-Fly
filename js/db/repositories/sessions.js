@@ -71,3 +71,42 @@ export async function listRecentSessions(limit = 20, db = getDb()) {
 export async function listAllSessions(db = getDb()) {
   return db.sessions.toArray();
 }
+
+/** Saves a person's own post-workout session-RPE (Borg CR10, 0-10) onto
+ *  an already-logged session — the input js/features/programs/
+ *  training-load.js's sessionTrainingLoad/ACWR math is built from. A
+ *  plain extra field on the existing record, not a new indexed column
+ *  (see schema.js's own doc comment: only fields this app actually
+ *  queries *by* need an index, and nothing queries sessions by
+ *  sessionRpe — every read here goes through the already-indexed
+ *  startedAt range in listSessionsWithRpeSince below). */
+export async function setSessionRpe(sessionId, sessionRpe, db = getDb()) {
+  await db.sessions.update(sessionId, { sessionRpe });
+  return db.sessions.get(sessionId);
+}
+
+/** Saves a person's own optional, real Reps-in-Reserve (RIR) rating onto
+ *  one already-logged set — the RIR side of the validated RPE-RIR scale
+ *  (Zourdos et al. 2016; see js/features/programs/autoregulation.js's own
+ *  doc comment for the full citation and exactly what this app does/
+ *  doesn't do with it), the input that module's own
+ *  suggestNextLoadAdjustment is built from. A plain extra field on the
+ *  existing set record, not a new indexed column — same reasoning as
+ *  setSessionRpe just above: nothing ever queries sets *by* rir, every
+ *  read here goes through listSetsForExercise's already-indexed
+ *  exerciseId lookup. */
+export async function setSetRir(setId, rir, db = getDb()) {
+  await db.sets.update(setId, { rir });
+  return db.sets.get(setId);
+}
+
+/** Every session on/after `sinceIso` that actually has a real
+ *  session-RPE recorded — the exact real-history input
+ *  dailyTrainingLoadsFromSessions/calculateAcuteChronicWorkloadRatio
+ *  need, scoped by the indexed startedAt range first so this never scans
+ *  the whole table just to filter out the (typically many) sessions
+ *  nobody ever rated. */
+export async function listSessionsWithRpeSince(sinceIso, db = getDb()) {
+  const sessions = await db.sessions.where('startedAt').aboveOrEqual(sinceIso).sortBy('startedAt');
+  return sessions.filter((session) => session.sessionRpe != null);
+}

@@ -99,7 +99,9 @@ export function buildGoalsNotification(activeGoals, todayIsoDate, random = Math.
     const phrases = STREAK_RISK_PHRASES[inferActivityType(goal)] ?? STREAK_RISK_PHRASES.generic;
     return {
       title: pickPhrase(phrases, random),
-      body: `${goal.name}: ${streak}-day streak — log today to keep it alive.`,
+      // Gain-framed to match the title above — the real number is what
+      // logging today makes it, not what skipping today would cost.
+      body: `${goal.name}: log today and your ${streak}-day streak grows to ${streak + 1}.`,
     };
   }
 

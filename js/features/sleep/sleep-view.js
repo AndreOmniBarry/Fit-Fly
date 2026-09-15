@@ -399,21 +399,43 @@ export function initSleepFeature() {
         const width = 320;
         const height = 140;
         const geometry = buildSleepInsightAreaGeometry(buckets.map((bucket) => bucket.durationMinutes), { width, height });
+        // Deeper, glowing "premium slope" treatment — same real geometry as
+        // before, purely richer rendering: a taller 3-stop gradient fill, a
+        // soft blurred glow riding under the crisp line, and dots with a
+        // faint halo + bright core instead of a single flat fill. Nothing
+        // here changes what a point *is*, only how it looks.
         const ns = 'http://www.w3.org/2000/svg';
         const defs = document.createElementNS(ns, 'defs');
         defs.innerHTML =
-            '<linearGradient id="sleepInsightAreaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.4"/><stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/></linearGradient>';
+            '<linearGradient id="sleepInsightAreaGrad" x1="0" y1="0" x2="0" y2="1">' +
+                '<stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.5"/>' +
+                '<stop offset="55%" stop-color="var(--sleep-accent)" stop-opacity="0.16"/>' +
+                '<stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/>' +
+                '</linearGradient>' +
+                '<filter id="sleepInsightGlow" x="-20%" y="-60%" width="140%" height="220%">' +
+                '<feGaussianBlur stdDeviation="5" result="blur"/>' +
+                '</filter>';
         svg.append(defs);
         const area = document.createElementNS(ns, 'path');
         area.setAttribute('d', geometry.areaPath);
         area.setAttribute('fill', 'url(#sleepInsightAreaGrad)');
         area.setAttribute('stroke', 'none');
         svg.append(area);
+        const glow = document.createElementNS(ns, 'path');
+        glow.setAttribute('d', geometry.linePath);
+        glow.setAttribute('fill', 'none');
+        glow.setAttribute('stroke', 'var(--sleep-accent)');
+        glow.setAttribute('stroke-width', '6');
+        glow.setAttribute('stroke-linecap', 'round');
+        glow.setAttribute('stroke-linejoin', 'round');
+        glow.setAttribute('opacity', '0.35');
+        glow.setAttribute('filter', 'url(#sleepInsightGlow)');
+        svg.append(glow);
         const line = document.createElementNS(ns, 'path');
         line.setAttribute('d', geometry.linePath);
         line.setAttribute('fill', 'none');
         line.setAttribute('stroke', 'var(--sleep-accent)');
-        line.setAttribute('stroke-width', '2.5');
+        line.setAttribute('stroke-width', '3');
         line.setAttribute('stroke-linecap', 'round');
         line.setAttribute('stroke-linejoin', 'round');
         svg.append(line);
@@ -422,14 +444,27 @@ export function initSleepFeature() {
             if (!point)
                 return;
             const dotColor = CATEGORY_DOT_COLOR[bucket.category];
+            const halo = document.createElementNS(ns, 'circle');
+            halo.setAttribute('cx', String(point.x));
+            halo.setAttribute('cy', String(point.y));
+            halo.setAttribute('r', '9');
+            halo.setAttribute('fill', dotColor);
+            halo.setAttribute('opacity', '0.18');
+            svg.append(halo);
             const dot = document.createElementNS(ns, 'circle');
             dot.setAttribute('cx', String(point.x));
             dot.setAttribute('cy', String(point.y));
             dot.setAttribute('r', '4.5');
             dot.setAttribute('fill', dotColor);
-            dot.setAttribute('stroke', 'rgba(6,10,8,0.55)');
+            dot.setAttribute('stroke', 'rgba(8,14,12,0.5)');
             dot.setAttribute('stroke-width', '1.5');
             svg.append(dot);
+            const core = document.createElementNS(ns, 'circle');
+            core.setAttribute('cx', String(point.x));
+            core.setAttribute('cy', String(point.y));
+            core.setAttribute('r', '1.6');
+            core.setAttribute('fill', 'rgba(255,255,255,0.85)');
+            svg.append(core);
             // A real, natively-focusable/tappable <button> laid over each SVG
             // point — same tap/hover/focus-reveals, blur/leave-hides tooltip
             // contract as js/lib/trend-chart.ts's own bars, just positioned over

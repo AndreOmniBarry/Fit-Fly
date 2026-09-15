@@ -14,6 +14,7 @@ import { initNutritionFeature } from './features/nutrition/nutrition-view.js';
 import { initGoalsFeature } from './features/goals/goals-view.js';
 import { initVoiceFeature } from './features/voice/voice-control.js';
 import { initHubFeature } from './features/hub/hub-view.js';
+import { initHubStatsFeature } from './features/hub/hub-stats-view.js';
 import { initSleepFeature } from './features/sleep/sleep-view.js';
 import { initChronotypeFeature } from './features/chronotype/chronotype-view.js';
 import { initFocusFeature } from './features/focus/focus-view.js';
@@ -86,6 +87,7 @@ async function init() {
   initGoalsFeature();
   initVoiceFeature();
   initHubFeature();
+  initHubStatsFeature();
   initSleepFeature();
   initChronotypeFeature();
   initFocusFeature();

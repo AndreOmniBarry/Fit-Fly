@@ -4,6 +4,7 @@
 // that owns it.
 export interface Profile {
   id: string;
+  displayName?: string;
   birthdate?: string;
   sex?: string;
   heightCm?: number;

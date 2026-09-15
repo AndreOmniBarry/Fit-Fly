@@ -8,6 +8,7 @@
 let screens = new Map();
 let currentId = null;
 const showListeners = new Map(); // screenId -> Set<callback>
+const hideListeners = new Map(); // screenId -> Set<callback>
 
 export function initRouter(root = document) {
   screens = new Map(
@@ -26,14 +27,31 @@ export function onScreenShown(id, callback) {
   showListeners.get(id).add(callback);
 }
 
+/** The mirror of onScreenShown — runs `callback` the moment `id` stops
+ *  being the visible screen. For a screen that stays mounted in the
+ *  background (every top-level screen here does, via the `hidden`
+ *  attribute, never removed from the DOM), this is where to tear down
+ *  anything that shouldn't linger off-screen — e.g. the Hub's own mini
+ *  trend-chart (hub-stats-view.ts), whose real DOM nodes would otherwise
+ *  still exist, hidden, while some other screen is showing its own
+ *  same-shaped chart, silently doubling up any unscoped query for it. */
+export function onScreenHidden(id, callback) {
+  if (!hideListeners.has(id)) hideListeners.set(id, new Set());
+  hideListeners.get(id).add(callback);
+}
+
 export function showScreen(id, { focus = true } = {}) {
   if (!screens.has(id)) {
     throw new Error(`showScreen: no screen registered with id "${id}"`);
   }
+  const previousId = currentId;
   for (const [screenId, el] of screens) {
     el.hidden = screenId !== id;
   }
   currentId = id;
+  if (previousId && previousId !== id) {
+    for (const callback of hideListeners.get(previousId) ?? []) callback();
+  }
   for (const callback of showListeners.get(id) ?? []) callback();
   if (focus) {
     // Move focus + scroll to the top of the new screen for keyboard/screen

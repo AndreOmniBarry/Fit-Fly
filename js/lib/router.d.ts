@@ -4,5 +4,6 @@
 export function initRouter(root?: ParentNode): void;
 export function onScreenShown(id: string, callback: () => void): void;
 export function onScreenHidden(id: string, callback: () => void): void;
+export function onAnyScreenChange(callback: (id: string) => void): void;
 export function showScreen(id: string, options?: { focus?: boolean }): void;
 export function getCurrentScreenId(): string | null;

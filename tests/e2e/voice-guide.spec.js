@@ -13,7 +13,7 @@ test.describe('voice guide: Settings', () => {
     await page.evaluate(() => localStorage.clear());
     await page.reload();
     await page.getByRole('button', { name: 'Skip for now' }).click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
   });
 
   test('the voice guide card offers only the built-in voice, with a working preview and zero console errors', async ({

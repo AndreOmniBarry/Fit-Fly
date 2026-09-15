@@ -9,6 +9,7 @@ let screens = new Map();
 let currentId = null;
 const showListeners = new Map(); // screenId -> Set<callback>
 const hideListeners = new Map(); // screenId -> Set<callback>
+const anyChangeListeners = new Set(); // callback(newId) — fires on every real navigation
 
 export function initRouter(root = document) {
   screens = new Map(
@@ -40,6 +41,18 @@ export function onScreenHidden(id, callback) {
   hideListeners.get(id).add(callback);
 }
 
+/** Runs `callback(id)` on every real navigation, regardless of which
+ *  screen it's to or from — for chrome that spans every screen instead
+ *  of belonging to just one (the bottom nav's own active-tab highlight
+ *  and show/hide, js/features/hub/bottom-nav.ts), which would otherwise
+ *  need a callback registered against all ~37 screen ids individually.
+ *  Never fires for the very first screen shown at app boot (nothing
+ *  "changed" yet) — callers that need the initial state read
+ *  getCurrentScreenId() once themselves after registering. */
+export function onAnyScreenChange(callback) {
+  anyChangeListeners.add(callback);
+}
+
 export function showScreen(id, { focus = true } = {}) {
   if (!screens.has(id)) {
     throw new Error(`showScreen: no screen registered with id "${id}"`);
@@ -53,6 +66,7 @@ export function showScreen(id, { focus = true } = {}) {
     for (const callback of hideListeners.get(previousId) ?? []) callback();
   }
   for (const callback of showListeners.get(id) ?? []) callback();
+  for (const callback of anyChangeListeners) callback(id);
   if (focus) {
     // Move focus + scroll to the top of the new screen for keyboard/screen
     // reader users — a wizard that silently swaps content out from under

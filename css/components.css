@@ -541,3 +541,36 @@ textarea.input{
   min-height:2.3em;
 }
 .program-week-strip-cell[data-kind="training"] .program-week-strip-label{ color:var(--accent-strong); font-weight:600; }
+
+/* ============================================================================
+   BOTTOM NAV — real app-wide chrome (js/features/hub/bottom-nav.ts owns
+   all of its show/hide + active-tab logic), not a per-screen thing. Shown
+   only on the app's 4 real top-level destinations; every deep mini-app
+   screen already has its own back button, so this never doubles as a
+   second way to leave one. Theme-aware (the light/dark toggle this
+   surface actually respects), unlike the Hub tiles' own always-dark
+   mini-scenes — this is closer to the app's shared screen-router chrome.
+   ========================================================================== */
+.bottom-nav{
+  position:fixed; left:0; right:0; bottom:0; z-index:20;
+  display:flex; justify-content:space-around; align-items:stretch;
+  padding:6px 8px calc(6px + env(safe-area-inset-bottom, 0px));
+  background:color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  border-top:1px solid var(--border);
+  box-shadow:0 -8px 24px -12px rgba(0,0,0,0.18);
+}
+.bottom-nav-btn{
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:2px; padding:6px 4px; border-radius:var(--radius-md);
+  color:var(--ink-muted); font-size:10.5px; font-weight:700;
+}
+.bottom-nav-btn .icon{ transition:transform .2s cubic-bezier(.34,1.56,.64,1); }
+.bottom-nav-btn.is-active{
+  color:var(--accent);
+  background:var(--accent-soft);
+}
+.bottom-nav-btn.is-active .icon{ transform:translateY(-1px) scale(1.08); }
+@media (prefers-reduced-motion: reduce){
+  .bottom-nav-btn .icon{ transition:none; }
+}

@@ -168,6 +168,7 @@ export function initHearingFeature() {
         byId('hearing-monitor-live-label').textContent = sample.label;
         const summary = summarizeMonitorSession(monitorSamples);
         byId('hearing-monitor-dose').textContent = `${summary.dosePercent}%`;
+        byId('hearing-monitor-dose-bar').style.width = `${Math.min(100, summary.dosePercent)}%`;
         byId('hearing-monitor-spikes').textContent = String(summary.spikeCount);
       },
       onError: (error) => {
@@ -196,6 +197,7 @@ export function initHearingFeature() {
     byId('hearing-monitor-live-db').textContent = '— dB';
     byId('hearing-monitor-live-label').textContent = '';
     byId('hearing-monitor-dose').textContent = '0%';
+    byId('hearing-monitor-dose-bar').style.width = '0%';
     byId('hearing-monitor-spikes').textContent = '0';
     byId('hearing-monitor-elapsed').textContent = '0:00';
 
@@ -219,6 +221,7 @@ export function initHearingFeature() {
     byId('hearing-monitor-summary-duration').textContent = formatDuration(summary.totalHours * 3_600_000);
     byId('hearing-monitor-summary-twa').textContent = summary.twaDb != null ? `~${summary.twaDb} dB` : '—';
     byId('hearing-monitor-summary-dose').textContent = `${summary.dosePercent}%`;
+    byId('hearing-monitor-summary-dose-bar').style.width = `${Math.min(100, summary.dosePercent)}%`;
     byId('hearing-monitor-summary-spikes').textContent = String(summary.spikeCount);
     renderSessionChart(monitorSamples);
   });

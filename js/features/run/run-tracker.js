@@ -11,8 +11,10 @@ import { computeSplits } from './splits.js';
 import {
   formatDistanceForUnit,
   formatPaceForUnit,
+  formatSpeedForUnit,
   getDistanceUnit,
   setDistanceUnit,
+  speedKmhFromPaceSecPerKm,
   splitBoundaryMetersForUnit,
 } from './run-units.js';
 import { drawRoute } from './route-canvas.js';
@@ -23,7 +25,7 @@ import {
   estimateFlightsClimbed,
   hasElevationData,
 } from './gps-elevation.js';
-import { detectNewPRs, longestRun } from './personal-records.js';
+import { detectNewPRs, fastestPaceRun, longestRun } from './personal-records.js';
 import { groupRunsByDate } from './run-trend.js';
 import { renderTrendChart } from '../../lib/trend-chart.js';
 import { initChipGroup } from '../../lib/chip-group.js';
@@ -37,12 +39,19 @@ import {
 import { assessGpsSignalQuality } from './gps-signal-quality.js';
 import { isNativeBackgroundGeoAvailable, startNativeBackgroundWatch } from './native-background-geo.js';
 import { estimateRunCalories } from './run-calorie-estimate.js';
-import { listAllRuns, saveCompletedRun } from '../../db/repositories/runs.js';
+import { listAllRuns, listRecentRuns, saveCompletedRun } from '../../db/repositories/runs.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { setRunTileSubtitle } from '../hub/hub-view.js';
 import { getNotificationPermission, showNotification } from '../../lib/notifications.js';
 
 const DEFAULT_TILE_SUBTITLE = 'GPS-tracked, live pace & splits';
+
+// The speed gauge's own real instrument ceiling — a brisk sprint pace,
+// not a per-person goal (see index.html's own comment on the gauge
+// markup) — and its arc's real total length (matches r=90 in
+// index.html/mini-apps.css: 2 * PI * 90 / 2, a half circle).
+const SPEED_GAUGE_MAX_KMH = 24;
+const SPEED_GAUGE_ARC_LENGTH = Math.PI * 90;
 
 // The trend chart's own state — see steps-view.ts's identical comment;
 // same reasoning, same default range. `cachedRuns`/`cachedUnit` let the
@@ -133,6 +142,24 @@ export function initRunFeature() {
     return getDistanceUnit();
   }
 
+  /** Draws the speed gauge in to a real fraction of its own fixed
+   *  instrument ceiling (SPEED_GAUGE_MAX_KMH) — the exact same
+   *  "real data on a real attribute" contract as every other ring/gauge
+   *  in this app. `livePaceSecPerKm` is null before there's enough real
+   *  GPS history to derive a speed from yet, same as the pace text next
+   *  to it staying "—" until then. */
+  function setSpeedGauge(livePaceSecPerKm, unit) {
+    const kmh = speedKmhFromPaceSecPerKm(livePaceSecPerKm);
+    const fraction = kmh == null ? 0 : Math.min(1, kmh / SPEED_GAUGE_MAX_KMH);
+    const offset = SPEED_GAUGE_ARC_LENGTH * (1 - fraction);
+    byId('run-speed-gauge-fill').setAttribute('stroke-dashoffset', offset.toFixed(2));
+
+    const formatted = formatSpeedForUnit(livePaceSecPerKm, unit); // "9.6 km/h" / "6.0 mph" / "—"
+    const [value, label] = formatted === '—' ? ['0.0', unit === 'mi' ? 'mph' : 'km/h'] : formatted.split(' ');
+    byId('run-speed-value').textContent = value;
+    byId('run-speed-unit-label').textContent = label;
+  }
+
   function render() {
     const unit = currentUnit();
     const filtered = filterAccuratePoints(points);
@@ -145,6 +172,7 @@ export function initRunFeature() {
     // below it. Falls back to the whole-run average early on, before
     // there's enough recent history to measure a window from.
     const livePace = recentPaceSecPerKm(filtered, LIVE_PACE_WINDOW_MS) ?? avgPace;
+    setSpeedGauge(livePace, unit);
 
     byId('run-distance').textContent = formatDistanceForUnit(distanceMeters, unit);
     byId('run-duration').textContent = formatDuration(durationMs);
@@ -298,6 +326,7 @@ export function initRunFeature() {
       chip.setAttribute('aria-pressed', String(chip === btn));
     });
     render(); // reflect the new unit immediately, not on the next tick
+    void renderBenchmarkCard(btn.dataset.unit);
   });
 
   // Navigation itself (showScreen) is hub-view.ts's job, same as every
@@ -452,7 +481,42 @@ export function initRunFeature() {
       chip.setAttribute('aria-pressed', String(chip.dataset.unit === unit));
     });
     render();
+    void renderBenchmarkCard(unit);
     checkGeoPermissionUpfront();
+  }
+
+  /** "Your Bests" — the same real longest-run/fastest-pace personal
+   *  records the live "on pace for a new best" badge already computes
+   *  (personal-records.js), plus the most recent completed run, always
+   *  visible on open so "how does this compare" never requires opening
+   *  the Trend chart below to find its own highlighted bar. Hidden
+   *  entirely with no runs logged yet, and each row independently
+   *  hidden if that particular record doesn't exist yet (e.g. a fastest
+   *  qualifying pace needs a real run past personal-records.js's own
+   *  minimum distance) — never a fabricated placeholder. */
+  async function renderBenchmarkCard(unit) {
+    const [allRuns, recent] = await Promise.all([listAllRuns(), listRecentRuns(1)]);
+    const card = byId('run-benchmark-card');
+    if (allRuns.length === 0) {
+      card.hidden = true;
+      return;
+    }
+    card.hidden = false;
+
+    const best = longestRun(allRuns);
+    byId('run-benchmark-best-distance-row').hidden = !best;
+    if (best) byId('run-benchmark-best-distance').textContent = formatDistanceForUnit(best.distanceMeters, unit);
+
+    const fastest = fastestPaceRun(allRuns);
+    byId('run-benchmark-best-pace-row').hidden = !fastest;
+    if (fastest) byId('run-benchmark-best-pace').textContent = formatPaceForUnit(fastest.avgPaceSecPerKm, unit);
+
+    const lastRun = recent[0];
+    byId('run-benchmark-last-row').hidden = !lastRun;
+    if (lastRun) {
+      byId('run-benchmark-last').textContent =
+        `${formatDistanceForUnit(lastRun.distanceMeters, unit)} · ${formatPaceForUnit(lastRun.avgPaceSecPerKm, unit)}`;
+    }
   }
 
   // Best-effort — the Permissions API isn't universally supported (Safari

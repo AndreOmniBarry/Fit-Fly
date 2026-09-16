@@ -41,3 +41,22 @@ export function formatPaceForUnit(secPerKm, unit) {
 export function splitBoundaryMetersForUnit(unit) {
   return unit === 'mi' ? METERS_PER_MILE : 1000;
 }
+
+/** Real speed in km/h — the exact reciprocal of the same sec/km pace
+ *  every other readout here already computes, never a second GPS
+ *  measurement. Null for the same "nothing real yet" inputs
+ *  formatPaceForUnit already treats as unknown. */
+export function speedKmhFromPaceSecPerKm(secPerKm) {
+  if (secPerKm == null || !Number.isFinite(secPerKm) || secPerKm <= 0) return null;
+  return 3600 / secPerKm;
+}
+
+/** "9.6 km/h" / "6.0 mph" — one decimal place, converted the same way
+ *  formatDistanceForUnit/formatPaceForUnit already convert their own
+ *  units. */
+export function formatSpeedForUnit(secPerKm, unit) {
+  const kmh = speedKmhFromPaceSecPerKm(secPerKm);
+  if (kmh == null) return '—';
+  if (unit === 'mi') return `${(kmh / (METERS_PER_MILE / 1000)).toFixed(1)} mph`;
+  return `${kmh.toFixed(1)} km/h`;
+}

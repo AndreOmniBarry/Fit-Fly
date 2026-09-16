@@ -47,6 +47,12 @@ test.describe('badges', () => {
     await expect(nextMilestone).toBeVisible();
     await expect(nextMilestone).toContainText('Closest to earning');
 
+    // Every locked tier's own per-card ring starts honestly at zero too —
+    // never a fabricated starting fraction.
+    const firstRing = page.locator('#badges-locked-grid .badge-card-icon-ring').first();
+    const firstRingProgress = await firstRing.evaluate((el) => el.style.getPropertyValue('--badge-progress'));
+    expect(Number(firstRingProgress)).toBe(0);
+
     expect(consoleErrors).toEqual([]);
   });
 
@@ -68,6 +74,13 @@ test.describe('badges', () => {
     // earned — never stuck at its empty starting offset.
     const ringOffset = Number(await page.locator('#badges-progress-ring-fill').getAttribute('stroke-dashoffset'));
     expect(ringOffset).toBeLessThan(301.59);
+
+    // A still-locked tier that this same real streak day also moved —
+    // "On Your Feet" (steps-streak-7) — now carries a real per-card
+    // progress ring too, not just a flat dimmed icon with text underneath.
+    const streakCard = page.locator('.badge-card', { hasText: 'On Your Feet' });
+    const streakProgress = await streakCard.locator('.badge-card-icon-ring').evaluate((el) => el.style.getPropertyValue('--badge-progress'));
+    expect(Number(streakProgress)).toBeGreaterThan(0);
   });
 
   test('a badge earned once stays earned — logging further activity never un-earns it', async ({ page }) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { closestLockedBadge } from '../../../js/features/badges/badge-progress.js';
+import { closestLockedBadge, progressPercent } from '../../../js/features/badges/badge-progress.js';
 
 function status(overrides) {
   return {
@@ -45,5 +45,23 @@ describe('closestLockedBadge', () => {
   it('never lets a currentValue of 0 crash the comparison', () => {
     const badges = [status({ id: 'a', currentValue: 0, threshold: 10 })];
     expect(closestLockedBadge(badges)?.id).toBe('a');
+  });
+});
+
+describe('progressPercent', () => {
+  it('computes a real, rounded percentage', () => {
+    expect(progressPercent({ currentValue: 4, threshold: 10 })).toBe(40);
+  });
+
+  it('returns 0 at zero currentValue, never a fabricated starting fraction', () => {
+    expect(progressPercent({ currentValue: 0, threshold: 10 })).toBe(0);
+  });
+
+  it('clamps at 100 even if currentValue somehow exceeds threshold', () => {
+    expect(progressPercent({ currentValue: 15, threshold: 10 })).toBe(100);
+  });
+
+  it('never divides by zero for a malformed zero threshold', () => {
+    expect(progressPercent({ currentValue: 5, threshold: 0 })).toBe(0);
   });
 });

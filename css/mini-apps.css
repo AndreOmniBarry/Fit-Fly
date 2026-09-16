@@ -1611,6 +1611,36 @@
   .run-gps-dot[data-quality="weak"]{ animation:none; opacity:.9; }
 }
 
+/* A real speedometer — js/features/run/run-tracker.js sets the arc's own
+   real stroke-dashoffset from real GPS-measured speed, never a competing
+   CSS value, same draw-in contract as every other ring in this app. */
+.run-speed-gauge{ position:relative; width:200px; height:112px; margin:0 auto; }
+.run-speed-gauge-value{
+  position:absolute; left:0; right:0; bottom:10px;
+  display:flex; flex-direction:column; align-items:center; gap:1px;
+}
+.run-speed-gauge-value .count{ font-family:var(--miniapp-font-display); font-size:30px; line-height:1; }
+.run-speed-gauge-value .label{ font-size:11.5px; font-weight:600; color:var(--run-accent); letter-spacing:0.02em; }
+#run-speed-gauge-fill{ transition:stroke-dashoffset .4s cubic-bezier(.16,1,.3,1); }
+@media (prefers-reduced-motion: reduce){
+  #run-speed-gauge-fill{ transition:none; }
+}
+
+/* HEARING — a real bar against NIOSH's own 100%-dose ceiling, next to
+   the monitor's own "Dose so far"/"Dose used" text (js/features/hearing/
+   hearing-view.js sets its real width from real summarizeMonitorSession
+   output). Own local tokens (--hearing-*), not the app-wide --border/
+   --accent this night-themed screen never uses directly. */
+.hearing-dose-bar-track{ height:6px; border-radius:3px; overflow:hidden; background:var(--hearing-card-border); }
+.hearing-dose-bar-fill{
+  height:100%; border-radius:3px;
+  background:linear-gradient(90deg, var(--hearing-accent), var(--hearing-accent-2));
+  transition:width .3s ease;
+}
+@media (prefers-reduced-motion: reduce){
+  .hearing-dose-bar-fill{ transition:none; }
+}
+
 /* ============================================================================
    SHARED TREND CHART — Steps/Hydration/Run's own daily/per-session trend
    (js/lib/trend-chart.ts builds this structure; the JS sets

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   formatDistanceForUnit,
   formatPaceForUnit,
+  formatSpeedForUnit,
+  speedKmhFromPaceSecPerKm,
   splitBoundaryMetersForUnit,
 } from '../../../js/features/run/run-units.js';
 
@@ -42,6 +44,35 @@ describe('formatPaceForUnit', () => {
   it('shows an em dash for null/non-finite input in either unit', () => {
     expect(formatPaceForUnit(null, 'mi')).toBe('—');
     expect(formatPaceForUnit(Infinity, 'mi')).toBe('—');
+  });
+});
+
+describe('speedKmhFromPaceSecPerKm', () => {
+  it('is the real reciprocal of a real pace — 6:00/km is exactly 10 km/h', () => {
+    expect(speedKmhFromPaceSecPerKm(360)).toBe(10);
+  });
+
+  it('returns null for the same "nothing real yet" inputs pace treats as unknown', () => {
+    expect(speedKmhFromPaceSecPerKm(null)).toBeNull();
+    expect(speedKmhFromPaceSecPerKm(Infinity)).toBeNull();
+    expect(speedKmhFromPaceSecPerKm(0)).toBeNull();
+    expect(speedKmhFromPaceSecPerKm(-5)).toBeNull();
+  });
+});
+
+describe('formatSpeedForUnit', () => {
+  it('km unit shows one decimal place km/h', () => {
+    expect(formatSpeedForUnit(360, 'km')).toBe('10.0 km/h');
+  });
+
+  it('mi unit converts km/h to mph', () => {
+    // 10 km/h -> 6.2 mph
+    expect(formatSpeedForUnit(360, 'mi')).toBe('6.2 mph');
+  });
+
+  it('shows an em dash for null/non-finite input in either unit', () => {
+    expect(formatSpeedForUnit(null, 'km')).toBe('—');
+    expect(formatSpeedForUnit(Infinity, 'mi')).toBe('—');
   });
 });
 

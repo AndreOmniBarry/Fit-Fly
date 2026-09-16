@@ -145,12 +145,18 @@ test.describe('hearing health: ambient monitor', () => {
     // genuinely waiting on two full real 10s sample intervals end to
     // end, not a fixed short animation.
     await expect(page.locator('#hearing-monitor-dose')).not.toHaveText('0%', { timeout: 25000 });
+    // The same real dose is also drawn, not just written.
+    await expect
+      .poll(() => page.locator('#hearing-monitor-dose-bar').evaluate((el) => el.style.width))
+      .not.toBe('0%');
 
     await page.locator('#btn-hearing-monitor-stop').click();
     await expect(page.locator('#hearing-monitor-summary')).toBeVisible();
     await expect(page.locator('#hearing-monitor-active')).toBeHidden();
     await expect(page.locator('#hearing-monitor-summary-twa')).toContainText('dB');
     await expect(page.locator('#hearing-monitor-summary-dose')).toContainText('%');
+    const summaryBarWidth = await page.locator('#hearing-monitor-summary-dose-bar').evaluate((el) => el.style.width);
+    expect(summaryBarWidth).not.toBe('0%');
 
     await page.locator('#btn-hearing-monitor-done').click();
     await expect(page.locator('#hearing-monitor-idle')).toBeVisible();

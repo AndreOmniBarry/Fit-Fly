@@ -96,6 +96,46 @@ test.describe('run mode', () => {
     await expect(page.locator('#run-history-list .card').first()).toBeVisible();
   });
 
+  test('the speed gauge starts undrawn and draws in for real once live GPS movement accrues', async ({ page, context }) => {
+    await page.locator('#btn-home-run').click();
+    const gaugeFill = page.locator('#run-speed-gauge-fill');
+    await expect(gaugeFill).toHaveAttribute('stroke-dashoffset', '282.74');
+    await expect(page.locator('#run-speed-value')).toHaveText('0.0');
+
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5);
+
+    await expect.poll(async () => Number(await gaugeFill.getAttribute('stroke-dashoffset'))).toBeLessThan(282.74);
+    await expect.poll(async () => page.locator('#run-speed-value').textContent()).not.toBe('0.0');
+  });
+
+  test('Your Bests stays hidden with no runs logged yet, then shows real personal-best and last-run stats', async ({
+    page,
+    context,
+  }) => {
+    await page.locator('#btn-home-run').click();
+    await expect(page.locator('#run-benchmark-card')).toBeHidden();
+
+    await page.getByRole('button', { name: 'Start' }).click();
+    await moveGps(context, page, 5);
+    const liveDistance = await page.locator('#run-distance').textContent();
+    await page.getByRole('button', { name: 'Finish' }).click();
+    await expect(page.getByRole('heading', { name: 'Run Complete' })).toBeVisible();
+    await page.getByRole('button', { name: 'Done' }).click();
+
+    await page.locator('#btn-home-run').click();
+    const benchmarkCard = page.locator('#run-benchmark-card');
+    await expect(benchmarkCard).toBeVisible();
+    // A person's very first run is both their longest run and their last
+    // run — the same real distance shows in both rows.
+    await expect(page.locator('#run-benchmark-best-distance')).toHaveText(liveDistance);
+    await expect(page.locator('#run-benchmark-last')).toContainText(liveDistance);
+    // Under personal-records.js's own minimum-distance floor for a
+    // fastest-pace PR, a short test run never qualifies — that row stays
+    // honestly hidden rather than showing a meaningless PR.
+    await expect(page.locator('#run-benchmark-best-pace-row')).toBeHidden();
+  });
+
   test('pause freezes distance accrual; resume continues', async ({ page, context }) => {
     await page.locator('#btn-home-run').click();
     await page.getByRole('button', { name: 'Start' }).click();

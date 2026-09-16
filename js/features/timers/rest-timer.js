@@ -11,8 +11,19 @@ const DEFAULT_DURATION_S = 60;
 // moment the next one does fire.
 const POLL_MS = 250;
 
+// Matches the ring's own r=96 in index.html/components.css.
+const RING_CIRCUMFERENCE = 2 * Math.PI * 96;
+
 function byId(id) {
   return document.getElementById(id);
+}
+
+/** Draws the ring in to a real remaining-vs-total fraction — full at the
+ *  start of a fresh duration, draining down to empty exactly as the real
+ *  countdown reaches zero, never a competing CSS value. */
+function setRestRingFraction(fraction) {
+  const clamped = Math.max(0, Math.min(1, fraction));
+  byId('rest-ring-fill').setAttribute('stroke-dashoffset', (RING_CIRCUMFERENCE * (1 - clamped)).toFixed(2));
 }
 
 export function initRestTimerFeature() {
@@ -27,6 +38,7 @@ export function initRestTimerFeature() {
 
   function render() {
     byId('rest-display').textContent = formatDuration(timer.getRemainingMs());
+    setRestRingFraction(timer.getRemainingMs() / (durationS * 1000));
     if (timer.isFinished() && !announcedFinished) {
       announcedFinished = true;
       onFinished();

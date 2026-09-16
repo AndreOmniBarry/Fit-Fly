@@ -134,10 +134,7 @@ export function initProgramFeature() {
     },
   });
 
-  byId('btn-home-program').addEventListener('click', async () => {
-    await renderProgramScreen({ resetToCurrentWeek: true });
-    showScreen('screen-program');
-  });
+  byId('btn-home-program').addEventListener('click', () => void openProgramScreen());
   byId('btn-program-back').addEventListener('click', () => showScreen('screen-home'));
 
   // ---------- week navigation ----------
@@ -335,6 +332,17 @@ async function getInjuryBodyAreaTags() {
   if (!latest || latest.bodyArea === 'none') return [];
   const tag = tagBodyArea(latest.bodyArea);
   return tag === 'other' ? [] : [tag];
+}
+
+/** Renders My Program fresh (always on the real current week) and shows
+ *  its screen — the one real entry point into Programs, shared by the
+ *  Fitness Toolkit's own row (btn-home-program, above) and the Hub's
+ *  "Continue your program" card (js/features/hub/hub-recommended-view.ts),
+ *  so both land on the exact same state rather than one drifting from
+ *  the other. */
+export async function openProgramScreen() {
+  await renderProgramScreen({ resetToCurrentWeek: true });
+  showScreen('screen-program');
 }
 
 /** @param {object} [options]

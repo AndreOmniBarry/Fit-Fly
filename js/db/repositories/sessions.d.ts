@@ -30,5 +30,6 @@ export function listSetsForExercise(exerciseId: string, db?: unknown): Promise<S
 export function listSessionsByType(type: string, db?: unknown): Promise<SessionRecord[]>;
 export function listRecentSessions(limit?: number, db?: unknown): Promise<SessionRecord[]>;
 export function listAllSessions(db?: unknown): Promise<SessionRecord[]>;
+export function listSessionsForProgram(programId: string, db?: unknown): Promise<SessionRecord[]>;
 export function setSessionRpe(sessionId: string, sessionRpe: number, db?: unknown): Promise<SessionRecord | undefined>;
 export function listSessionsWithRpeSince(sinceIso: string, db?: unknown): Promise<SessionRecord[]>;

@@ -71,6 +71,15 @@ input,select,textarea{font-family:var(--font-body); font-size:var(--fs-md);}
   animation:screen-in .2s ease;
 }
 
+/* The app's 4 real top-level screens (js/features/hub/bottom-nav.ts) sit
+   under a fixed bottom nav — real extra clearance so their own last
+   card/button is never hidden behind it, on top of .screen's own
+   var(--space-7) padding above (kept, not replaced, since this only adds
+   the nav's own real height + safe area on top of it). */
+.screen--has-bottom-nav{
+  padding-bottom:calc(var(--space-7) + 60px + env(safe-area-inset-bottom, 0px));
+}
+
 @keyframes screen-in{
   from{opacity:0; transform:translateY(6px);}
   to{opacity:1; transform:translateY(0);}

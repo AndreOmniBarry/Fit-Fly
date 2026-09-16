@@ -30,7 +30,7 @@ test.describe('badges', () => {
 
     await expect(page.locator('#hub-badges-sub')).toHaveText('Real milestones, not stickers');
 
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
     await expect(page.getByRole('heading', { name: 'Real milestones' })).toBeVisible();
     await expect(page.locator('#badges-earned-count')).toHaveText('0');
     const totalCount = Number(await page.locator('#badges-total-count').textContent());
@@ -50,7 +50,7 @@ test.describe('badges', () => {
 
     await expect(page.locator('#hub-badges-sub')).toHaveText('1 earned', { timeout: 3000 });
 
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
     await expect(page.locator('#badges-earned-count')).toHaveText('1');
     const earnedCard = page.locator('#badges-earned-grid .badge-card--earned');
     await expect(earnedCard).toContainText('10K Day');
@@ -62,7 +62,7 @@ test.describe('badges', () => {
     await page.locator('#steps-manual-count').fill('11000');
     await page.locator('#btn-steps-manual-save').click();
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
     await expect(page.locator('#badges-earned-count')).toHaveText('1');
     const earnedAtFirst = await page
       .locator('#badges-earned-grid .badge-card--earned')
@@ -71,7 +71,7 @@ test.describe('badges', () => {
       .textContent();
 
     await page.locator('#btn-badges-back').click();
-    await page.getByRole('button', { name: 'Badges' }).click(); // re-open, re-evaluates against current data
+    await page.locator('#btn-home-badges').click(); // re-open, re-evaluates against current data
     await expect(page.locator('#badges-earned-count')).toHaveText('1');
     const earnedAtSecond = await page
       .locator('#badges-earned-grid .badge-card--earned')
@@ -83,13 +83,13 @@ test.describe('badges', () => {
   });
 
   test('back returns to the Hub', async ({ page }) => {
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
     await page.locator('#btn-badges-back').click();
-    await expect(page.getByRole('button', { name: 'Badges' })).toBeVisible();
+    await expect(page.locator('#btn-home-badges')).toBeVisible();
   });
 
   test('reacts to tilt, same spatial language as the rest of the app', async ({ page }) => {
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
     await page.mouse.move(400, 60);
     await page.waitForTimeout(500);
     const tilt = await page.evaluate(() => {
@@ -120,7 +120,7 @@ test.describe('badges', () => {
     await page.locator('#steps-manual-count').fill('12000');
     await page.locator('#btn-steps-manual-save').click();
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
 
     const icon = page.locator('.badge-card--earned .badge-card-icon');
     // The freshly-earned reveal plays automatically (1.3s) — well past
@@ -134,7 +134,7 @@ test.describe('badges', () => {
     await page.locator('#steps-manual-count').fill('12000');
     await page.locator('#btn-steps-manual-save').click();
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
 
     const icon = page.locator('.badge-card--earned .badge-card-icon');
     await expect(icon).toHaveClass('badge-card-icon', { timeout: 2500 }); // let the auto reveal finish first
@@ -153,7 +153,7 @@ test.describe('badges', () => {
     await page.locator('#steps-manual-count').fill('12000');
     await page.locator('#btn-steps-manual-save').click();
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Badges' }).click();
+    await page.locator('#btn-home-badges').click();
 
     const icon = page.locator('.badge-card--earned .badge-card-icon');
     await expect(icon).toHaveClass('badge-card-icon', { timeout: 2500 });

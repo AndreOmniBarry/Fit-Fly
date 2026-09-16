@@ -25,7 +25,7 @@ test.describe('settings: export/import', () => {
     await page.evaluate(() => localStorage.clear());
     await page.reload();
     await page.getByRole('button', { name: 'Skip for now' }).click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
   });
 
   test('shows the screen with zero console errors', async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('settings: export/import', () => {
     await page.locator('#btn-steps-manual-save').click();
     await expect(page.locator('#steps-today-count')).toHaveText('4321', { timeout: 3000 });
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -78,7 +78,7 @@ test.describe('settings: export/import', () => {
     await page.locator('#btn-steps-manual-save').click();
     await expect(page.locator('#steps-today-count')).toHaveText('1000', { timeout: 3000 });
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -93,7 +93,7 @@ test.describe('settings: export/import', () => {
     await page.locator('#btn-steps-manual-save').click();
     await expect(page.locator('#steps-today-count')).toHaveText('9999', { timeout: 3000 });
     await page.locator('#btn-steps-back').click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
 
     await page.locator('#settings-import-file').setInputFiles(backupPath);
     await expect(page.locator('#settings-import-confirm')).toBeVisible();
@@ -164,7 +164,7 @@ test.describe('settings: profile', () => {
 
   test('with no profile set up yet, the form starts honestly empty, not fabricated defaults', async ({ page }) => {
     await page.getByRole('button', { name: 'Skip for now' }).click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
 
     await expect(page.locator('#profile-birthdate')).toHaveValue('');
     await expect(page.locator('#profile-age-hint')).toHaveText('');
@@ -180,7 +180,7 @@ test.describe('settings: profile', () => {
     page.on('pageerror', (err) => consoleErrors.push(String(err)));
 
     await page.getByRole('button', { name: 'Skip for now' }).click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
 
     await page.locator('#profile-birthdate').fill('2000-01-15');
     await page.locator('#profile-sex button[data-value="male"]').click();
@@ -194,7 +194,7 @@ test.describe('settings: profile', () => {
 
   test('rejects saving with a required field missing', async ({ page }) => {
     await page.getByRole('button', { name: 'Skip for now' }).click();
-    await page.getByRole('button', { name: 'Settings' }).click();
+    await page.locator('#btn-hub-settings').click();
 
     await page.locator('#profile-height-cm').fill('180');
     await page.locator('#profile-weight-kg').fill('75');

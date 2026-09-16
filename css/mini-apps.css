@@ -464,6 +464,38 @@
   display:flex; align-items:center; justify-content:center;
 }
 
+/* ---------- "Recommended" continue-program card ---------- */
+/* A real "continue where you left off" shortcut into My Program — hidden
+   via [hidden] on the button itself (js/features/hub/hub-recommended-
+   view.ts) until there's a real active program to point at. Uses the
+   same --accent/--accent-strong pair onboarding already assigns per
+   training category, so its color genuinely reflects the plan it opens
+   rather than a fixed brand gradient unrelated to it. */
+.hub-recommended-card{
+  display:block; width:100%; text-align:left; border:none; border-radius:var(--radius-lg);
+  margin:0 0 var(--space-5); overflow:hidden; isolation:isolate;
+  background:linear-gradient(120deg, var(--accent) 0%, var(--accent-strong) 100%);
+  box-shadow:0 16px 32px -18px rgba(0,0,0,0.35);
+}
+.hub-recommended-face{
+  display:flex; align-items:center; gap:var(--space-3);
+  padding:var(--space-4);
+}
+.hub-recommended-icon{
+  flex-shrink:0; width:42px; height:42px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(255,255,255,0.22); color:#fff;
+}
+.hub-recommended-text{ flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+.hub-recommended-eyebrow{ font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:rgba(255,255,255,0.75); }
+.hub-recommended-title{ font-size:var(--fs-lg); color:#fff; }
+.hub-recommended-sub{ font-size:var(--fs-sm); color:rgba(255,255,255,0.85); font-weight:600; }
+.hub-recommended-arrow{
+  flex-shrink:0; color:rgba(255,255,255,0.9);
+  width:28px; height:28px; border-radius:50%; background:rgba(255,255,255,0.16);
+  display:flex; align-items:center; justify-content:center;
+}
+
 /* ---------- "Your Recent Stats" hero cards ---------- */
 .hub-stats-heading{
   font-size:var(--fs-xs); font-weight:600; text-transform:uppercase; letter-spacing:0.08em;

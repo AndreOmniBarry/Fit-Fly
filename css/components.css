@@ -574,3 +574,23 @@ textarea.input{
 @media (prefers-reduced-motion: reduce){
   .bottom-nav-btn .icon{ transition:none; }
 }
+
+/* ============================================================================
+   REST TIMER — a real countdown ring, not just a bare number. Draws from
+   fully filled (a fresh full duration) down to empty as time actually
+   runs out — js/features/timers/rest-timer.js sets its real
+   stroke-dashoffset from real remaining-vs-total time, never a competing
+   CSS value, same "real data on an attribute" contract every other ring
+   in this app already follows (Steps' goal ring, Badges' hero ring).
+   Uses the app's own --accent (this is a plain Fitness Toolkit utility
+   screen, not one of the night-themed mini-apps with its own palette). */
+.rest-timer-ring{ position:relative; width:220px; height:220px; }
+.rest-timer-ring svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+.rest-timer-ring-value{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+#rest-ring-fill{ transition:stroke-dashoffset .25s linear; }
+@media (prefers-reduced-motion: reduce){
+  #rest-ring-fill{ transition:none; }
+}

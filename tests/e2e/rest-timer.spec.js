@@ -69,6 +69,7 @@ test.describe('rest timer', () => {
     await page.locator('#rest-custom-seconds').fill('2');
     await page.locator('#btn-rest-custom-apply').click();
     await expect(page.locator('#rest-display')).toHaveText('0:02');
+    await expect(page.locator('#rest-ring-fill')).toHaveAttribute('stroke-dashoffset', '0.00');
 
     await page.getByRole('button', { name: 'Start' }).click();
     await expect(page.locator('#rest-status')).toHaveText('Resting…');
@@ -79,6 +80,9 @@ test.describe('rest timer', () => {
     await expect(page.locator('#rest-status-live')).toHaveText('Rest complete!');
     await expect(page.locator('#rest-display')).toHaveText('0:00');
     await expect(page.getByRole('button', { name: 'Start' })).toBeVisible();
+    // The ring drains for real as the real countdown runs out — never
+    // stuck at its full starting offset.
+    await expect(page.locator('#rest-ring-fill')).toHaveAttribute('stroke-dashoffset', '603.19');
 
     expect(consoleErrors).toEqual([]);
   });
@@ -113,6 +117,7 @@ test.describe('rest timer', () => {
     await page.getByRole('button', { name: 'Reset' }).click();
     await expect(page.locator('#rest-display')).toHaveText('0:10');
     await expect(page.locator('#rest-status')).toHaveText('Ready');
+    await expect(page.locator('#rest-ring-fill')).toHaveAttribute('stroke-dashoffset', '0.00');
   });
 
   test('reacts to tilt, same spatial language as the rest of the Fitness Toolkit', async ({ page }) => {

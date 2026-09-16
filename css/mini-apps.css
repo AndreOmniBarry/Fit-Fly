@@ -1211,7 +1211,8 @@
   width:9px; height:100%; display:flex; align-items:flex-end;
 }
 .sleep-week-bar{
-  width:100%; border-radius:3px; background:rgba(245,243,255,0.18);
+  width:100%; border-radius:3px;
+  background:var(--sleep-week-bar-color, rgba(245,243,255,0.18));
 }
 .sleep-week-bar.is-best{ background:linear-gradient(180deg, var(--sleep-accent), var(--sleep-accent-2)); }
 
@@ -1691,6 +1692,31 @@
    background/border, same as Run) rather than a dedicated wrapper class,
    since every card here is structurally identical, just earned or not.
    ========================================================================== */
+
+/* The screen's own hero — real earned/total progress as a ring (the same
+   circular-draw-in pattern as Steps' goal ring, js/features/badges/
+   badges-view.ts sets its real stroke-dashoffset, never a competing CSS
+   value), plus an honest "closest to earning" nudge computed by the pure
+   closestLockedBadge() (badge-progress.ts) — hidden entirely once every
+   real badge is earned, never a fabricated "keep going" with nothing
+   left to point at. Dedicated wrapper class (unlike the tier cards below,
+   which are all structurally identical): this is the one genuinely
+   different card on the screen. */
+.badges-hero-card{
+  background:var(--badges-card-bg); border:1px solid var(--badges-card-border);
+  border-radius:var(--radius-lg); padding:var(--space-4);
+}
+.badges-progress-ring{ position:relative; width:112px; height:112px; flex-shrink:0; }
+.badges-progress-ring svg{ position:absolute; inset:0; transform:rotate(-90deg); }
+.badges-progress-ring-value{
+  position:absolute; inset:0;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+}
+.badges-progress-ring-value .count{
+  font-family:var(--miniapp-font-display); font-size:26px; line-height:1;
+}
+.badges-progress-ring-value .label{ font-size:11px; color:var(--badges-ink-muted); }
+
 .badge-grid{
   display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:10px;
 }

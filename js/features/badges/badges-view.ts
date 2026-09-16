@@ -11,13 +11,24 @@ import { getNotificationPermission, showNotification } from '../../lib/notificat
 import { queueAchievementToasts } from '../../lib/achievement-toast.js';
 import { evaluateAllBadges, type EvaluatedBadge } from './badge-engine.js';
 import { badgeAchievementCopy } from './badge-definitions.js';
+import { closestLockedBadge } from './badge-progress.js';
 import { setBadgesTileSubtitle } from '../hub/hub-view.js';
+import type { BadgeStatus } from './types.js';
 
 function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   const el = document.getElementById(id);
   if (!el) throw new Error(`badges-view: missing #${id}`);
   return el as T;
 }
+
+function bySvgId<T extends SVGElement = SVGElement>(id: string): T {
+  const el = document.getElementById(id);
+  if (!el) throw new Error(`badges-view: missing #${id}`);
+  return el as unknown as T;
+}
+
+// Matches the hero ring's own r=48 in index.html/mini-apps.css.
+const BADGES_RING_CIRCUMFERENCE = 2 * Math.PI * 48;
 
 export function initBadgesFeature(): void {
   byId('btn-home-badges').addEventListener('click', async () => {
@@ -89,7 +100,7 @@ function cardSeed(id: string): number {
 /** e.g. "4 of 7 consecutive nights logged" for a locked tier — the same
  *  honest-progress-number rule Goals' own milestone copy holds to,
  *  never a vague "almost there" with no real count behind it. */
-function progressLabel(badge: EvaluatedBadge): string {
+function progressLabel(badge: BadgeStatus): string {
   const shown = Math.min(badge.currentValue, badge.threshold);
   const value = Number.isInteger(shown) ? shown : shown.toFixed(1);
   const threshold = Number.isInteger(badge.threshold) ? badge.threshold : badge.threshold.toFixed(1);
@@ -123,6 +134,26 @@ function wireEarnedBadgeIcons(): void {
   }
 }
 
+/** Draws the hero ring in to a real earned/total fraction — the same
+ *  honest, zero-until-real-data draw-in as Steps' own goal ring, never a
+ *  fabricated starting fraction. */
+function setBadgesProgressRing(earnedCount: number, totalCount: number): void {
+  const fraction = totalCount > 0 ? earnedCount / totalCount : 0;
+  const offset = BADGES_RING_CIRCUMFERENCE * (1 - fraction);
+  bySvgId('badges-progress-ring-fill').setAttribute('stroke-dashoffset', offset.toFixed(2));
+}
+
+/** The hero card's "closest to earning" line — a real, honest nudge
+ *  (closestLockedBadge, badge-progress.ts) reusing the exact same
+ *  progress copy each locked tier card already shows. Hidden entirely
+ *  once every real badge is earned, never a fabricated "keep going". */
+function setBadgesNextMilestone(badges: EvaluatedBadge[]): void {
+  const el = byId('badges-next-milestone');
+  const next = closestLockedBadge(badges);
+  el.hidden = next == null;
+  el.textContent = next ? `Closest to earning: ${progressLabel(next)} — ${next.name}` : '';
+}
+
 async function renderBadges(): Promise<void> {
   const badges = await evaluateAllBadges();
   const earned = badges.filter((b) => b.earned);
@@ -130,6 +161,8 @@ async function renderBadges(): Promise<void> {
 
   byId('badges-earned-count').textContent = String(earned.length);
   byId('badges-total-count').textContent = String(badges.length);
+  setBadgesProgressRing(earned.length, badges.length);
+  setBadgesNextMilestone(badges);
 
   byId('badges-earned-grid').innerHTML = earned.length
     ? earned

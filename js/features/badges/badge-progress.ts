@@ -9,6 +9,16 @@ import type { BadgeStatus } from './types.js';
  *  first match), so the result is deterministic run to run. Returns null
  *  once every real badge is earned, never a fabricated "keep going" with
  *  nothing left to point at. */
+/** A real 0-100 progress percentage for one tier — the same
+ *  currentValue/threshold ratio closestLockedBadge compares, just
+ *  rounded and clamped for display (a locked tier's currentValue never
+ *  reaches threshold in practice, but the clamp keeps a per-card ring
+ *  honest either way, never overdrawn past 100%). */
+export function progressPercent(status: Pick<BadgeStatus, 'currentValue' | 'threshold'>): number {
+  if (status.threshold <= 0) return 0;
+  return Math.max(0, Math.min(100, Math.round((status.currentValue / status.threshold) * 100)));
+}
+
 export function closestLockedBadge(statuses: BadgeStatus[]): BadgeStatus | null {
   let best: BadgeStatus | null = null;
   let bestRatio = -Infinity;

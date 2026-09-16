@@ -11,7 +11,7 @@ import { getNotificationPermission, showNotification } from '../../lib/notificat
 import { queueAchievementToasts } from '../../lib/achievement-toast.js';
 import { evaluateAllBadges } from './badge-engine.js';
 import { badgeAchievementCopy } from './badge-definitions.js';
-import { closestLockedBadge } from './badge-progress.js';
+import { closestLockedBadge, progressPercent } from './badge-progress.js';
 import { setBadgesTileSubtitle } from '../hub/hub-view.js';
 function byId(id) {
     const el = document.getElementById(id);
@@ -166,7 +166,9 @@ async function renderBadges() {
     byId('badges-locked-grid').innerHTML = locked
         .map((b) => `
         <div class="card badge-card tilt-card tilt-enter">
-          <span class="badge-card-icon badge-card-icon--locked" aria-hidden="true">${iconMarkup(b.icon, { size: 22 })}</span>
+          <span class="badge-card-icon-ring" style="--badge-progress:${progressPercent(b)};">
+            <span class="badge-card-icon badge-card-icon--locked" aria-hidden="true">${iconMarkup(b.icon, { size: 22 })}</span>
+          </span>
           <strong>${b.name}</strong>
           <p class="muted" style="font-size:var(--fs-sm);">${b.category}</p>
           <p class="muted" style="font-size:var(--fs-xs);">${progressLabel(b)}</p>

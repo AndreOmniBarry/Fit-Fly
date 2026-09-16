@@ -1731,6 +1731,19 @@
   margin-bottom:6px;
 }
 
+/* A locked tier's own real progress (badge-progress.ts's progressPercent
+   — the same currentValue/threshold ratio its text caption already
+   states) drawn as a real ring around its icon, not just left as plain
+   dimmed-flat text — conic-gradient means one property, not a second
+   SVG element per card across what can be dozens of tiers at once. */
+.badge-card-icon-ring{
+  width:50px; height:50px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:conic-gradient(var(--badges-accent) calc(var(--badge-progress, 0) * 1%), rgba(255,255,255,0.1) 0);
+  margin-bottom:6px;
+}
+.badge-card-icon-ring .badge-card-icon{ margin-bottom:0; }
+
 /* Earned badges get a real embossed medal, not a flat tinted circle —
    a metallic conic gradient (the same gold/bronze pair every other
    accent here already uses, --badges-accent/-2), a beveled rim via

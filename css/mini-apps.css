@@ -570,6 +570,13 @@
 .hub-stat-card--water .hub-stat-icon{ background:var(--hydration-accent-soft); color:var(--hydration-accent); }
 .hub-stat-water-chart{ width:100%; height:36px; margin-top:var(--space-1); overflow:visible; }
 
+.hub-stat-card--sleep{
+  background:linear-gradient(150deg, var(--sleep-bg-mid) 0%, var(--sleep-bg-start) 55%, var(--sleep-bg-end) 100%);
+  box-shadow:0 14px 30px -16px rgba(16,15,43,0.5);
+}
+.hub-stat-card--sleep .hub-stat-icon{ background:var(--sleep-accent-soft); color:var(--sleep-accent); }
+.hub-stat-sleep-chart{ width:100%; height:36px; margin-top:var(--space-1); overflow:visible; }
+
 .hub-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));

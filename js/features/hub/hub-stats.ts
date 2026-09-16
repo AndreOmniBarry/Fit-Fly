@@ -1,12 +1,16 @@
 // Pure logic for the Hub's own "Your Stats" hero cards (Steps/Calories/
-// Water) — deliberately DOM-free, same "pure logic lives outside the
-// view" convention as every other feature's own *-trend.ts. The one
+// Water/Sleep) — deliberately DOM-free, same "pure logic lives outside
+// the view" convention as every other feature's own *-trend.ts. The one
 // real judgment call here, worth stating explicitly: a calendar day with
 // no logged Steps/Hydration entry really is an honest 0 (unlike Sleep,
 // where a night nobody rated has no real score to show at all) — so
 // trailingDailyTotals fills every day in the window, never skipping one,
 // the opposite rule from Steps' own bucketDailyPoints trend chart (which
-// only plots days that actually have an entry).
+// only plots days that actually have an entry) — and the one
+// trailingSleepScores follows too, for the same reason.
+import { calculateSleepScore } from '../sleep/sleep-score.js';
+import type { SleepLog } from '../sleep/types.js';
+
 export interface DailyTotal {
   /** YYYY-MM-DD, local. */
   date: string;
@@ -64,6 +68,44 @@ export function greetingForHour(hour: number): Greeting {
   if (hour < 17) return { period: 'afternoon', text: 'Good afternoon' };
   if (hour < 21) return { period: 'evening', text: 'Good evening' };
   return { period: 'night', text: 'Good night' };
+}
+
+export interface SleepWeekPoint {
+  /** YYYY-MM-DD, local. */
+  date: string;
+  score: number;
+  category: ReturnType<typeof calculateSleepScore>['category'];
+}
+
+/** Real trailing-week sleep scores — one point per night actually logged
+ *  in the window, oldest first. A night nobody logged is skipped
+ *  entirely, never zero-filled (the opposite rule from
+ *  trailingDailyTotals above, and deliberately so — see this module's own
+ *  doc comment). Each night is scored only against logs on-or-before its
+ *  own date, capped to the trailing 14 most recent — the same
+ *  no-future-data windowing Sleep's own dashboard uses
+ *  (sleep-view.ts's scoreLogInContext), so a night viewed here scores
+ *  exactly as it would have at the time. */
+export function trailingSleepScores(
+  logs: SleepLog[],
+  { days, endDate, age }: { days: number; endDate: string; age: number | null }
+): SleepWeekPoint[] {
+  const anchor = new Date(`${endDate}T00:00:00`);
+  const startAnchor = new Date(anchor);
+  startAnchor.setDate(anchor.getDate() - (days - 1));
+  const startDate = formatDate(startAnchor);
+
+  const sortedDesc = [...logs].sort((a, b) => b.date.localeCompare(a.date));
+  const inWindow = sortedDesc.filter((log) => log.date >= startDate && log.date <= endDate);
+
+  return inWindow
+    .slice()
+    .reverse()
+    .map((log) => {
+      const context = sortedDesc.filter((l) => l.date <= log.date).slice(0, 14);
+      const result = calculateSleepScore(log, context, age);
+      return { date: log.date, score: result.score, category: result.category };
+    });
 }
 
 /** "2.51 km" style compact distance for the Steps hero card — shorter

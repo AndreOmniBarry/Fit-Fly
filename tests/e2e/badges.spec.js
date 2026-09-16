@@ -39,6 +39,14 @@ test.describe('badges', () => {
     // Every real tier in the catalog shows up as an in-progress card.
     await expect(page.locator('#badges-locked-grid .badge-card')).toHaveCount(totalCount);
 
+    // The hero ring starts fully undrawn (0 of totalCount, an honest
+    // empty state) and a real "closest to earning" nudge already points
+    // at a real locked tier — never a fabricated placeholder either way.
+    await expect(page.locator('#badges-progress-ring-fill')).toHaveAttribute('stroke-dashoffset', '301.59');
+    const nextMilestone = page.locator('#badges-next-milestone');
+    await expect(nextMilestone).toBeVisible();
+    await expect(nextMilestone).toContainText('Closest to earning');
+
     expect(consoleErrors).toEqual([]);
   });
 
@@ -55,6 +63,11 @@ test.describe('badges', () => {
     const earnedCard = page.locator('#badges-earned-grid .badge-card--earned');
     await expect(earnedCard).toContainText('10K Day');
     await expect(earnedCard).toContainText('Earned');
+
+    // The hero ring draws in for real, live, the moment a real badge is
+    // earned — never stuck at its empty starting offset.
+    const ringOffset = Number(await page.locator('#badges-progress-ring-fill').getAttribute('stroke-dashoffset'));
+    expect(ringOffset).toBeLessThan(301.59);
   });
 
   test('a badge earned once stays earned — logging further activity never un-earns it', async ({ page }) => {

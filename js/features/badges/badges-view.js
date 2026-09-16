@@ -11,6 +11,7 @@ import { getNotificationPermission, showNotification } from '../../lib/notificat
 import { queueAchievementToasts } from '../../lib/achievement-toast.js';
 import { evaluateAllBadges } from './badge-engine.js';
 import { badgeAchievementCopy } from './badge-definitions.js';
+import { closestLockedBadge } from './badge-progress.js';
 import { setBadgesTileSubtitle } from '../hub/hub-view.js';
 function byId(id) {
     const el = document.getElementById(id);
@@ -18,6 +19,14 @@ function byId(id) {
         throw new Error(`badges-view: missing #${id}`);
     return el;
 }
+function bySvgId(id) {
+    const el = document.getElementById(id);
+    if (!el)
+        throw new Error(`badges-view: missing #${id}`);
+    return el;
+}
+// Matches the hero ring's own r=48 in index.html/mini-apps.css.
+const BADGES_RING_CIRCUMFERENCE = 2 * Math.PI * 48;
 export function initBadgesFeature() {
     byId('btn-home-badges').addEventListener('click', async () => {
         await renderBadges();
@@ -114,12 +123,32 @@ function wireEarnedBadgeIcons() {
         });
     }
 }
+/** Draws the hero ring in to a real earned/total fraction — the same
+ *  honest, zero-until-real-data draw-in as Steps' own goal ring, never a
+ *  fabricated starting fraction. */
+function setBadgesProgressRing(earnedCount, totalCount) {
+    const fraction = totalCount > 0 ? earnedCount / totalCount : 0;
+    const offset = BADGES_RING_CIRCUMFERENCE * (1 - fraction);
+    bySvgId('badges-progress-ring-fill').setAttribute('stroke-dashoffset', offset.toFixed(2));
+}
+/** The hero card's "closest to earning" line — a real, honest nudge
+ *  (closestLockedBadge, badge-progress.ts) reusing the exact same
+ *  progress copy each locked tier card already shows. Hidden entirely
+ *  once every real badge is earned, never a fabricated "keep going". */
+function setBadgesNextMilestone(badges) {
+    const el = byId('badges-next-milestone');
+    const next = closestLockedBadge(badges);
+    el.hidden = next == null;
+    el.textContent = next ? `Closest to earning: ${progressLabel(next)} — ${next.name}` : '';
+}
 async function renderBadges() {
     const badges = await evaluateAllBadges();
     const earned = badges.filter((b) => b.earned);
     const locked = badges.filter((b) => !b.earned);
     byId('badges-earned-count').textContent = String(earned.length);
     byId('badges-total-count').textContent = String(badges.length);
+    setBadgesProgressRing(earned.length, badges.length);
+    setBadgesNextMilestone(badges);
     byId('badges-earned-grid').innerHTML = earned.length
         ? earned
             .sort((a, b) => (b.earnedAt ?? '').localeCompare(a.earnedAt ?? ''))

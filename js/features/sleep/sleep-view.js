@@ -166,7 +166,8 @@ export function initSleepFeature() {
     function renderWeekStrip() {
         const container = byId('sleep-week-bars');
         container.innerHTML = '';
-        const trend = buildWeeklyTrend(recentLogs.slice(0, 7));
+        const recentWeekLogs = recentLogs.slice(0, 7);
+        const trend = buildWeeklyTrend(recentWeekLogs);
         if (trend.length === 0) {
             byId('sleep-week-avg').textContent = '';
             return;
@@ -174,6 +175,12 @@ export function initSleepFeature() {
         const avgMinutes = Math.round(trend.reduce((sum, n) => sum + n.durationMinutes, 0) / trend.length);
         byId('sleep-week-avg').textContent = `avg ${formatDurationHM(avgMinutes)}`;
         const maxMinutes = Math.max(...trend.map((n) => n.durationMinutes), DEFAULT_SLEEP_GOAL_MINUTES);
+        // Real per-night score category (the exact same "no future data" rule
+        // scoreLogInContext already applies, and the same category→color
+        // language the Insights chart's own points use) — a second real metric
+        // layered onto this sparkline's duration heights, not just a flat run
+        // of identical bars with a single "best" one singled out.
+        const categoryByDate = new Map(recentWeekLogs.map((log) => [log.date, scoreLogInContext(log, log.date).category]));
         // A compact sparkline, not a labeled chart — see mini-apps.css's own
         // comment on .sleep-week-strip. The container carries one summary
         // aria-label (role="img" in the markup) instead of a per-bar day
@@ -184,11 +191,14 @@ export function initSleepFeature() {
             const bar = document.createElement('div');
             bar.className = `sleep-week-bar${night.isBest ? ' is-best' : ''}`;
             bar.style.height = `${Math.max(8, Math.round((night.durationMinutes / maxMinutes) * 100))}%`;
+            const category = categoryByDate.get(night.date);
+            if (category)
+                bar.style.setProperty('--sleep-week-bar-color', CATEGORY_DOT_COLOR[category]);
             const dayName = new Date(`${night.date}T00:00:00Z`).toLocaleDateString(undefined, {
                 weekday: 'short',
                 timeZone: 'UTC',
             });
-            bar.title = `${dayName}: ${formatDurationHM(night.durationMinutes)}`;
+            bar.title = `${dayName}: ${formatDurationHM(night.durationMinutes)}${category ? ` · ${CATEGORY_LABEL[category]}` : ''}`;
             col.append(bar);
             container.append(col);
         }

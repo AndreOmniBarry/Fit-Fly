@@ -1751,9 +1751,32 @@
     </div>
 
     <h2 class="display" style="font-size:26px; margin-top:var(--space-4);">Real milestones</h2>
-    <p class="muted" style="font-size:var(--fs-sm); margin-top:6px;" id="badges-summary">
-      <span id="badges-earned-count">0</span> of <span id="badges-total-count">0</span> earned — every one reads a real streak or lifetime total already logged.
-    </p>
+
+    <div class="badges-hero-card tilt-card tilt-enter" style="margin-top:var(--space-4);">
+      <span class="tilt-press row" style="gap:var(--space-4); align-items:center;">
+        <span class="badges-progress-ring" data-tilt-depth="1">
+          <svg width="112" height="112" viewBox="0 0 112 112">
+            <circle cx="56" cy="56" r="48" fill="none" stroke="rgba(250,243,230,0.08)" stroke-width="10"/>
+            <circle cx="56" cy="56" r="48" fill="none" stroke="url(#badgesProgressGrad)" stroke-width="10" stroke-linecap="round"
+                    stroke-dasharray="301.59" stroke-dashoffset="301.59" id="badges-progress-ring-fill"/>
+            <defs>
+              <linearGradient id="badgesProgressGrad" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="var(--badges-accent)"/>
+                <stop offset="100%" stop-color="var(--badges-accent-2)"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <span class="badges-progress-ring-value">
+            <span class="count" id="badges-earned-count">0</span>
+            <span class="label">of <span id="badges-total-count">0</span></span>
+          </span>
+        </span>
+        <span class="stack" style="gap:4px; flex:1; min-width:0;">
+          <p class="muted" style="font-size:var(--fs-sm); margin:0;">Every one reads a real streak or lifetime total already logged.</p>
+          <p class="muted" style="font-size:var(--fs-xs); margin:0;" id="badges-next-milestone" hidden></p>
+        </span>
+      </span>
+    </div>
 
     <span style="display:block; font-size:12.5px; font-weight:600; color:var(--badges-ink-muted); letter-spacing:0.04em; margin-top:var(--space-5);">EARNED</span>
     <div class="badge-grid tilt-stagger" id="badges-earned-grid" style="margin-top:var(--space-3);"></div>

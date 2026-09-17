@@ -99,10 +99,60 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Piper (js/features/focus/piper-voice.ts) is a real neural voice model,
+// vendored into this repo like everything else in js/vendor/ (see
+// THIRD_PARTY_NOTICES.md) — except for one piece: the vendored
+// piper-tts-web library's own model-fetch code has no exposed option to
+// point it anywhere but a hardcoded https://huggingface.co/... URL. This
+// intercepts that *exact* request and answers it from the vendored local
+// copy instead of ever letting it reach the network — the page still
+// calls fetch() with the huggingface.co URL (piper-tts-web.js's own
+// on-device cache is keyed on that string, so leaving it alone is also
+// simplest), but this handler is what actually serves it, so nothing
+// ever really leaves the browser for it. It's ~100MB (medium-quality
+// voice + WASM engine) — far too big to add to APP_SHELL for every
+// install; it's cached the same lazy, first-real-use way as everything
+// below, the first (and, thanks to piper-tts-web's own OPFS cache, only
+// ever) time a guided session or Settings' voice preview actually calls
+// Piper.
+const PIPER_HF_ORIGIN = 'https://huggingface.co';
+const PIPER_HF_PREFIX = '/diffusionstudio/piper-voices/resolve/main/';
+const PIPER_VOICE_PATH = 'en/en_US/ljspeech/medium/en_US-ljspeech-medium.onnx';
+const PIPER_LOCAL_DIR = './js/vendor/piper/voices/';
+
+function piperLocalUrl(requestUrl) {
+  if (requestUrl.origin !== PIPER_HF_ORIGIN || !requestUrl.pathname.startsWith(PIPER_HF_PREFIX)) return null;
+  const rel = requestUrl.pathname.slice(PIPER_HF_PREFIX.length);
+  if (rel !== PIPER_VOICE_PATH && rel !== `${PIPER_VOICE_PATH}.json`) return null;
+  const filename = rel.slice(rel.lastIndexOf('/') + 1);
+  return new URL(`${PIPER_LOCAL_DIR}${filename}`, self.location.href);
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  // Only same-origin GET requests are ours to cache. Nearly every
-  // third-party library is vendored locally (see js/vendor/
+  if (request.method !== 'GET') return;
+
+  const localPiperUrl = piperLocalUrl(new URL(request.url));
+  if (localPiperUrl) {
+    const cacheKey = localPiperUrl.pathname;
+    event.respondWith(
+      caches.match(cacheKey).then(
+        (cached) =>
+          cached ||
+          fetch(localPiperUrl).then((response) => {
+            if (response?.ok) {
+              const copy = response.clone();
+              void caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, copy));
+            }
+            return response;
+          })
+      )
+    );
+    return;
+  }
+
+  // Only same-origin GET requests past this point are ours to cache.
+  // Nearly every third-party library is vendored locally (see js/vendor/
   // THIRD_PARTY_NOTICES.md) with nothing cross-origin left to fetch at
   // runtime — Open Food Facts' food search is the one remaining
   // exception, and this app has no server to POST to, but pass anything
@@ -110,7 +160,7 @@ self.addEventListener('fetch', (event) => {
   // it. That exception manages its own caching (the browser's own HTTP
   // cache) — duplicating that here would just be a second, redundant
   // copy.
-  if (request.method !== 'GET' || new URL(request.url).origin !== self.location.origin) {
+  if (new URL(request.url).origin !== self.location.origin) {
     return;
   }
 

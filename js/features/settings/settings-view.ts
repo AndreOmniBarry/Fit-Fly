@@ -116,10 +116,10 @@ export function initSettingsFeature(): void {
   });
 
   // ---------- voice guide ----------
-  // Just the browser's own built-in voice now — no engine choice, no
-  // download, nothing to refresh when Settings opens. See index.html's
-  // own comment on this card for why Kokoro was removed rather than kept
-  // as an opt-in.
+  // speak() picks the engine (Piper by default, Web Speech as its silent
+  // fallback) — nothing for this screen to choose or refresh when
+  // Settings opens. See index.html's own comment on this card and
+  // voice-guide.ts for the full story.
   byId('btn-settings-voice-preview').addEventListener('click', () => {
     speak(
       "Hi — this is Fit Fly's voice guide. It reads your session cues aloud, gently, so you can keep your eyes closed."

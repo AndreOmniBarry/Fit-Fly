@@ -1,24 +1,37 @@
-// Free, on-device voice guidance for guided sessions — the browser's
-// built-in Web Speech Synthesis API. No account, no API key, no per-call
-// cost, no external service to register with, no model download: every
-// major browser ships real text-to-speech voices with the OS, spoken
-// entirely locally. Feature-detected and defensive throughout, the same
-// contract as every other Web API wrapper in this app (audio-cue.js,
-// camera-ppg.js, ...): a missing or blocked implementation degrades to
-// silence, never a thrown error — the on-screen caption (see
-// guided-session-view.ts) carries the session either way, so voice
-// guidance is a real enhancement, not a dependency.
+// Voice guidance for guided sessions. speak()/stopSpeaking() are the one
+// surface every caller (guided-session-view.ts, Settings' Preview
+// button) ever touches — which of two engines actually does the talking
+// is decided in here, invisibly:
 //
-// This used to sit beside a second engine — Kokoro-82M, a neural TTS
-// model fetched from a CDN and run on-device. It's gone: it stayed
-// unreliable on real devices (going silent mid-session even after a real,
-// identified bug fix — an AudioContext that never confirmed 'running'
-// before playback was reported as started) for long enough, across
-// enough real-device reports, that the honest call was to remove it
-// rather than defend a fix that couldn't be verified against the actual
-// failures being reported. One engine, always on-device, always audible
-// (feature-detection aside), no download, no CDN fetch, no second thing
-// that can silently go wrong.
+//   - Piper (piper-voice.ts): a real neural voice, on by default, lazily
+//     warmed up in the background the first time speak() is ever called
+//     for real (never blocking app startup on a ~100MB load).
+//   - The browser's own built-in Web Speech Synthesis API, below: no
+//     account, no download, no CDN, works on effectively every browser.
+//     It's what speaks the very first line, every time, while Piper is
+//     still warming up — a temporarily plainer voice beats a silent
+//     caption — and it's the permanent fallback for the rest of a
+//     session (or the app's whole lifetime) the moment Piper fails at
+//     anything, init or mid-speech.
+//
+// This app already tried an on-device neural voice once — Kokoro-82M,
+// fetched from a CDN — and it was removed outright after staying
+// unreliable on real devices for too long, including after a real,
+// identified bug fix (a hand-rolled AudioContext that could report a
+// clip "started" before the context had actually confirmed 'running')
+// that couldn't be verified against the actual failures being reported.
+// Piper is built differently specifically to not repeat that: the model
+// is vendored, not CDN-fetched (see js/vendor/THIRD_PARTY_NOTICES.md),
+// and playback is a plain HTMLAudioElement, never AudioContext (see
+// piper-voice.ts's own doc comment for why that whole bug class doesn't
+// apply here) — but the fallback below still exists, on purpose, in
+// case something about a real device this sandbox can't reproduce finds
+// a new way for Piper to go quiet. A session is never silent because of
+// either engine: feature-detection/init/inference/playback failure at
+// any point degrades to the other engine or, at the very worst (no
+// speechSynthesis and Piper unavailable), to the on-screen caption
+// (guided-session-view.ts) that already carries the session regardless.
+import { ensurePiperLoaded, isPiperReady, speakWithPiper, stopPiperSpeaking } from './piper-voice.js';
 function getSpeechSynthesis() {
     return typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis : null;
 }
@@ -113,8 +126,9 @@ function stopKeepalive() {
     clearInterval(keepaliveHandle);
     keepaliveHandle = null;
 }
-/** Speaks one line, cancelling whatever was still being said — a guided
- *  session's beats are meant to replace each other, never overlap.
+/** Speaks one line on the Web Speech path, cancelling whatever was still
+ *  being said — a guided session's beats are meant to replace each
+ *  other, never overlap.
  *
  *  A single SpeechSynthesisUtterance over a whole sentence is what makes
  *  browser TTS read as flat and "computer-voiced" — most engines don't
@@ -126,43 +140,79 @@ function stopKeepalive() {
  *  thought ending, versus a slight lift on a clause that continues), with
  *  a short breath-length pause between them, is a genuine cadence
  *  improvement available from the free on-device API — not a different
- *  engine, just not asking one flat utterance to do a sentence's job. */
-export function speak(text, { rate = 0.92, pitch = 1 } = {}) {
-    try {
-        const synth = getSpeechSynthesis();
-        if (!synth)
+ *  engine, just not asking one flat utterance to do a sentence's job.
+ *  (Piper needs none of this — see piper-voice.ts's doc comment — so this
+ *  clause-chaining is only ever exercised on the fallback path now.) */
+function speakWithWebSpeech(text, { rate = 0.92, pitch = 1 } = {}) {
+    const synth = getSpeechSynthesis();
+    if (!synth)
+        return;
+    synth.cancel();
+    const token = ++chainToken;
+    const voice = pickVoice(synth);
+    const clauses = splitIntoClauses(text);
+    const speakClause = (i) => {
+        if (token !== chainToken)
+            return; // superseded by a newer speak()/stopSpeaking() call
+        const clause = clauses[i];
+        if (clause == null)
             return;
-        synth.cancel();
-        const token = ++chainToken;
-        const voice = pickVoice(synth);
-        const clauses = splitIntoClauses(text);
-        const speakClause = (i) => {
-            if (token !== chainToken)
-                return; // superseded by a newer speak()/stopSpeaking() call
-            const clause = clauses[i];
-            if (clause == null)
+        const isFinal = i === clauses.length - 1;
+        const utterance = new SpeechSynthesisUtterance(clause);
+        utterance.rate = rate + (Math.random() - 0.5) * 0.03; // a hair of natural rate variance, not a metronome
+        utterance.pitch = isFinal ? pitch * 0.96 : pitch * 1.02;
+        if (voice)
+            utterance.voice = voice;
+        utterance.onend = () => {
+            if (token !== chainToken || isFinal)
                 return;
-            const isFinal = i === clauses.length - 1;
-            const utterance = new SpeechSynthesisUtterance(clause);
-            utterance.rate = rate + (Math.random() - 0.5) * 0.03; // a hair of natural rate variance, not a metronome
-            utterance.pitch = isFinal ? pitch * 0.96 : pitch * 1.02;
-            if (voice)
-                utterance.voice = voice;
-            utterance.onend = () => {
-                if (token !== chainToken || isFinal)
-                    return;
-                setTimeout(() => speakClause(i + 1), 90 + Math.random() * 60); // a real breath/comma pause, not silence-then-instant-next-word
-            };
-            synth.speak(utterance);
+            setTimeout(() => speakClause(i + 1), 90 + Math.random() * 60); // a real breath/comma pause, not silence-then-instant-next-word
         };
-        speakClause(0);
-        startKeepalive(synth);
+        synth.speak(utterance);
+    };
+    speakClause(0);
+    startKeepalive(synth);
+}
+let piperWarmupStarted = false;
+let piperBroken = false;
+/** Kicks off Piper's load exactly once per page, in the background —
+ *  never awaited here, so the very first speak() call still returns
+ *  (and speaks, via Web Speech) immediately rather than blocking on a
+ *  ~100MB fetch/decode. Every speak() call after Piper actually finishes
+ *  loading picks it up on its own, just by isPiperReady() turning true —
+ *  no separate "warm-up complete" signal to wire through. Never retried:
+ *  one failed load is enough to fall back for good (see `piperBroken`). */
+function kickOffPiperWarmup() {
+    if (piperWarmupStarted)
+        return;
+    piperWarmupStarted = true;
+    void ensurePiperLoaded().catch(() => {
+        piperBroken = true;
+    });
+}
+/** The single voice-guidance entry point — see module doc comment for
+ *  which of the two engines actually ends up speaking. Stays a plain
+ *  synchronous function on purpose: guided-session-view.ts calls it
+ *  fire-and-forget on a fixed wall-clock beat schedule that must never
+ *  wait on speech (real or synthetic) to finish. */
+export function speak(text, options = {}) {
+    try {
+        kickOffPiperWarmup();
+        if (!piperBroken && isPiperReady()) {
+            void speakWithPiper(text).catch(() => {
+                piperBroken = true; // one failure mid-session is enough — don't keep re-trying a broken engine beat by beat
+                speakWithWebSpeech(text, options);
+            });
+            return;
+        }
+        speakWithWebSpeech(text, options);
     }
     catch {
         // best-effort only — see module doc comment
     }
 }
 export function stopSpeaking() {
+    stopPiperSpeaking();
     try {
         chainToken++; // invalidate any in-flight clause chain before cancel() fires its own event
         getSpeechSynthesis()?.cancel();

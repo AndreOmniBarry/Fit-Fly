@@ -20,6 +20,7 @@ const MIME_TYPES = {
   '.png': 'image/png',
   '.woff2': 'font/woff2',
   '.ico': 'image/x-icon',
+  '.wasm': 'application/wasm',
 };
 
 const server = createServer(async (req, res) => {

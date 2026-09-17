@@ -56,13 +56,17 @@ never touches what you've actually logged, which stays local exactly
 like everything else. Recent and Favorites don't need it at all — both
 are built entirely from data already on this device.
 
-Voice guide (see "Voice guide" below) used to also offer a second,
-opt-in engine — Kokoro-82M, a neural text-to-speech model fetched from a
-CDN on first use. It's gone: it stayed unreliable on real devices for
-too long, so it was removed rather than kept around as a choice that
-sometimes didn't work. Voice guidance now only ever uses the browser's
-own built-in voice — no download, no CDN fetch, no network access at
-all, same as everything else in the app.
+Voice guide (see "Focus" below) speaks by default through Piper, a real
+neural text-to-speech model — but, unlike the Kokoro-82M engine this app
+tried and removed before it, Piper's model and WebAssembly engine are
+vendored straight into this repo (`js/vendor/piper/`, ~99MB — see
+`js/vendor/THIRD_PARTY_NOTICES.md`), not fetched from a CDN. The one-time
+download that ~99MB needs is this device fetching *this app's own
+files*, same as any other asset, the first time voice guidance actually
+runs — never a live third party. If it's ever unavailable, voice
+guidance falls back to the browser's own built-in voice automatically,
+which is always the offline, no-download baseline the app never depends
+on a network for.
 
 ## Export & import
 
@@ -231,6 +235,20 @@ lean on:
   cached within moments of the very first real page load — there's no
   hand-maintained manifest of "every file" to keep in sync as features
   get added.
+
+**One deliberate exception to "cache on first request": Piper's ~99MB
+voice model and WASM engine** (`js/vendor/piper/`, see "Focus" above and
+`js/vendor/THIRD_PARTY_NOTICES.md`) are *not* in the app-shell precache
+list — adding ~99MB to every install/update, for everyone, including
+anyone who never opens Focus or Meditate, would be a real cost for a
+narrow benefit. `sw.js` fetches and caches those files the same
+first-real-request way as any other same-origin asset, it just never
+happens until voice guidance genuinely runs for the first time. One of
+those files (the voice model itself) is requested by a hardcoded
+`https://huggingface.co/...` URL the vendored library gives no way to
+override — `sw.js` intercepts that exact request and answers it from the
+vendored local copy, so it's still same-origin bytes underneath, never a
+real network call to a third party (see `sw.js`'s own comment on this).
 
 Skipped entirely inside a real Capacitor native build
 (`isNativeRuntime()`, same seam as "Native builds" above) — a native
@@ -1046,52 +1064,92 @@ app (`js/lib/timer.js`'s `createCountdown`), and voice narration just
 plays alongside it, never in front of it.
 
 **The caption is never a voice-only fallback — it's the primary channel,
-with voice as a real, switchable-off enhancement.** `voice-guide.ts` wraps
-the browser's own free, on-device `SpeechSynthesis` API — no account, no
-API key, no per-call cost, works fully offline. It's genuinely available
-in effectively every modern browser, so there's no "read text instead"
-degraded mode to fall back to: the on-screen caption *is* that mode,
-shown and updated in real time regardless of whether voice is on, with its
-own voice toggle (`btn-guided-session-voice-toggle`) for anyone who wants
-captions only — including someone running their own screen reader
+with voice as a real, switchable-off enhancement.** `voice-guide.ts`'s
+`speak()`/`stopSpeaking()` are the one public surface every caller
+(`guided-session-view.ts`, Settings' Preview button) ever touches — which
+of two engines actually speaks is decided invisibly inside `voice-guide.ts`
+itself (see below). Whichever it is, or if voice guidance is off
+entirely, the on-screen caption is always shown and updated in real time,
+with its own toggle (`btn-guided-session-voice-toggle`) for anyone who
+wants captions only — including someone running their own screen reader
 alongside the app, where a second synthesized voice narrating on top of
 it would just talk over their own assistive technology.
 
-**Voice quality, without a different engine.** Two real, free
-improvements on top of the same on-device API: `pickVoice` favors any
-voice whose name signals a genuinely better on-device/vendor-bundled
-engine ("Natural", "Neural", "Enhanced", "Premium", "Wavenet" — the
-labels Windows/Edge, macOS/iOS, and some Android builds already use for
-their best free voices) ahead of the previous local-service-only guess.
-And rather than handing a whole sentence to one flat `SpeechSynthesisUtterance`
-— what actually makes browser TTS read as a monotone "computer voice",
-since most engines don't reliably treat internal punctuation as a pause
-or pitch cue — `speak()` splits a line at its natural clause boundaries
-and speaks it as a chain of shorter utterances, each with a touch of
-natural rate variance and a real pitch drop on the line's final clause
-(the same "terminal declination" real speech uses to signal a thought
-ending, versus a slight lift on one that continues), with a short
-breath-length pause between them.
+**Piper is the default engine.** `js/features/focus/piper-voice.ts` wraps
+[Piper](https://github.com/rhasspy/piper), a real VITS-based neural
+text-to-speech model, run entirely on-device through ONNX Runtime's
+WebAssembly backend — genuine learned prosody, not formant/concatenative
+synthesis. The model, ONNX Runtime, and the phonemizer WASM it depends on
+are all vendored straight into this repo (`js/vendor/piper/`, ~99MB —
+see `js/vendor/THIRD_PARTY_NOTICES.md` for exactly what, why, and the one
+line of the vendored library that had to change), never CDN-fetched — the
+first real use of voice guidance is what triggers `sw.js` to lazily cache
+those files (same lazy, first-real-use pattern as everything else it
+serves), and after that they're this device's own files, offline, for
+good.
 
-**Kokoro-82M was removed.** This app used to also offer a second, opt-in
-engine — Kokoro, a real 82-million-parameter neural text-to-speech model
-run on-device through ONNX Runtime's WebAssembly backend, fetched from a
-CDN and Hugging Face Hub on first use. It was a real, technically
-interesting build (an on-device neural voice model with genuinely better
-prosody than formant/concatenative synthesis), but it stayed unreliable
-on real devices for too long: it went silent mid-session across multiple
-real-device reports, including after a real, specifically-identified bug
-fix (an `AudioContext` that could report a clip "started" before it had
-actually confirmed `'running'`) that this project's own sandbox had no
-way to verify against real hardware. Re-demoting it to opt-in once
-already, then patching the same class of bug again, wasn't converging —
-so it's gone outright rather than kept around as a choice that
-sometimes doesn't work. `js/features/focus/kokoro-voice.ts` and its
-Settings UI (an engine picker, a per-voice picker, a download-progress
-bar) no longer exist. `speak()`/`stopSpeaking()` (`voice-guide.ts`) stay
-the one public surface every caller (`guided-session-view.ts` included)
-already uses — now backed by exactly one engine, always on-device,
-nothing left that can go silent in a new way.
+Playback is deliberately a plain `HTMLAudioElement` (`audio.play()`,
+`'ended'`/`'error'` events), never `AudioContext` — see the next
+paragraph for why that specific choice matters here. `speak()` hands
+Piper a whole line in one call: unlike the Web Speech path below, Piper's
+own model-learned prosody already reads punctuation as real pauses and
+pitch movement, so there's no clause-splitting or rate/pitch jitter to
+hand-engineer on top of it.
+
+**Piper warms up in the background, never blocking a session on a ~99MB
+load.** The very first time `speak()` is ever called for real, it kicks
+off Piper's load without waiting on it and speaks that one line through
+the Web Speech engine immediately — a temporarily plainer voice beats a
+silent caption. Every `speak()` call after Piper actually finishes
+loading uses it automatically. If Piper fails at anything, ever — init,
+inference, or playback — `voice-guide.ts` catches it and falls back to
+Web Speech for the rest of the session (or the app's whole lifetime, for
+an init failure), silently: a session is never left voice-only-broken
+because of it.
+
+**Kokoro-82M was removed, and Piper exists specifically to not repeat
+why.** This app used to offer a second, opt-in neural engine — Kokoro, a
+real 82-million-parameter model, also run on-device via ONNX Runtime's
+WebAssembly backend, but fetched from a CDN and Hugging Face Hub on first
+use. It was a real, technically interesting build, but it stayed
+unreliable on real devices for too long: it went silent mid-session
+across multiple real-device reports, including after a real,
+specifically-identified bug fix (an `AudioContext` that could report a
+clip "started" before it had actually confirmed `'running'`) that this
+project's own sandbox had no way to verify against real hardware.
+Re-demoting it to opt-in once already, then patching the same class of
+bug again, wasn't converging — so it was removed outright.
+`js/features/focus/kokoro-voice.ts` and its Settings UI (an engine
+picker, a per-voice picker, a download-progress bar) never came back.
+Piper is built differently on both fronts that mattered: it's vendored,
+so there is no CDN dependency left to go stale, get blocked, or 404 out
+from under this app; and its playback is a plain `HTMLAudioElement`,
+whose `play()` promise only resolves once playback has genuinely begun
+and whose `'ended'`/`'error'` events are unambiguous — the entire bug
+class that sank Kokoro doesn't exist for a primitive that never claims
+"started" without the browser itself confirming it. The Web Speech
+fallback still exists on purpose, in case a real device this sandbox
+can't reproduce finds Piper a new way to go quiet — but that's a
+deliberate safety net now, not the only engine because the other one had
+to be removed.
+
+**Voice quality, on the Web Speech fallback.** Two real, free
+improvements on top of the browser's own on-device `SpeechSynthesis` API,
+still worth having since it's the fallback (and Settings-preview-first-run)
+voice, not a dead code path: `pickVoice` favors any voice whose name
+signals a genuinely better on-device/vendor-bundled engine ("Natural",
+"Neural", "Enhanced", "Premium", "Wavenet" — the labels Windows/Edge,
+macOS/iOS, and some Android builds already use for their best free
+voices) ahead of a local-service-only guess. And rather than handing a
+whole sentence to one flat `SpeechSynthesisUtterance` — what actually
+makes browser TTS read as a monotone "computer voice", since most engines
+don't reliably treat internal punctuation as a pause or pitch cue —
+`speakWithWebSpeech()` splits a line at its natural clause boundaries and
+speaks it as a chain of shorter utterances, each with a touch of natural
+rate variance and a real pitch drop on the line's final clause (the same
+"terminal declination" real speech uses to signal a thought ending,
+versus a slight lift on one that continues), with a short breath-length
+pause between them.
 
 **The breathing pacer reacts on four channels, not one.** Each ring
 (`guided-session-pacer-core/-mid/-outer`) moves a smaller fraction of the

@@ -21,7 +21,8 @@ import {
 import { getProfile } from '../../db/repositories/profile.js';
 import { calculateAge } from '../onboarding/age.js';
 import { calculateSleepScore } from './sleep-score.js';
-import { calculateSleepDebt, describeSleepDebt, DEFAULT_SLEEP_GOAL_MINUTES } from './sleep-debt.js';
+import { calculateSleepDebt, describeSleepDebt } from './sleep-debt.js';
+import { buildSmoothAreaGeometry } from '../../lib/smooth-chart.js';
 import { calculateSleepDebtWithNaps, describeNapDebtCredit } from './nap-debt.js';
 import { bestSleepNightEver, buildWeeklyTrend, calculateLoggingStreak } from './sleep-trends.js';
 import { calculateSleepFactorInsights } from './sleep-insights.js';
@@ -205,9 +206,15 @@ export function initSleepFeature(): void {
     byId('sleep-nap-confirm').hidden = true;
   }
 
+  /** The same real smooth trailing-week line the Hub's own Steps/Water
+   *  hero cards draw (js/lib/smooth-chart.ts) — a shape, not a labeled
+   *  chart (see mini-apps.css's own comment on .sleep-week-strip); exact
+   *  values already live one tap away on Insights. Only nights actually
+   *  logged this week plot at all — no future-data lookahead, no
+   *  fabricated flat run for a night nobody rated. */
   function renderWeekStrip(): void {
-    const container = byId('sleep-week-bars');
-    container.innerHTML = '';
+    const svg = bySvgId<SVGSVGElement>('sleep-week-bars');
+    svg.innerHTML = '';
     const recentWeekLogs = recentLogs.slice(0, 7);
     const trend = buildWeeklyTrend(recentWeekLogs);
 
@@ -219,36 +226,52 @@ export function initSleepFeature(): void {
     const avgMinutes = Math.round(trend.reduce((sum, n) => sum + n.durationMinutes, 0) / trend.length);
     byId('sleep-week-avg').textContent = `avg ${formatDurationHM(avgMinutes)}`;
 
-    const maxMinutes = Math.max(...trend.map((n) => n.durationMinutes), DEFAULT_SLEEP_GOAL_MINUTES);
+    const width = 110;
+    const height = 30;
+    const geometry = buildSmoothAreaGeometry(
+      trend.map((n) => n.durationMinutes),
+      { width, height }
+    );
+    if (geometry.points.length < 2) return;
 
-    // Real per-night score category (the exact same "no future data" rule
-    // scoreLogInContext already applies, and the same category→color
-    // language the Insights chart's own points use) — a second real metric
-    // layered onto this sparkline's duration heights, not just a flat run
-    // of identical bars with a single "best" one singled out.
-    const categoryByDate = new Map(recentWeekLogs.map((log) => [log.date, scoreLogInContext(log, log.date).category]));
+    const ns = 'http://www.w3.org/2000/svg';
+    const defs = document.createElementNS(ns, 'defs');
+    defs.innerHTML =
+      '<linearGradient id="sleepWeekGrad" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.55"/>' +
+      '<stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/>' +
+      '</linearGradient>';
+    svg.append(defs);
 
-    // A compact sparkline, not a labeled chart — see mini-apps.css's own
-    // comment on .sleep-week-strip. The container carries one summary
-    // aria-label (role="img" in the markup) instead of a per-bar day
-    // letter; each bar keeps a real hover title for anyone using a mouse.
-    for (const night of trend) {
-      const col = document.createElement('div');
-      col.className = `sleep-week-bar-col${night.isBest ? ' is-best' : ''}`;
+    const area = document.createElementNS(ns, 'path');
+    area.setAttribute('d', geometry.areaPath);
+    area.setAttribute('fill', 'url(#sleepWeekGrad)');
+    area.setAttribute('stroke', 'none');
+    svg.append(area);
 
-      const bar = document.createElement('div');
-      bar.className = `sleep-week-bar${night.isBest ? ' is-best' : ''}`;
-      bar.style.height = `${Math.max(8, Math.round((night.durationMinutes / maxMinutes) * 100))}%`;
-      const category = categoryByDate.get(night.date);
-      if (category) bar.style.setProperty('--sleep-week-bar-color', CATEGORY_DOT_COLOR[category]);
-      const dayName = new Date(`${night.date}T00:00:00Z`).toLocaleDateString(undefined, {
-        weekday: 'short',
-        timeZone: 'UTC',
-      });
-      bar.title = `${dayName}: ${formatDurationHM(night.durationMinutes)}${category ? ` · ${CATEGORY_LABEL[category]}` : ''}`;
+    const line = document.createElementNS(ns, 'path');
+    line.setAttribute('d', geometry.linePath);
+    line.setAttribute('fill', 'none');
+    line.setAttribute('stroke', 'var(--sleep-accent)');
+    line.setAttribute('stroke-width', '2');
+    line.setAttribute('stroke-linecap', 'round');
+    line.setAttribute('stroke-linejoin', 'round');
+    line.setAttribute('vector-effect', 'non-scaling-stroke');
+    svg.append(line);
 
-      col.append(bar);
-      container.append(col);
+    // The most recently logged night, marked — same "which end of the
+    // curve is now" role as Water's/the Hub Sleep card's own end-dot.
+    const last = geometry.points[geometry.points.length - 1];
+    if (last) {
+      const dot = document.createElementNS(ns, 'circle');
+      dot.setAttribute('cx', String(last.x));
+      dot.setAttribute('cy', String(last.y));
+      dot.setAttribute('r', '3');
+      dot.setAttribute('fill', 'var(--sleep-accent)');
+      dot.setAttribute('stroke', 'rgba(16,15,43,0.5)');
+      dot.setAttribute('stroke-width', '1');
+      dot.setAttribute('vector-effect', 'non-scaling-stroke');
+      svg.append(dot);
     }
   }
 

@@ -350,3 +350,90 @@ export function setHeroWaterCard(data: HeroWaterCardData): void {
     svg.append(dot);
   }
 }
+
+const SLEEP_CATEGORY_LABEL: Record<string, string> = {
+  poor: 'Poor',
+  fair: 'Fair',
+  good: 'Good',
+  great: 'Great',
+};
+
+export interface HeroSleepCardData {
+  /** Real trailing-week scores, oldest first — nights nobody logged are
+   *  already absent (js/features/hub/hub-stats.ts's trailingSleepScores),
+   *  never a fabricated zero. Empty when nothing's been logged this week
+   *  at all. */
+  week: { date: string; score: number; category: string }[];
+}
+
+/** The Sleep hero card — the same real smooth trailing-week line as the
+ *  Water card above (js/lib/smooth-chart.ts), scaled 0-100 for a score
+ *  instead of ml, with the most recent logged night's own score/category
+ *  always labeled. Its own honest empty state when no night in the
+ *  window has been logged yet — never a fabricated "0" the way Steps/
+ *  Water's own real daily 0 would read here. */
+export function setHeroSleepCard(data: HeroSleepCardData): void {
+  const valueEl = byId('hub-stat-sleep-value');
+  const emptyEl = byId('hub-stat-sleep-empty');
+  const svg = bySvgId<SVGSVGElement>('hub-stat-sleep-chart');
+  svg.innerHTML = '';
+
+  const latest = data.week[data.week.length - 1];
+  if (!latest) {
+    valueEl.hidden = true;
+    valueEl.innerHTML = '';
+    emptyEl.hidden = false;
+    return;
+  }
+
+  valueEl.hidden = false;
+  emptyEl.hidden = true;
+  const label = SLEEP_CATEGORY_LABEL[latest.category] ?? '';
+  valueEl.textContent = label ? `${latest.score} · ${label}` : String(latest.score);
+
+  const width = 120;
+  const height = 36;
+  const geometry = buildSmoothAreaGeometry(
+    data.week.map((d) => d.score),
+    { width, height, floorValue: 0 }
+  );
+  if (geometry.points.length < 2) return;
+
+  const ns = 'http://www.w3.org/2000/svg';
+  const defs = document.createElementNS(ns, 'defs');
+  defs.innerHTML =
+    '<linearGradient id="hubSleepGrad" x1="0" y1="0" x2="0" y2="1">' +
+    '<stop offset="0%" stop-color="var(--sleep-accent)" stop-opacity="0.55"/>' +
+    '<stop offset="100%" stop-color="var(--sleep-accent)" stop-opacity="0"/>' +
+    '</linearGradient>';
+  svg.append(defs);
+
+  const area = document.createElementNS(ns, 'path');
+  area.setAttribute('d', geometry.areaPath);
+  area.setAttribute('fill', 'url(#hubSleepGrad)');
+  area.setAttribute('stroke', 'none');
+  svg.append(area);
+
+  const line = document.createElementNS(ns, 'path');
+  line.setAttribute('d', geometry.linePath);
+  line.setAttribute('fill', 'none');
+  line.setAttribute('stroke', 'var(--sleep-accent)');
+  line.setAttribute('stroke-width', '2');
+  line.setAttribute('stroke-linecap', 'round');
+  line.setAttribute('stroke-linejoin', 'round');
+  line.setAttribute('vector-effect', 'non-scaling-stroke');
+  svg.append(line);
+
+  const today = geometry.points[geometry.points.length - 1];
+  if (today) {
+    const dot = document.createElementNS(ns, 'circle');
+    dot.setAttribute('cx', String(today.x));
+    dot.setAttribute('cy', String(today.y));
+    dot.setAttribute('r', '3');
+    dot.setAttribute('fill', 'var(--sleep-accent)');
+    dot.setAttribute('stroke', 'rgba(16,15,43,0.5)');
+    dot.setAttribute('stroke-width', '1');
+    dot.setAttribute('vector-effect', 'non-scaling-stroke');
+    svg.append(dot);
+  }
+}

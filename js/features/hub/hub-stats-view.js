@@ -10,10 +10,12 @@ import { onScreenShown, onScreenHidden } from '../../lib/router.js';
 import { getProfile } from '../../db/repositories/profile.js';
 import { listAllStepEntries } from '../../db/repositories/steps.js';
 import { listHydrationEntriesInRange } from '../../db/repositories/hydration.js';
+import { listRecentSleepLogs } from '../../db/repositories/sleep-logs.js';
 import { estimateDistanceFromSteps } from '../steps/steps-distance-estimate.js';
+import { calculateAge } from '../onboarding/age.js';
 import { formatBucketAxisLabel, formatBucketDetailLabel } from '../../lib/time-range.js';
-import { greetingForHour, trailingDailyTotals, formatHeroDistanceKm } from './hub-stats.js';
-import { setHubGreeting, setHeroStepsCard, setHeroWaterCard, clearHeroStepsChart } from './hub-view.js';
+import { greetingForHour, trailingDailyTotals, trailingSleepScores, formatHeroDistanceKm } from './hub-stats.js';
+import { setHubGreeting, setHeroStepsCard, setHeroWaterCard, setHeroSleepCard, clearHeroStepsChart } from './hub-view.js';
 const TRAILING_DAYS = 7;
 function todayIsoDate() {
     return new Date().toISOString().slice(0, 10);
@@ -37,14 +39,16 @@ async function refreshHubStats() {
     const today = new Date();
     const endDate = todayIsoDate();
     const startDate = trailingStartDate(endDate, TRAILING_DAYS);
-    const [profile, allSteps, hydrationEntries] = await Promise.all([
+    const [profile, allSteps, hydrationEntries, recentSleepLogs] = await Promise.all([
         getProfile(),
         listAllStepEntries(),
         listHydrationEntriesInRange(startDate, endDate),
+        listRecentSleepLogs(14),
     ]);
     renderGreeting(profile, today);
     renderStepsCard(allSteps, profile, endDate);
     renderWaterCard(hydrationEntries, endDate);
+    renderSleepCard(recentSleepLogs, profile, endDate);
 }
 function trailingStartDate(endDate, days) {
     const anchor = new Date(`${endDate}T00:00:00`);
@@ -84,5 +88,10 @@ function renderWaterCard(hydrationEntries, endDate) {
     const week = trailingDailyTotals(hydrationEntries.map((e) => ({ date: e.date, value: e.amountMl })), { days: TRAILING_DAYS, endDate });
     const todayMl = week[week.length - 1]?.value ?? 0;
     setHeroWaterCard({ todayMl, week });
+}
+function renderSleepCard(recentSleepLogs, profile, endDate) {
+    const age = profile?.birthdate ? calculateAge(profile.birthdate) : null;
+    const week = trailingSleepScores(recentSleepLogs, { days: TRAILING_DAYS, endDate, age });
+    setHeroSleepCard({ week });
 }
 //# sourceMappingURL=hub-stats-view.js.map

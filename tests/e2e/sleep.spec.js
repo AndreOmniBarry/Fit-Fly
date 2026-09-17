@@ -214,7 +214,7 @@ test.describe('sleep', () => {
     await expect(page.locator('#sleep-insight-streak')).toHaveText('1');
   });
 
-  test('the "This week" strip colors each real bar by its own real sleep-score category, not just a flat run with one highlight', async ({ page }) => {
+  test('the "This week" strip draws a real smooth trend line, the same chart language as the Hub\'s Water/Sleep cards, with a single logged night still rendering a real avg', async ({ page }) => {
     await page.getByRole('button', { name: 'Sleep' }).click();
     await page.locator('#sleep-log-bedtime').fill('23:00');
     await page.locator('#sleep-log-waketime').fill('07:00');
@@ -222,10 +222,12 @@ test.describe('sleep', () => {
     await page.getByRole('button', { name: 'Save last night' }).click();
     await expect(page.locator('#sleep-dashboard-result')).toBeVisible();
 
-    const bar = page.locator('.sleep-week-bar').first();
-    await expect(bar).toHaveAttribute('title', /Great sleep/);
-    const barColor = await bar.evaluate((el) => el.style.getPropertyValue('--sleep-week-bar-color'));
-    expect(barColor.trim()).toBe('var(--success)');
+    await expect(page.locator('#sleep-week-avg')).toHaveText('avg 8h');
+    // A single logged night is fewer than 2 points — buildSmoothAreaGeometry
+    // draws nothing for that (same rule as the Hub's own Water/Sleep cards),
+    // so the real avg text above is the only signal this first night gives;
+    // the curve itself only appears once a second night is logged.
+    await expect(page.locator('#sleep-week-bars path')).toHaveCount(0);
   });
 
   test('Start Wind-Down navigates to the Wind Down screen', async ({ page }) => {

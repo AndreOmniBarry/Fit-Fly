@@ -570,6 +570,13 @@
 .hub-stat-card--water .hub-stat-icon{ background:var(--hydration-accent-soft); color:var(--hydration-accent); }
 .hub-stat-water-chart{ width:100%; height:36px; margin-top:var(--space-1); overflow:visible; }
 
+.hub-stat-card--sleep{
+  background:linear-gradient(150deg, var(--sleep-bg-mid) 0%, var(--sleep-bg-start) 55%, var(--sleep-bg-end) 100%);
+  box-shadow:0 14px 30px -16px rgba(16,15,43,0.5);
+}
+.hub-stat-card--sleep .hub-stat-icon{ background:var(--sleep-accent-soft); color:var(--sleep-accent); }
+.hub-stat-sleep-chart{ width:100%; height:36px; margin-top:var(--space-1); overflow:visible; }
+
 .hub-grid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -1180,41 +1187,8 @@
 .sleep-week-strip-label strong{ font-size:13px; display:block; }
 .sleep-week-strip-label .muted{ font-size:11px; display:block; margin-top:1px; }
 .sleep-week-bars{
-  display:flex; align-items:flex-end; gap:4px; height:30px; flex-shrink:0;
+  width:110px; height:30px; flex-shrink:0; overflow:visible;
 }
-/* Real data drawn as motion, same as everywhere else in this app: each
-   bar's height is already the real minutes-slept-that-night value
-   (sleep-view.ts's renderWeekStrip) — this only grows it in from zero
-   rather than snapping it in, via scaleY (which plays its full 0%->100%
-   on element creation regardless of paint timing, unlike a transition on
-   a freshly-inserted element, which needs an extra reflow-forcing step to
-   animate at all). */
-.sleep-week-bar{
-  transform-origin:bottom;
-  animation:sleep-week-bar-grow .6s cubic-bezier(.16,1,.3,1) both;
-}
-.sleep-week-bars .sleep-week-bar-col:nth-child(1) .sleep-week-bar{ animation-delay:.02s; }
-.sleep-week-bars .sleep-week-bar-col:nth-child(2) .sleep-week-bar{ animation-delay:.07s; }
-.sleep-week-bars .sleep-week-bar-col:nth-child(3) .sleep-week-bar{ animation-delay:.12s; }
-.sleep-week-bars .sleep-week-bar-col:nth-child(4) .sleep-week-bar{ animation-delay:.17s; }
-.sleep-week-bars .sleep-week-bar-col:nth-child(5) .sleep-week-bar{ animation-delay:.22s; }
-.sleep-week-bars .sleep-week-bar-col:nth-child(6) .sleep-week-bar{ animation-delay:.27s; }
-.sleep-week-bars .sleep-week-bar-col:nth-child(7) .sleep-week-bar{ animation-delay:.32s; }
-@keyframes sleep-week-bar-grow{
-  from{ transform:scaleY(0); }
-  to{ transform:scaleY(1); }
-}
-@media (prefers-reduced-motion: reduce){
-  .sleep-week-bar{ animation:none; }
-}
-.sleep-week-bar-col{
-  width:9px; height:100%; display:flex; align-items:flex-end;
-}
-.sleep-week-bar{
-  width:100%; border-radius:3px;
-  background:var(--sleep-week-bar-color, rgba(245,243,255,0.18));
-}
-.sleep-week-bar.is-best{ background:linear-gradient(180deg, var(--sleep-accent), var(--sleep-accent-2)); }
 
 .miniapp-cta{
   display:flex; align-items:center; justify-content:center; gap:8px;

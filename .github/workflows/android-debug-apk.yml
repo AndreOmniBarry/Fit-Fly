@@ -25,6 +25,15 @@ jobs:
           java-version: 21
 
       - uses: android-actions/setup-android@v3
+        with:
+          # The action's own default package list includes the legacy
+          # "tools" package, which Google removed from the SDK repository
+          # years ago -- installing it unconditionally makes sdkmanager
+          # exit non-zero before the build ever starts. platform-tools is
+          # all this step needs; AGP auto-downloads the compileSdk 36
+          # platform/build-tools itself during the Gradle build, now that
+          # licenses are accepted and ANDROID_HOME is set.
+          packages: 'platform-tools'
 
       - name: Install JS dependencies
         run: npm ci

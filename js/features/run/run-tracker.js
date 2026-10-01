@@ -202,7 +202,7 @@ export function initRunFeature() {
     // from the latest *raw* point (even one just filtered out) so a
     // weak-signal message can actually explain why distance stalled.
     const latestAccuracyM = points.length > 0 ? points[points.length - 1].accuracyM : null;
-    const quality = assessGpsSignalQuality(latestAccuracyM);
+    const quality = assessGpsSignalQuality(latestAccuracyM, durationMs);
     byId('run-gps-dot').dataset.quality = quality.level;
     byId('run-gps-quality-text').textContent = quality.message;
 

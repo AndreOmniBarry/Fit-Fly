@@ -63,4 +63,19 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_HEALTH" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Camera/mic for Heart Rate's camera-PPG and Hearing's noise
+         monitor (both plain getUserMedia() calls from the WebView).
+         Capacitor's own BridgeWebChromeClient.onPermissionRequest() maps
+         those requests onto these exact platform permissions and only
+         then shows the real Android runtime-permission dialog —
+         requesting a permission Android never saw declared here is
+         auto-denied immediately, with no dialog at all, which is
+         exactly the "denied before it ever asked" symptom this was
+         causing. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
 </manifest>

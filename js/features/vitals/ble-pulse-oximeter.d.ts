@@ -13,4 +13,4 @@ export function connectPulseOximeterMonitor(callbacks: {
   onReading?: (reading: PulseOximeterReading) => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
-}): Promise<{ device: unknown; disconnect: () => void } | null>;
+}): Promise<{ disconnect: () => void } | null>;

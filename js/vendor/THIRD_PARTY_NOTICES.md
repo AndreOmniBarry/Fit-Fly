@@ -143,6 +143,40 @@ anymore, at the cost of ~99MB of permanent repo/install size. That
 trade-off was made explicitly, with the size cost known up front, not
 discovered after the fact.
 
+## @capacitor-community/bluetooth-le 8.3.0
+
+`js/vendor/ble/` is this plugin's own ESM web/bridge build (`bleClient.js`,
+`web.js`, `plugin.js`, `conversion.js`, `definitions.js`, `queue.js`,
+`timeout.js`, `validators.js`, `config.js`, `index.js` + their `.map`/
+`.d.ts`), redistributed unmodified except for repointing each file's one
+`@capacitor/core` import at the already-vendored `../capacitor-core.mjs`
+(the same "bare specifier this no-bundler app can't resolve" fix every
+other vendored library here needs). MIT License.
+https://github.com/capacitor-community/bluetooth-le
+
+Fetched via `npm pack @capacitor-community/bluetooth-le@8.3.0`, copied
+straight from `dist/esm/`. Same dual-role as `@capacitor/core` above:
+also a real npm dependency (see package.json) — `npx cap sync android`
+needs the real installed package to wire its native Android module
+(`android/capacitor.settings.gradle`) into the Gradle build, while this
+vendored copy is what the plain web page's own JS actually imports at
+runtime, since there's no bundler here to resolve `node_modules` for it.
+
+This is the real fix for a gap Web Bluetooth (`navigator.bluetooth`,
+what every BLE feature — the heart-rate strap, Vitals' blood-pressure
+cuff/pulse oximeter/thermometer — used before this) always left open: zero
+iOS support at all, and unreliable even on Android once wrapped in a bare
+WebView rather than standalone Chrome. `BleClient` (`js/lib/bluetooth.js`'s
+own real connect path now) is one JS API that transparently uses genuine
+native `BluetoothGatt` inside the installed Android app and falls back to
+`navigator.bluetooth` itself in a plain browser tab — no native/web
+branching needed in this app's own code, the same "one real call site, the
+library picks the right backend" shape `@capacitor-community/
+background-geolocation` already established for Run's background GPS.
+
+Tiny compared to Piper's ~99MB (this whole plugin's web/bridge build is
+under 300KB) — no size trade-off worth noting here.
+
 The only remaining third party this app's own code talks to at runtime
 is Nutrition's food search (see the README's "Your data stays on this
 device").

@@ -1,12 +1,14 @@
-// Web Bluetooth pulse-oximeter support — same feature-detected,
-// degrade-gracefully contract as ble-heart-rate.js/ble-blood-pressure.js.
-import { isBluetoothAvailable } from '../../lib/bluetooth.js';
+// Real pulse-oximeter BLE support — same real transport as
+// ble-heart-rate.js/ble-blood-pressure.js, via js/lib/bluetooth.js.
+import { connectBleCharacteristic, isBluetoothAvailable, sig16BitUuid } from '../../lib/bluetooth.js';
 import { parseSFloat } from '../../lib/ieee11073.js';
 
 export { isBluetoothAvailable };
 
-const PULSE_OXIMETER_SERVICE = 'pulse_oximeter';
-const PLX_CONTINUOUS_MEASUREMENT_CHARACTERISTIC = 'plx_continuous_measurement';
+// Bluetooth SIG assigned numbers: Pulse Oximeter service 0x1822, PLX
+// Continuous Measurement characteristic 0x2A5F.
+const PULSE_OXIMETER_SERVICE = sig16BitUuid('1822');
+const PLX_CONTINUOUS_MEASUREMENT_CHARACTERISTIC = sig16BitUuid('2a5f');
 
 /** Parses the standard Bluetooth SIG PLX Continuous Measurement
  *  characteristic: a flags byte, then the unconditional "SpO2PR-Normal"
@@ -27,31 +29,15 @@ export function parsePulseOximeterMeasurement(dataView) {
  * @param {(reading: ReturnType<typeof parsePulseOximeterMeasurement>) => void} callbacks.onReading
  * @param {() => void} [callbacks.onDisconnect]
  * @param {(error: Error) => void} callbacks.onError
- * @returns {Promise<{device: BluetoothDevice, disconnect: () => void}|null>}
+ * @returns {Promise<{disconnect: () => void}|null>}
  */
 export async function connectPulseOximeterMonitor({ onReading, onDisconnect, onError }) {
-  if (!isBluetoothAvailable()) {
-    onError?.(new Error('This browser doesn\'t support Bluetooth — try a manual entry instead.'));
-    return null;
-  }
-
-  try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [PULSE_OXIMETER_SERVICE] }],
-    });
-    device.addEventListener('gattserverdisconnected', () => onDisconnect?.());
-
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(PULSE_OXIMETER_SERVICE);
-    const characteristic = await service.getCharacteristic(PLX_CONTINUOUS_MEASUREMENT_CHARACTERISTIC);
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', (event) => {
-      onReading?.(parsePulseOximeterMeasurement(event.target.value));
-    });
-
-    return { device, disconnect: () => device.gatt?.disconnect() };
-  } catch (err) {
-    onError?.(err);
-    return null;
-  }
+  return connectBleCharacteristic({
+    serviceUuid: PULSE_OXIMETER_SERVICE,
+    characteristicUuid: PLX_CONTINUOUS_MEASUREMENT_CHARACTERISTIC,
+    parse: parsePulseOximeterMeasurement,
+    onReading,
+    onDisconnect,
+    onError,
+  });
 }

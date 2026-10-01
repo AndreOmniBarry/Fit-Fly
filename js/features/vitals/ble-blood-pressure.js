@@ -1,13 +1,15 @@
-// Web Bluetooth blood-pressure-cuff support — same feature-detected,
-// degrade-gracefully contract as ble-heart-rate.js, reusing its shared
-// isBluetoothAvailable() check.
-import { isBluetoothAvailable } from '../../lib/bluetooth.js';
+// Real blood-pressure-cuff BLE support — same real native-BLE-inside-the-
+// app, real-Web-Bluetooth-in-a-browser-tab transport as ble-heart-rate.js,
+// through the shared js/lib/bluetooth.js connectBleCharacteristic().
+import { connectBleCharacteristic, isBluetoothAvailable, sig16BitUuid } from '../../lib/bluetooth.js';
 import { parseSFloat } from '../../lib/ieee11073.js';
 
 export { isBluetoothAvailable };
 
-const BLOOD_PRESSURE_SERVICE = 'blood_pressure';
-const BLOOD_PRESSURE_MEASUREMENT_CHARACTERISTIC = 'blood_pressure_measurement';
+// Bluetooth SIG assigned numbers: Blood Pressure service 0x1810, Blood
+// Pressure Measurement characteristic 0x2A35.
+const BLOOD_PRESSURE_SERVICE = sig16BitUuid('1810');
+const BLOOD_PRESSURE_MEASUREMENT_CHARACTERISTIC = sig16BitUuid('2a35');
 
 const FLAG_KPA_UNITS = 0x1;
 const FLAG_TIMESTAMP_PRESENT = 0x2;
@@ -57,31 +59,15 @@ export function parseBloodPressureMeasurement(dataView) {
  * @param {(reading: ReturnType<typeof parseBloodPressureMeasurement>) => void} callbacks.onReading
  * @param {() => void} [callbacks.onDisconnect]
  * @param {(error: Error) => void} callbacks.onError
- * @returns {Promise<{device: BluetoothDevice, disconnect: () => void}|null>}
+ * @returns {Promise<{disconnect: () => void}|null>}
  */
 export async function connectBloodPressureMonitor({ onReading, onDisconnect, onError }) {
-  if (!isBluetoothAvailable()) {
-    onError?.(new Error('This browser doesn\'t support Bluetooth — try a manual entry instead.'));
-    return null;
-  }
-
-  try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [BLOOD_PRESSURE_SERVICE] }],
-    });
-    device.addEventListener('gattserverdisconnected', () => onDisconnect?.());
-
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(BLOOD_PRESSURE_SERVICE);
-    const characteristic = await service.getCharacteristic(BLOOD_PRESSURE_MEASUREMENT_CHARACTERISTIC);
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', (event) => {
-      onReading?.(parseBloodPressureMeasurement(event.target.value));
-    });
-
-    return { device, disconnect: () => device.gatt?.disconnect() };
-  } catch (err) {
-    onError?.(err);
-    return null;
-  }
+  return connectBleCharacteristic({
+    serviceUuid: BLOOD_PRESSURE_SERVICE,
+    characteristicUuid: BLOOD_PRESSURE_MEASUREMENT_CHARACTERISTIC,
+    parse: parseBloodPressureMeasurement,
+    onReading,
+    onDisconnect,
+    onError,
+  });
 }

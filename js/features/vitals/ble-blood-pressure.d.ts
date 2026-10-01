@@ -16,4 +16,4 @@ export function connectBloodPressureMonitor(callbacks: {
   onReading?: (reading: BloodPressureReading) => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
-}): Promise<{ device: unknown; disconnect: () => void } | null>;
+}): Promise<{ disconnect: () => void } | null>;

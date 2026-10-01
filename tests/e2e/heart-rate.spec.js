@@ -256,13 +256,18 @@ test.describe('heart rate', () => {
 // config carries no fake-Bluetooth-adapter flags (only the fake
 // getUserMedia device flags the camera-PPG tests above rely on) — so the
 // full connect -> GATT service -> characteristic -> notification chain
-// ble-heart-rate.js's connectHeartRateMonitor drives is otherwise
-// untestable end-to-end. This mocks just enough of the real Web
-// Bluetooth surface (device/gatt/service/characteristic, each a real
-// EventTarget-shaped object) to drive that exact chain for real, and
-// encodes/dispatches real Bluetooth SIG Heart Rate Measurement bytes
-// (see ble-heart-rate.js's own parseHeartRateMeasurement) rather than
-// calling any app internals directly.
+// is otherwise untestable end-to-end. The real path now goes through
+// @capacitor-community/bluetooth-le's BleClient (js/lib/bluetooth.js),
+// whose own web fallback (js/vendor/ble/web.js) drives real Web
+// Bluetooth itself — getAvailability(), device.id-keyed internal
+// bookkeeping, device.gatt.getPrimaryService() called directly (not via
+// a separate object returned by connect()), and a notification handler
+// that reads real service/device back-references off the characteristic
+// — so this fake has to honor that exact shape, not just whatever calls
+// the old hand-rolled code happened to make. Encodes/dispatches real
+// Bluetooth SIG Heart Rate Measurement bytes (see ble-heart-rate.js's
+// own parseHeartRateMeasurement) rather than calling any app internals
+// directly.
 async function installFakeBluetoothHrStrap(page) {
   await page.addInitScript(() => {
     class FakeEventTarget {
@@ -272,6 +277,12 @@ async function installFakeBluetoothHrStrap(page) {
       addEventListener(type, fn) {
         if (!this._listeners.has(type)) this._listeners.set(type, []);
         this._listeners.get(type).push(fn);
+      }
+      removeEventListener(type, fn) {
+        const list = this._listeners.get(type);
+        if (!list) return;
+        const i = list.indexOf(fn);
+        if (i >= 0) list.splice(i, 1);
       }
       dispatch(type, event) {
         for (const fn of this._listeners.get(type) ?? []) fn(event);
@@ -291,36 +302,76 @@ async function installFakeBluetoothHrStrap(page) {
       return new DataView(new Uint8Array(bytes).buffer);
     }
 
+    // Real Web Bluetooth: the notification event's own `target` IS the
+    // characteristic itself (with its latest value already on it), and
+    // BleClient's own web fallback reads `characteristic.service.device.id`
+    // / `characteristic.service.uuid` / `characteristic.uuid` to key its
+    // internal listener registry — every one of those back-references has
+    // to be real here, not a bare `{ value }` object.
     class FakeCharacteristic extends FakeEventTarget {
+      constructor(service) {
+        super();
+        this.service = service;
+        this.uuid = '00002a37-0000-1000-8000-00805f9b34fb'; // Heart Rate Measurement
+        this.value = null;
+      }
       async startNotifications() {
         return this;
       }
+      async stopNotifications() {
+        return this;
+      }
       notify(bpm, rrIntervalsMs = []) {
-        this.dispatch('characteristicvaluechanged', { target: { value: buildHrmDataView(bpm, rrIntervalsMs) } });
+        this.value = buildHrmDataView(bpm, rrIntervalsMs);
+        this.dispatch('characteristicvaluechanged', { target: this });
+      }
+    }
+
+    class FakeService {
+      constructor(device) {
+        this.device = device;
+        this.uuid = '0000180d-0000-1000-8000-00805f9b34fb'; // Heart Rate service
+        this.characteristic = new FakeCharacteristic(this);
+      }
+      async getCharacteristic() {
+        return this.characteristic;
       }
     }
 
     class FakeDevice extends FakeEventTarget {
       constructor() {
         super();
-        const characteristic = new FakeCharacteristic();
-        const service = { getCharacteristic: async () => characteristic };
-        const server = { getPrimaryService: async () => service };
-        this.characteristic = characteristic;
+        this.id = 'fake-hr-strap-1';
+        this.name = 'Fake HR Strap';
+        const service = new FakeService(this);
+        this.service = service;
+        this.characteristic = service.characteristic;
+        // Real Web Bluetooth: `device.gatt` IS the GATT server both before
+        // and after connect() — BleClient's web fallback calls
+        // `device.gatt.getPrimaryService()` directly, never through a
+        // separate object connect() hands back.
         this.gatt = {
-          connect: async () => server,
-          disconnect: () => this.dispatch('gattserverdisconnected', {}),
+          connected: false,
+          connect: async () => {
+            this.gatt.connected = true;
+            return this.gatt;
+          },
+          disconnect: () => {
+            this.gatt.connected = false;
+            this.dispatch('gattserverdisconnected', { target: this });
+          },
+          getPrimaryService: async () => service,
         };
       }
     }
 
     const fakeDevice = new FakeDevice();
     window.__fakeHrDevice = fakeDevice;
-    // Real navigator.bluetooth shape is just requestDevice() resolving to
-    // a real BluetoothDevice — isBluetoothAvailable() only checks
-    // `'bluetooth' in navigator`, so this alone is enough for the app's
-    // own feature-detect to treat BLE as available.
-    navigator.bluetooth = { requestDevice: async () => fakeDevice };
+    navigator.bluetooth = {
+      // BleClient.initialize() checks this before anything else connects.
+      getAvailability: async () => true,
+      requestDevice: async () => fakeDevice,
+    };
   });
 }
 

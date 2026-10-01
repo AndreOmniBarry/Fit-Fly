@@ -1,14 +1,15 @@
-// Web Bluetooth body-temperature-thermometer support — same feature-
-// detected, degrade-gracefully contract as ble-heart-rate.js/
-// ble-blood-pressure.js/ble-pulse-oximeter.js, reusing the same shared
-// isBluetoothAvailable() check.
-import { isBluetoothAvailable } from '../../lib/bluetooth.js';
+// Real body-temperature-thermometer BLE support — same real transport as
+// ble-heart-rate.js/ble-blood-pressure.js/ble-pulse-oximeter.js, via
+// js/lib/bluetooth.js.
+import { connectBleCharacteristic, isBluetoothAvailable, sig16BitUuid } from '../../lib/bluetooth.js';
 import { parseFloat11073 } from '../../lib/ieee11073.js';
 
 export { isBluetoothAvailable };
 
-const HEALTH_THERMOMETER_SERVICE = 'health_thermometer';
-const TEMPERATURE_MEASUREMENT_CHARACTERISTIC = 'temperature_measurement';
+// Bluetooth SIG assigned numbers: Health Thermometer service 0x1809,
+// Temperature Measurement characteristic 0x2A1C.
+const HEALTH_THERMOMETER_SERVICE = sig16BitUuid('1809');
+const TEMPERATURE_MEASUREMENT_CHARACTERISTIC = sig16BitUuid('2a1c');
 
 const FLAG_FAHRENHEIT_UNITS = 0x1;
 const FLAG_TIMESTAMP_PRESENT = 0x2;
@@ -48,31 +49,15 @@ export function parseBodyTemperatureMeasurement(dataView) {
  * @param {(reading: ReturnType<typeof parseBodyTemperatureMeasurement>) => void} callbacks.onReading
  * @param {() => void} [callbacks.onDisconnect]
  * @param {(error: Error) => void} callbacks.onError
- * @returns {Promise<{device: BluetoothDevice, disconnect: () => void}|null>}
+ * @returns {Promise<{disconnect: () => void}|null>}
  */
 export async function connectBodyTemperatureMonitor({ onReading, onDisconnect, onError }) {
-  if (!isBluetoothAvailable()) {
-    onError?.(new Error('This browser doesn\'t support Bluetooth — try a manual entry instead.'));
-    return null;
-  }
-
-  try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [HEALTH_THERMOMETER_SERVICE] }],
-    });
-    device.addEventListener('gattserverdisconnected', () => onDisconnect?.());
-
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(HEALTH_THERMOMETER_SERVICE);
-    const characteristic = await service.getCharacteristic(TEMPERATURE_MEASUREMENT_CHARACTERISTIC);
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', (event) => {
-      onReading?.(parseBodyTemperatureMeasurement(event.target.value));
-    });
-
-    return { device, disconnect: () => device.gatt?.disconnect() };
-  } catch (err) {
-    onError?.(err);
-    return null;
-  }
+  return connectBleCharacteristic({
+    serviceUuid: HEALTH_THERMOMETER_SERVICE,
+    characteristicUuid: TEMPERATURE_MEASUREMENT_CHARACTERISTIC,
+    parse: parseBodyTemperatureMeasurement,
+    onReading,
+    onDisconnect,
+    onError,
+  });
 }

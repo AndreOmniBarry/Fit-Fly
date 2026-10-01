@@ -145,9 +145,8 @@ this project is genuinely wrapped with [Capacitor](https://capacitorjs.com)
 — and as of this round, that wrapping is real, not just documented.
 
 **What's real here today.** A full Capacitor Android project lives in
-`android/` (`npx cap add android`), with two real background-capable
-plugins wired behind `isNativeRuntime()` — the web path is completely
-unchanged either way:
+`android/` (`npx cap add android`), with three real native plugins wired
+in — the web path is completely unchanged either way:
 
 - **Run's GPS** uses `@capacitor-community/background-geolocation`
   (`js/features/run/native-background-geo.js`) — a real Android
@@ -170,18 +169,39 @@ unchanged either way:
   moment the app is reopened even if it was never in the foreground
   while those steps happened.
 
-Both are gated behind the real permission each one needs
-(`ACTIVITY_RECOGNITION` for Steps, fine/coarse location for Run) and
-degrade to an honest status message — never an uncaught error — if the
-native plugin genuinely can't be reached.
+- **Heart Rate's and Vitals' BLE** (blood-pressure cuff, pulse oximeter,
+  thermometer, heart-rate strap) uses `@capacitor-community/bluetooth-le`
+  through the one shared transport in `js/lib/bluetooth.js`
+  (`connectBleCharacteristic()`) — genuine native `BluetoothGatt` inside
+  the installed Android app, not just the browser's own Web Bluetooth
+  (which has zero iOS support at all, and is unreliable even on Android
+  once wrapped in a bare WebView rather than standalone Chrome). The
+  plugin's own JS already picks the right backend by itself — nothing in
+  this app's code branches on `isNativeRuntime()` for BLE specifically;
+  it's web-vs-native-transparent one level down, inside the vendored
+  library (`js/vendor/ble/`, see `js/vendor/THIRD_PARTY_NOTICES.md`).
+
+All three are gated behind the real permission each one needs
+(`ACTIVITY_RECOGNITION` for Steps, fine/coarse location for Run,
+Bluetooth scan/connect + location for BLE on Android 12+) and degrade to
+an honest status message — never an uncaught error — if the native
+plugin genuinely can't be reached.
 
 **What isn't done here, and can't be.** This sandboxed dev session has
 no way to compile or run this native code — `dl.google.com`, the
 Android SDK's real download host, is blocked by this environment's own
 network policy (the same wall the Steps round hit trying to build an
-APK directly). Every file in `android/` and every native plugin call
-was written and reviewed carefully, but **none of it has been compiled
-here** — the first real build is the real test.
+APK directly, and the BLE round hit again). `npx cap sync android` was
+run here and genuinely confirms the plugin is wired into the Gradle
+project (`android/capacitor.settings.gradle` lists
+`capacitor-community-bluetooth-le`, pointing at the real native module
+under `node_modules/@capacitor-community/bluetooth-le/android`) — but
+that native Kotlin code itself was never compiled or run here, and there
+was no real BLE peripheral to pair with either way. Every file in
+`android/` and every native plugin call was written and reviewed
+carefully, but **none of it has been compiled or tested against real
+hardware here** — the first real build, and the first real pairing with
+an actual strap/cuff/oximeter, is the real test.
 
 **Building it yourself:**
 
@@ -352,7 +372,7 @@ css/
   mini-apps.css              # Hub + Sleep + Focus + Meditate + Vitals + Steps + Hydration's own night-surface visual identity
 js/
   main.js                   # bootstrap
-  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared Web Bluetooth feature-detect, used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration), register-service-worker.js (registers sw.js — see "Offline support"), trend-chart.ts (shared bar-trend chart, used by Steps/Hydration/Run — see "A shared trend chart")
+  lib/                       # cross-feature pure logic + small DOM helpers — icons.ts (icon system), tilt.ts (spatial-tilt engine, used by the Hub/Sleep/Focus/Meditate/Vitals/Steps/Hydration), motion.ts (shared prefers-reduced-motion check), count-up.ts (number count-up), guided-session.ts (shared session/beat types + pacing math, used by Focus and Meditate), bluetooth.js (shared real BLE transport — native Android BLE, falling back to Web Bluetooth — used by Heart Rate and Vitals), ieee11073.js (shared SFLOAT decoder, used by Vitals), step-detector.js (pure step-detection algorithm, used by Steps), notifications.js (local/in-session Notification wrapper, used by Goals and Hydration), register-service-worker.js (registers sw.js — see "Offline support"), trend-chart.ts (shared bar-trend chart, used by Steps/Hydration/Run — see "A shared trend chart")
   db/                         # Dexie (IndexedDB) schema and store access; backup.js exports/imports every table + every pref as one JSON file — see "Export & import"
   features/
     hub/                        # the launcher — equal-weight mini-app tile grid (TypeScript)
@@ -1302,16 +1322,17 @@ just brightness — a phone camera only sees RGB. So every reading here is
 third, camera-based one to even tempt reusing heart rate's `confidence`
 field for.
 
-**Real Bluetooth, not just heart rate's.** `js/lib/bluetooth.js` pulls
-the shared `isBluetoothAvailable()` feature-detect out of
-`ble-heart-rate.js` so all three BLE integrations (heart rate, blood
-pressure, pulse oximeter) share one implementation instead of three
-copies of the same check. `ble-blood-pressure.js` and
-`ble-pulse-oximeter.js` connect to the standard Bluetooth SIG Blood
-Pressure and Pulse Oximeter GATT services (`blood_pressure`/
-`blood_pressure_measurement`, `pulse_oximeter`/
-`plx_continuous_measurement`) the same feature-detected,
-degrade-gracefully way `ble-heart-rate.js` already does.
+**Real Bluetooth, not just heart rate's.** `js/lib/bluetooth.js` is the
+one shared BLE transport all four GATT integrations in this app (heart
+rate, blood pressure, pulse oximeter, body temperature) go through —
+`connectBleCharacteristic()` connects over genuine native `BluetoothGatt`
+inside the installed Android app (`@capacitor-community/bluetooth-le`),
+falling back to the browser's own Web Bluetooth in a plain tab. `ble-
+blood-pressure.js` and `ble-pulse-oximeter.js` connect to the standard
+Bluetooth SIG Blood Pressure and Pulse Oximeter GATT services (0x1810/
+0x2A35, 0x1822/0x2A5F — `sig16BitUuid()` expands each real SIG-assigned
+number to the full 128-bit UUID the native transport needs) the same
+feature-detected, degrade-gracefully way `ble-heart-rate.js` already does.
 
 **A real IEEE 11073-20601 float decoder, not heart rate's simple
 8/16-bit split.** Both GATT services encode their measurement values
@@ -2106,13 +2127,18 @@ an implausible rate. `js/features/heart-rate/camera-ppg.js` is the thin
 fingertip over the rear camera makes the average red-channel brightness
 pulse with each heartbeat.
 
-`js/features/heart-rate/ble-heart-rate.js` is Web Bluetooth, feature-
-detected (`isBluetoothAvailable()`) since it's a Chrome/Android-only API
-with no Safari/iOS implementation — the UI degrades to "use the camera or
-a manual entry instead" rather than a dead button. Its BLE payload parser
-(the standard Bluetooth SIG Heart Rate Measurement format: a flags byte
-picking 8- vs 16-bit encoding) is pure and unit-tested from a raw
-`DataView`, independent of any actual Bluetooth connection.
+`js/features/heart-rate/ble-heart-rate.js` connects over real BLE through
+the shared `js/lib/bluetooth.js` transport (`connectBleCharacteristic()`),
+feature-detected (`isBluetoothAvailable()`) — genuine native
+`BluetoothGatt` inside the installed Android app (via
+`@capacitor-community/bluetooth-le`, vendored under `js/vendor/ble/` —
+see `js/vendor/THIRD_PARTY_NOTICES.md`), falling back to the browser's own
+Web Bluetooth in a plain browser tab, with no iOS Safari path either way
+and the UI degrading to "use the camera or a manual entry instead" rather
+than a dead button there. Its BLE payload parser (the standard Bluetooth
+SIG Heart Rate Measurement format: a flags byte picking 8- vs 16-bit
+encoding) is pure and unit-tested from a raw `DataView`, independent of
+any actual Bluetooth connection.
 
 Every reading gets exactly one badge: camera-PPG is always `ESTIMATED`
 with its confidence; manual entry and a BLE strap are both `MEASURED` —
@@ -2187,26 +2213,26 @@ The whole screen also picked up the same spatial-tilt language as the
 rest of the Fitness Toolkit — `attachTilt()` on `#screen-heart-rate`,
 depth-separated icon badges on every reading in Recent Readings.
 
-**A seam for native health data, not a promise it works today.**
+**A seam for native health data, not a promise everything works today.**
 `js/lib/native-runtime.js`'s `isNativeRuntime()` checks for the
 `window.Capacitor` global a Capacitor-wrapped native build injects at
-runtime — `undefined` in every browser context today, so it's provably
-`false` everywhere this app currently runs, the same "false in the
-browser, real once the platform supports it" contract as every other
-feature-detected API in this app. This is the seam future native-only
-features (HealthKit/Health Connect step counts, a real *background*
-pedometer that keeps counting once the app isn't the foregrounded,
-active tab — Steps' own live-counted walk, covered below, already works
-today without it — and BLE that isn't Chrome/Android-only) gate behind
-once this project is actually wrapped with Capacitor — deliberately not
-yet wired to a specific native plugin call, since guessing at one a plain web
-build has no way to install or exercise would risk shipping something
-wrong instead of just not-yet-built. Blood pressure and SpO2 no longer
-wait on this seam at all — see "Vitals" below, which ships a real
-Bluetooth GATT path today, the same Web Bluetooth API this section's own
-BLE strap already uses. Run mode (below) is the first feature actually
-calling `isNativeRuntime()`, not just documenting it — its own
-background-tracking honesty note reads real, live output from this same
+runtime — `undefined` in every plain browser context, so it's provably
+`false` there, the same "false in the browser, real once the platform
+supports it" contract as every other feature-detected API in this app.
+BLE no longer waits on this seam at all: `js/lib/bluetooth.js`'s
+`connectBleCharacteristic()` (used by this section's own strap and by
+Vitals' blood-pressure cuff/pulse oximeter/thermometer) goes through
+`@capacitor-community/bluetooth-le`'s `BleClient` — genuine native
+`BluetoothGatt` inside the installed Android app, the same real-device
+reach `isNativeRuntime()` itself can only gate behind, falling back to
+plain Web Bluetooth in a browser tab with neither path reaching iOS
+Safari. What's still a real, not-yet-built seam: HealthKit/Health Connect
+step/sleep/heart-rate data, and a few sensors (camera-PPG, Hearing's mic
+capture) that still only ever run through their own browser API rather
+than a native one. Run mode (below) is the first feature actually
+calling `isNativeRuntime()` for its own live tracking, not just
+documenting it — its own background-tracking honesty note reads real, live
+output from this same
 function.
 
 Playwright's Chromium launches with `--use-fake-device-for-media-stream`

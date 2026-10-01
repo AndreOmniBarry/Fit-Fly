@@ -1,16 +1,17 @@
-// Web Bluetooth heart-rate-strap support, feature-detected — it's a
-// Chrome/Android-family API with no Safari/iOS implementation at all
-// (see the README's platform notes), so this always has to degrade
-// gracefully rather than assume it's there. The feature-detect itself
-// (isBluetoothAvailable) now lives in js/lib/bluetooth.js, shared with
-// Vitals' own blood-pressure/pulse-oximeter BLE integrations — re-exported
+// Real heart-rate-strap BLE support — real native BluetoothGatt inside
+// the installed app (Android), real Web Bluetooth in a plain browser tab,
+// through the one shared transport in js/lib/bluetooth.js (see that
+// file's own doc comment for why/how). isBluetoothAvailable re-exported
 // here so nothing importing it from this file has to change.
-import { isBluetoothAvailable } from '../../lib/bluetooth.js';
+import { connectBleCharacteristic, isBluetoothAvailable, sig16BitUuid } from '../../lib/bluetooth.js';
 
 export { isBluetoothAvailable };
 
-const HEART_RATE_SERVICE = 'heart_rate';
-const HEART_RATE_MEASUREMENT_CHARACTERISTIC = 'heart_rate_measurement';
+// Bluetooth SIG assigned numbers (Heart Rate service 0x180D, Heart Rate
+// Measurement characteristic 0x2A37) — real, standard GATT UUIDs, not
+// vendor-specific ones.
+const HEART_RATE_SERVICE = sig16BitUuid('180d');
+const HEART_RATE_MEASUREMENT_CHARACTERISTIC = sig16BitUuid('2a37');
 
 const RR_INTERVAL_PRESENT_FLAG = 0x10; // bit 4
 const ENERGY_EXPENDED_PRESENT_FLAG = 0x08; // bit 3
@@ -59,32 +60,15 @@ export function parseHeartRateMeasurement(dataView) {
  *   optical wrist straps never do; many chest straps always do)
  * @param {() => void} [callbacks.onDisconnect]
  * @param {(error: Error) => void} callbacks.onError
- * @returns {Promise<{device: BluetoothDevice, disconnect: () => void}|null>}
+ * @returns {Promise<{disconnect: () => void}|null>}
  */
 export async function connectHeartRateMonitor({ onReading, onDisconnect, onError }) {
-  if (!isBluetoothAvailable()) {
-    onError?.(new Error('This browser doesn\'t support Bluetooth — try a manual entry instead.'));
-    return null;
-  }
-
-  try {
-    const device = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [HEART_RATE_SERVICE] }],
-    });
-    device.addEventListener('gattserverdisconnected', () => onDisconnect?.());
-
-    const server = await device.gatt.connect();
-    const service = await server.getPrimaryService(HEART_RATE_SERVICE);
-    const characteristic = await service.getCharacteristic(HEART_RATE_MEASUREMENT_CHARACTERISTIC);
-    await characteristic.startNotifications();
-    characteristic.addEventListener('characteristicvaluechanged', (event) => {
-      const { bpm, rrIntervalsMs } = parseHeartRateMeasurement(event.target.value);
-      onReading?.(bpm, rrIntervalsMs);
-    });
-
-    return { device, disconnect: () => device.gatt?.disconnect() };
-  } catch (err) {
-    onError?.(err);
-    return null;
-  }
+  return connectBleCharacteristic({
+    serviceUuid: HEART_RATE_SERVICE,
+    characteristicUuid: HEART_RATE_MEASUREMENT_CHARACTERISTIC,
+    parse: parseHeartRateMeasurement,
+    onReading: ({ bpm, rrIntervalsMs }) => onReading?.(bpm, rrIntervalsMs),
+    onDisconnect,
+    onError,
+  });
 }

@@ -12,4 +12,4 @@ export function connectBodyTemperatureMonitor(callbacks: {
   onReading?: (reading: BodyTemperatureReading) => void;
   onDisconnect?: () => void;
   onError?: (error: Error) => void;
-}): Promise<{ device: unknown; disconnect: () => void } | null>;
+}): Promise<{ disconnect: () => void } | null>;

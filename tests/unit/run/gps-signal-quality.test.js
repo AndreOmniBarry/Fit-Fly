@@ -36,4 +36,22 @@ describe('assessGpsSignalQuality', () => {
     expect(result.level).toBe(GPS_SIGNAL_QUALITY.WEAK);
     expect(result.message).toContain('dropped');
   });
+
+  it('keeps the plain "finding" message early into acquiring a fix', () => {
+    const result = assessGpsSignalQuality(null, 5_000);
+    expect(result.level).toBe(GPS_SIGNAL_QUALITY.ACQUIRING);
+    expect(result.message).toBe('Finding your location…');
+  });
+
+  it('escalates to an explicit indoors/no-signal message once acquiring has gone on too long', () => {
+    const result = assessGpsSignalQuality(null, 20_000);
+    expect(result.level).toBe(GPS_SIGNAL_QUALITY.ACQUIRING);
+    expect(result.message).toContain('indoors');
+  });
+
+  it('never escalates once a real fix has actually arrived, no matter how long the watch has run', () => {
+    const result = assessGpsSignalQuality(5, 999_999);
+    expect(result.level).toBe(GPS_SIGNAL_QUALITY.STRONG);
+    expect(result.message).toContain('±5m');
+  });
 });
